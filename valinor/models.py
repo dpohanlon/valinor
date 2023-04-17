@@ -21,6 +21,7 @@ def dkoLikelihoodFinal(
     gene_ko_growth_1,
     gene_ko_growth_2,
     gene_ko_growth_12,
+    mv
 ):
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
@@ -46,6 +47,7 @@ def skoLikelihoodFinal(
     guide_eff_s,
     cell_line_growth_s,
     gene_ko_growth_s,
+    mv,
 ):
 
     return dkoLikelihoodFinal(
@@ -57,6 +59,7 @@ def skoLikelihoodFinal(
         gene_ko_growth_1=gene_ko_growth_s,
         gene_ko_growth_2=0.0,
         gene_ko_growth_12=0.0,
+        mv = mv,
     )
 
 
@@ -67,7 +70,7 @@ def valinorHierarchy(
     prior_params,
     no_singletons=False,
     only_singletons=False,
-    offset=False,
+    no_controls = True,
 ):
 
     with numpyro.plate("guides", lengths["len_guides"]):
@@ -204,6 +207,7 @@ def valinorHierarchy(
             gene_ko_growth_1,
             gene_ko_growth_2,
             gene_ko_growth_12,
+            mv
         )
 
         numpyro.sample("obs_init", init_lh, obs=data["initial_counts"])
@@ -247,9 +251,9 @@ def valinorHierarchy(
         cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
         init_lh_s = skoLikelihoodInitial(guide_init_count_s)
-        
+
         lh_s = skoLikelihoodFinal(
-            init_theta_s, guide_eff_s, cell_line_growth_s, gene_ko_growth_s
+            init_theta_s, guide_eff_s, cell_line_growth_s, gene_ko_growth_s, mv_s
         )
 
         numpyro.sample("obs_init_s", init_lh_s, obs=data["initial_counts_s"])

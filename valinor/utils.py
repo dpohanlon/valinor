@@ -1,5 +1,7 @@
 import jax.numpy as jnp
 
+import h5py
+
 # TODO: Have a better interface to these, especially when first building them
 # so that it generalises to more parameters and categories
 
@@ -119,6 +121,12 @@ def calculateLengths(indices, singletons=True, neg_controls=True):
 
     return lengths
 
+def saveModelParams(params, fileName):
+
+    with h5py.File(fileName, 'w') as file:
+
+        for k, v in params.items():
+            file.create_dataset(k, data = np.array(v))
 
 def checkBounds(indices, lengths, singletons=True, neg_controls=True):
 
