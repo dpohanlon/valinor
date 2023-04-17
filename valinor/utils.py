@@ -27,7 +27,21 @@ def calculateOverdispersion(df):
     return repsC["mean"].values, repsC["std"].values
 
 
-def getGeneGuideIndices(indices, singletons=True):
+def getInitialCounts(df, initCountVar):
+
+    initial_counts = (
+        df.groupby("guide_pair_index")
+        .agg({"guide_pair_index": "first", "initCountVar": "first"})[
+            ["guide_pair_index", "initCountVar"]
+        ]
+        .reset_index(drop=True)
+        .sort_values("guide_pair_index")["initCountVar"]
+    )
+
+    return initial_counts
+
+
+def getUniqueGeneGuideIndices(indices, singletons=True):
 
     guide_indices = [indices["guide_1_idx"], indices["guide_2_idx"]]
     gene_indices = [indices["gene_1_idx"], indices["gene_2_idx"]]
@@ -42,6 +56,39 @@ def getGeneGuideIndices(indices, singletons=True):
     )
 
 
+def getIndices(df, dfSingles, dfControls):
+
+    indices = {
+        "guide_pair_idx": jnp.array(df["guide_pair_index"].values),
+        "gene_pair_idx": jnp.array(df["gene_unq_pair_index"].values),
+        "guide_1_idx": jnp.array(df["guide1_index_s"].values),
+        "guide_2_idx": jnp.array(df["guide2_index_s"].values),
+        "gene_1_idx": jnp.array(df["gene1_unq_index"].values),
+        "gene_2_idx": jnp.array(df["gene2_unq_index"].values),
+        "cell_line_idx": jnp.array(df["cell_line_index"].values),
+    }
+
+    if dfSingles != None:
+
+        indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
+
+        indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index_s"].values)
+
+        indices["gene_s_idx"] = jnp.array(dfSingles["guide1_unq_index"].values)
+
+        indices["cell_line_s_idx"] = jnp.array(dfSingles["cell_line_index"].values)
+
+    if dfControls != None:
+
+        indices["cell_line_c_idx"] = jnp.array(dfControls["cell_line_index"].values)
+
+    # Make sure these are all 0D
+    for k, v in indices.items():
+        indices[k] = v.reshape(-1)
+
+    return indices
+
+
 def calculateLengths(indices, singletons=True, neg_controls=True):
 
     # Calculate Numpyro parameter array lengths from indices
@@ -52,7 +99,9 @@ def calculateLengths(indices, singletons=True, neg_controls=True):
         "len_gene_pairs": len(np.unique(indices["gene_unq_pair_index"])),
     }
 
-    gene_indices, guide_indices = getGeneGuideIndices(indices, singletons=singletons)
+    gene_indices, guide_indices = getUniqueGeneGuideIndices(
+        indices, singletons=singletons
+    )
 
     if singletons:
 
@@ -73,7 +122,9 @@ def calculateLengths(indices, singletons=True, neg_controls=True):
 
 def checkBounds(indices, lengths, singletons=True, neg_controls=True):
 
-    gene_indices, guide_indices = getGeneGuideIndices(indices, singletons=singletons)
+    gene_indices, guide_indices = getUniqueGeneGuideIndices(
+        indices, singletons=singletons
+    )
 
     # Numpyro doesn't check whether we try to index off the end of an array,
     # so check that all of the arrays are the correct size for the indices
