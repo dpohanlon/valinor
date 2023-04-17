@@ -4,6 +4,29 @@ import jax.numpy as jnp
 # so that it generalises to more parameters and categories
 
 
+def calculateOverdispersion(df):
+
+    reps = (
+        df.groupby(["GuidePair", "cell_line_index"])
+        .agg(
+            mean=("value", np.mean),
+            std=("value", np.std),
+            cell_line_index=("cell_line_index", "first"),
+        )
+        .reset_index(drop=True)
+    )
+
+    reps["var"] = reps["std"] ** 2
+    reps["od"] = reps["var"] / reps["mean"]
+
+    repsC = reps.groupby(["cell_line_index"]).agg(
+        mean=("od", np.median), std=("od", np.std)
+    )
+    repsC = repsC.sort_values("cell_line_index")
+
+    return repsC["mean"].values, repsC["std"].values
+
+
 def getGeneGuideIndices(indices, singletons=True):
 
     guide_indices = [indices["guide_1_idx"], indices["guide_2_idx"]]
