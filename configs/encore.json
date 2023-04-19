@@ -1,0 +1,19 @@
+[
+    "combinationsFile" : "/nfs/research/petsalaki/users/dohanlon/encore/data/encoreCombsNewProcess.pq",
+
+    "singletonsFile" : "/nfs/research/petsalaki/users/dohanlon/encore/data/encoreSinglesNewProcess.pq",
+
+    "controlsFile" : "/nfs/research/petsalaki/users/dohanlon/encore/data/encoreControlsNewProcess.pq",
+
+    "no_controls" : false,
+
+    "no_singletons" : false,
+
+    "only_singletons" : false,
+
+    "library_bias" : true,
+
+    "prior_params" : [],
+
+    "name" : "default",
+]
