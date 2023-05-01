@@ -4,25 +4,57 @@ import numpyro.distributions as dist
 import jax
 import jax.numpy as jnp
 
+from numpyro.distributions import Distribution
+from jax import DeviceArray
+from typing import Dict, Any
+
 import numpy as np
 
 
-def dkoLikelihoodInitial(init_theta):
+def dkoLikelihoodInitial(init_theta: float) -> Distribution:
+
+    """
+    Returns a Poisson distribution with the provided parameter.
+
+    Args:
+        init_theta (float): The rate parameter (lambda) for the Poisson distribution.
+
+    Returns:
+        A Poisson distribution object.
+    """
 
     return dist.Poisson(init_theta)
 
 
 def dkoLikelihoodFinal(
-    init_theta,
-    guide_eff_1,
-    guide_eff_2,
-    guide_eff_12,
-    cell_line_growth_v,
-    gene_ko_growth_1,
-    gene_ko_growth_2,
-    gene_ko_growth_12,
-    mv
-):
+    init_theta: float,
+    guide_eff_1: float,
+    guide_eff_2: float,
+    guide_eff_12: float,
+    cell_line_growth_v: float,
+    gene_ko_growth_1: float,
+    gene_ko_growth_2: float,
+    gene_ko_growth_12: float,
+    mv: float,
+) -> Distribution:
+
+    """
+    Returns a Negative Binomial distribution calculated from the provided parameters.
+
+    Args:
+        init_theta (float): Initial parameter.
+        guide_eff_1 (float): Guide efficiency 1.
+        guide_eff_2 (float): Guide efficiency 2.
+        guide_eff_12 (float): Guide efficiency 12.
+        cell_line_growth_v (float): Cell line growth.
+        gene_ko_growth_1 (float): Gene knockout growth 1.
+        gene_ko_growth_2 (float): Gene knockout growth 2.
+        gene_ko_growth_12 (float): Gene knockout growth 12.
+        mv (float): MV parameter.
+
+    Returns:
+        A Negative Binomial distribution object.
+    """
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
         jnp.exp(
@@ -37,18 +69,42 @@ def dkoLikelihoodFinal(
     return dist.NegativeBinomial2(theta, theta * mv / (1 - mv))
 
 
-def skoLikelihoodInitial(init_theta):
+def skoLikelihoodInitial(init_theta: float) -> Distribution:
+
+    """
+    Returns a Poisson distribution with the provided parameter.
+
+    Args:
+        init_theta (float): The rate parameter (lambda) for the Poisson distribution.
+
+    Returns:
+        A Poisson distribution object.
+    """
 
     return dkoLikelihoodInitial(init_theta)
 
 
 def skoLikelihoodFinal(
-    init_theta_s,
-    guide_eff_s,
-    cell_line_growth_s,
-    gene_ko_growth_s,
-    mv,
-):
+    init_theta_s: float,
+    guide_eff_s: float,
+    cell_line_growth_s: float,
+    gene_ko_growth_s: float,
+    mv: float,
+) -> Distribution:
+
+    """
+    Returns a Negative Binomial distribution calculated from the provided parameters.
+
+    Args:
+        init_theta_s (float): Initial parameter.
+        guide_eff_s (float): Guide efficiency.
+        cell_line_growth_s (float): Cell line growth.
+        gene_ko_growth_s (float): Gene knockout growth.
+        mv (float): MV parameter.
+
+    Returns:
+        A Negative Binomial distribution object.
+    """
 
     return dkoLikelihoodFinal(
         init_theta=init_theta_s,
@@ -59,19 +115,31 @@ def skoLikelihoodFinal(
         gene_ko_growth_1=gene_ko_growth_s,
         gene_ko_growth_2=0.0,
         gene_ko_growth_12=0.0,
-        mv = mv,
+        mv=mv,
     )
 
 
 def valinorHierarchy(
-    data,
-    lengths,
-    indices,
-    prior_params,
-    no_singletons=False,
-    only_singletons=False,
-    no_controls = True,
-):
+    data: Dict[str, DeviceArray],
+    lengths: Dict[str, int],
+    indices: Dict[str, DeviceArray],
+    prior_params: Dict[str, Any],
+    no_singletons: bool = False,
+    only_singletons: bool = False,
+    no_controls: bool = True,
+) -> None:
+    """
+    Defines a hierarchy of distributions based on the provided data and parameters.
+
+    Args:
+        data (Dict[str, DeviceArray]): Dictionary containing data arrays.
+        lengths (Dict[str, int]): Dictionary containing length values.
+        indices (Dict[str, DeviceArray]): Dictionary containing index arrays.
+        prior_params (Dict[str, Any]): Dictionary containing prior parameters.
+        no_singletons (bool, optional): If true, singletons are not included. Defaults to False.
+        only_singletons (bool, optional): If true, only singletons are included. Defaults to False.
+        no_controls (bool, optional): If true, controls are not included. Defaults to True.
+    """
 
     with numpyro.plate("guides", lengths["len_guides"]):
 
@@ -207,7 +275,7 @@ def valinorHierarchy(
             gene_ko_growth_1,
             gene_ko_growth_2,
             gene_ko_growth_12,
-            mv
+            mv,
         )
 
         numpyro.sample("obs_init", init_lh, obs=data["initial_counts"])

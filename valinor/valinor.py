@@ -3,48 +3,83 @@ import argparse
 from models import valinorHierarchy
 from utils import getIndices, calculateLengths
 
+from typing import Dict, List, Tuple, Any
+
 
 def prepareData(
-    data_files, only_singletons=False, no_singletons=False, no_controls=True
-):
+    data_files: Dict[str, str],
+    only_singletons: bool = False,
+    no_singletons: bool = False,
+    no_controls: bool = True,
+) -> Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]:
+
+    """
+    Prepares data for the Valinor model.
+
+    Args:
+        data_files (Dict[str, str]): Path to the data files or dictionary of data files.
+        only_singletons (bool, optional): If True, only singleton data is included. Defaults to False.
+        no_singletons (bool, optional): If True, singleton data is not included. Defaults to False.
+        no_controls (bool, optional): If True, control data is not included. Defaults to True.
+
+    Returns:
+        Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]: Tuple containing data, lengths, and indices.
+    """
+
     pass
 
 
 def runValinor(
-    lengths,
-    indices,
-    prior_params,
-    data,
-    name="",
-    no_singletons=False,
-    only_singletons=False,
-    no_controls=False,
-):
+    lengths: Dict[str, int],
+    indices: Dict[str, Any],
+    prior_params: Dict[str, Any],
+    data: Dict[str, Any],
+    config: Dict[str, Any],
+    name: str = "",
+    no_singletons: bool = False,
+    only_singletons: bool = False,
+    no_controls: bool = False,
+) -> None:
+
+    """
+    Runs the Valinor model on the provided data.
+
+    Args:
+        lengths (Dict[str, int]): Dictionary containing length values.
+        indices (Dict[str, Any]): Dictionary containing index arrays.
+        prior_params (Dict[str, Any]): Dictionary containing prior parameters.
+        data (Dict[str, Any]): Dictionary containing data arrays.
+        config (Namespace): Configuration options for the run.
+        name (str, optional): Name for the run. Defaults to "".
+        no_singletons (bool, optional): If True, singletons are not included. Defaults to False.
+        only_singletons (bool, optional): If True, only singletons are included. Defaults to False.
+        no_controls (bool, optional): If True, controls are not included. Defaults to False.
+    """
 
     guide = AutoNormal(valinorHierarchy)
 
-    optimizer = numpyro.optim.Adam(step_size=config['lr'])
+    optimizer = numpyro.optim.Adam(step_size=config["lr"])
 
     svi = SVI(model, guide, optimizer, loss=TraceMeanField_ELBO(num_particles=1))
 
     svi_result = svi.run(
         random.PRNGKey(42),
-        config['epochs'],
+        config["epochs"],
         data,
         lengths,
         indices,
         prior_params,
-        no_singletons=config['no_singletons'],
-        only_singletons=config['only_singletons'],
-        no_controls=config['no_controls'],
-        stable_update=config['stable_update'],
+        no_singletons=config["no_singletons"],
+        only_singletons=config["only_singletons"],
+        no_controls=config["no_controls"],
+        stable_update=config["stable_update"],
     )
 
     params = svi_result.params
 
-    saveModelParams(params, config['paramsFileName'])
+    saveModelParams(params, config["paramsFileName"])
 
-    predictive = Predictive(guide, params=params, num_samples=config['nSamples'])
+    predictive = Predictive(guide, params=params, num_samples=config["nSamples"])
 
     # Sample from posterior
     samples = predictive(
@@ -53,9 +88,9 @@ def runValinor(
         lengths,
         indices,
         prior_params,
-        no_singletons=config['no_singletons'],
-        only_singletons=config['only_singletons'],
-        no_controls=config['no_controls'],
+        no_singletons=config["no_singletons"],
+        only_singletons=config["only_singletons"],
+        no_controls=config["no_controls"],
     )
 
 
@@ -103,10 +138,4 @@ if __name__ == "__main__":
 
     lengths, indices, prior_params, data = prepareData(args.only_singletons)
 
-    runValinor(
-        lengths,
-        indices,
-        prior_params,
-        data,
-        config
-    )
+    runValinor(lengths, indices, prior_params, data, config)

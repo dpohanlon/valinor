@@ -6,8 +6,23 @@ from jax import random
 
 import models
 
+from typing import Dict, List, Tuple
+
 # Average over samples from the posterior to pack into a Pandas DataFrame
-def averageOverSamples(samples):
+def averageOverSamples(
+    samples: Dict[str, np.ndarray]
+) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
+
+    """
+    Calculate the mean and standard deviation over the samples in the input dictionary.
+
+    Args:
+        samples (Dict[str, np.ndarray]): A dictionary where keys are sample names and values are numpy arrays of samples.
+
+    Returns:
+        Tuple[Dict[str, np.ndarray], np.ndarray]: A tuple where the first element is a dictionary of means for each sample,
+        and the second element is a numpy array of standard deviations for each sample.
+    """
 
     means = {k: np.mean(s, 0) for k, s in samples}
     stds = {k: np.std(s, 0) for k, s in samples}
@@ -16,7 +31,19 @@ def averageOverSamples(samples):
 
 
 # To be run over params['combs'], etc, so that each category has its own DataFrame
-def createDataFrame(paramSamples):
+def createDataFrame(
+    paramSamples: Dict[str, Union[List[str], np.ndarray]]
+) -> pd.DataFrame:
+
+    """
+    Create a Pandas DataFrame from the provided parameter samples.
+
+    Args:
+        paramSamples (Dict[str, Union[List[str], np.ndarray]]): A dictionary where keys are sample names and values are either lists or numpy arrays of samples.
+
+    Returns:
+        pd.DataFrame: A DataFrame where each column represents a type of sample, and each row represents an observation.
+    """
 
     # Separate out samples from the likelihood from parameter samples
 
@@ -35,7 +62,20 @@ def createDataFrame(paramSamples):
     return df
 
 
-def sampleParams(samples, indices):
+def sampleParams(
+    samples: Dict[str, np.ndarray], indices: Dict[str, np.ndarray]
+) -> Dict[str, Dict[str, np.ndarray]]:
+
+    """
+    Sample parameters based on the provided samples and indices.
+
+    Args:
+        samples (Dict[str, np.ndarray]): A dictionary where keys are sample names and values are numpy arrays of samples.
+        indices (Dict[str, np.ndarray]): A dictionary where keys are index names and values are numpy arrays of indices.
+
+    Returns:
+        Dict[str, Dict[str, np.ndarray]]: A dictionary of sampled parameters.
+    """
 
     params = {}
 

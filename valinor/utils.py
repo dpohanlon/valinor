@@ -2,11 +2,23 @@ import jax.numpy as jnp
 
 import h5py
 
+from typing import Dict, List, Tuple
+
 # TODO: Have a better interface to these, especially when first building them
 # so that it generalises to more parameters and categories
 
 
-def calculateOverdispersion(df):
+def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+
+    """
+    Calculate overdispersion in the given DataFrame.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Mean and standard deviation of overdispersion.
+    """
 
     reps = (
         df.groupby(["GuidePair", "cell_line_index"])
@@ -29,7 +41,18 @@ def calculateOverdispersion(df):
     return repsC["mean"].values, repsC["std"].values
 
 
-def getInitialCounts(df, initCountVar):
+def getInitialCounts(df: pd.DataFrame, initCountVar: str) -> pd.Series:
+
+    """
+    Get initial counts from the DataFrame.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        initCountVar (str): The variable for initial count.
+
+    Returns:
+        pd.Series: Initial counts.
+    """
 
     initial_counts = (
         df.groupby("guide_pair_index")
@@ -43,7 +66,20 @@ def getInitialCounts(df, initCountVar):
     return initial_counts
 
 
-def getUniqueGeneGuideIndices(indices, singletons=True):
+def getUniqueGeneGuideIndices(
+    indices: Dict[str, np.ndarray], singletons: bool = True
+) -> Tuple[np.ndarray, np.ndarray]:
+
+    """
+    Get unique gene and guide indices.
+
+    Args:
+        indices (Dict[str, np.ndarray]): Dictionary of indices.
+        singletons (bool, optional): If True, include singleton indices. Defaults to True.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Unique gene indices and guide indices.
+    """
 
     guide_indices = [indices["guide_1_idx"], indices["guide_2_idx"]]
     gene_indices = [indices["gene_1_idx"], indices["gene_2_idx"]]
@@ -58,7 +94,23 @@ def getUniqueGeneGuideIndices(indices, singletons=True):
     )
 
 
-def getIndices(df, dfSingles, dfControls):
+def getIndices(
+    df: pd.DataFrame,
+    dfSingles: Optional[pd.DataFrame] = None,
+    dfControls: Optional[pd.DataFrame] = None,
+) -> Dict[str, np.ndarray]:
+
+    """
+    Get indices from the dataframes.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        dfSingles (pd.DataFrame, optional): DataFrame of singletons. Defaults to None.
+        dfControls (pd.DataFrame, optional): DataFrame of controls. Defaults to None.
+
+    Returns:
+        Dict[str, np.ndarray]: Dictionary of indices.
+    """
 
     indices = {
         "guide_pair_idx": jnp.array(df["guide_pair_index"].values),
@@ -91,7 +143,21 @@ def getIndices(df, dfSingles, dfControls):
     return indices
 
 
-def calculateLengths(indices, singletons=True, neg_controls=True):
+def calculateLengths(
+    indices: Dict[str, np.ndarray], singletons: bool = True, neg_controls: bool = True
+) -> Dict[str, int]:
+
+    """
+    Calculate lengths from indices.
+
+    Args:
+        indices (Dict[str, np.ndarray]): Dictionary of indices.
+        singletons (bool, optional): If True, include singleton lengths. Defaults to True.
+        neg_controls (bool, optional): If True, include negative control lengths. Defaults to True.
+
+    Returns:
+        Dict[str, int]: Dictionary of lengths.
+    """
 
     # Calculate Numpyro parameter array lengths from indices
 
@@ -121,14 +187,45 @@ def calculateLengths(indices, singletons=True, neg_controls=True):
 
     return lengths
 
-def saveModelParams(params, fileName):
 
-    with h5py.File(fileName, 'w') as file:
+def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
+
+    """
+    Save model parameters to a file.
+
+    Args:
+        params (Dict[str, np.ndarray]): Dictionary of model parameters.
+        fileName (str): Name of the file to save the parameters.
+
+    Returns:
+        None
+    """
+
+    with h5py.File(fileName, "w") as file:
 
         for k, v in params.items():
-            file.create_dataset(k, data = np.array(v))
+            file.create_dataset(k, data=np.array(v))
 
-def checkBounds(indices, lengths, singletons=True, neg_controls=True):
+
+def checkBounds(
+    indices: Dict[str, np.ndarray],
+    lengths: Dict[str, int],
+    singletons: bool = True,
+    neg_controls: bool = True,
+) -> None:
+
+    """
+    Check if the indices are within bounds.
+
+    Args:
+        indices (Dict[str, np.ndarray]): Dictionary of indices.
+        lengths (Dict[str, int]): Dictionary of lengths.
+        singletons (bool, optional): If True, include singleton checks. Defaults to True.
+        neg_controls (bool, optional): If True, include negative control checks. Defaults to True.
+
+    Returns:
+        None
+    """
 
     gene_indices, guide_indices = getUniqueGeneGuideIndices(
         indices, singletons=singletons
