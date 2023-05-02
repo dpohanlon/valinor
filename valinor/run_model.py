@@ -1,6 +1,6 @@
 import argparse
 
-from models import valinorHierarchy
+from valinor import models
 from utils import getIndices, calculateLengths
 
 from typing import Dict, List, Tuple, Any
@@ -56,7 +56,7 @@ def runValinor(
         no_controls (bool, optional): If True, controls are not included. Defaults to False.
     """
 
-    guide = AutoNormal(valinorHierarchy)
+    guide = AutoNormal(models.valinorHierarchy)
 
     optimizer = numpyro.optim.Adam(step_size=config["lr"])
 

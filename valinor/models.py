@@ -5,7 +5,6 @@ import jax
 import jax.numpy as jnp
 
 from numpyro.distributions import Distribution
-from jax import DeviceArray
 from typing import Dict, Any
 
 import numpy as np
@@ -120,9 +119,9 @@ def skoLikelihoodFinal(
 
 
 def valinorHierarchy(
-    data: Dict[str, DeviceArray],
+    data: Dict[str, jnp.array],
     lengths: Dict[str, int],
-    indices: Dict[str, DeviceArray],
+    indices: Dict[str, jnp.array],
     prior_params: Dict[str, Any],
     no_singletons: bool = False,
     only_singletons: bool = False,
@@ -132,9 +131,9 @@ def valinorHierarchy(
     Defines a hierarchy of distributions based on the provided data and parameters.
 
     Args:
-        data (Dict[str, DeviceArray]): Dictionary containing data arrays.
+        data (Dict[str, jnp.array]): Dictionary containing data arrays.
         lengths (Dict[str, int]): Dictionary containing length values.
-        indices (Dict[str, DeviceArray]): Dictionary containing index arrays.
+        indices (Dict[str, jnp.array]): Dictionary containing index arrays.
         prior_params (Dict[str, Any]): Dictionary containing prior parameters.
         no_singletons (bool, optional): If true, singletons are not included. Defaults to False.
         only_singletons (bool, optional): If true, only singletons are included. Defaults to False.

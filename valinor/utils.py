@@ -1,8 +1,12 @@
 import jax.numpy as jnp
 
+import pandas as pd
+
+import numpy as np
+
 import h5py
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 # TODO: Have a better interface to these, especially when first building them
 # so that it generalises to more parameters and categories

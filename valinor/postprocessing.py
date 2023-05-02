@@ -4,7 +4,7 @@ import pandas as pd
 
 from jax import random
 
-import models
+from valinor import models
 
 from typing import Dict, List, Tuple
 
@@ -31,15 +31,13 @@ def averageOverSamples(
 
 
 # To be run over params['combs'], etc, so that each category has its own DataFrame
-def createDataFrame(
-    paramSamples: Dict[str, Union[List[str], np.ndarray]]
-) -> pd.DataFrame:
+def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 
     """
     Create a Pandas DataFrame from the provided parameter samples.
 
     Args:
-        paramSamples (Dict[str, Union[List[str], np.ndarray]]): A dictionary where keys are sample names and values are either lists or numpy arrays of samples.
+        paramSamples (Dict[str, np.ndarray]): A dictionary where keys are sample names and values are either lists or numpy arrays of samples.
 
     Returns:
         pd.DataFrame: A DataFrame where each column represents a type of sample, and each row represents an observation.
