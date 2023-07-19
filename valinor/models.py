@@ -68,6 +68,55 @@ def dkoLikelihoodFinal(
     return dist.NegativeBinomial2(theta, theta * mv / (1 - mv))
 
 
+def dkoLikelihoodFullFinal(
+    init_theta: float,
+    guide_eff_1: float,
+    guide_eff_2: float,
+    guide_eff_12: float,
+    cell_line_growth: float,
+    gene_ko_growth_1: float,
+    gene_ko_growth_2: float,
+    gene_ko_growth_12: float,
+    mv: float,
+) -> Distribution:
+
+    """
+    Returns a Negative Binomial distribution calculated from the provided parameters.
+
+    Args:
+        init_theta (float): Initial parameter.
+        guide_eff_1 (float): Guide efficiency 1.
+        guide_eff_2 (float): Guide efficiency 2.
+        guide_eff_12 (float): Guide efficiency 12.
+        cell_line_growth (float): Cell line growth.
+        gene_ko_growth_1 (float): Gene knockout growth 1.
+        gene_ko_growth_2 (float): Gene knockout growth 2.
+        gene_ko_growth_12 (float): Gene knockout growth 12.
+        mv (float): MV parameter.
+
+    Returns:
+        A Negative Binomial distribution object.
+    """
+
+    p_1 = guide_eff_1 * (1 - guide_eff_2)
+    p_2 = guide_eff_2 * (1 - guide_eff_1)
+    p_12 = jnp.clip(guide_eff_1 * guide_eff_2, 0.0, 1.0)
+
+    g1 = gene_ko_growth_1 - cell_line_growth
+    g2 = gene_ko_growth_2 - cell_line_growth
+    g12 = gene_ko_growth_12 - cell_line_growth
+
+    theta = init_theta[indices["guide_pair_idx"]] * (
+        p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
+    )
+
+    theta *= init_theta
+
+    theta = jax.nn.softplus(theta)
+
+    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv))
+
+
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
 
     """
