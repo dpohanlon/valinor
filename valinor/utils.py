@@ -44,8 +44,42 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
     return repsC["mean"].values, repsC["std"].values
 
+def loadData(data_files: Dict[str, str]):
 
-def getInitialCounts(df: pd.DataFrame, initCountVar: str) -> pd.Series:
+    outFiles = {}
+
+    for n, f in data_files.items():
+
+        if 'pq' in f:
+            d = pd.read_parquet(f)
+        elif 'h5' in f:
+            d = pd.read_hdf(f)
+        else:
+            print('File format not recognised:', f)
+
+        outFiles[n] = f
+
+    return outFiles
+
+def getFinalCounts(datasets: Dict[str, str]):
+
+    counts = {}
+
+    for n, d in datasets:
+        counts[n] = jnp.array(d["value"].values.reshape(-1))
+
+    return counts
+
+def getInitialCounts(datasets: Dict[str, str], initCountVar: str = 'plasmid'):
+
+    counts = {}
+
+    for n, d in datasets:
+        counts[n] = getInitialCountsDF(d, initCountVar)
+
+    return counts
+
+def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
 
     """
     Get initial counts from the DataFrame.

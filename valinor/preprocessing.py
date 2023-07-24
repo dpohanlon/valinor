@@ -1,0 +1,38 @@
+from utils import loadData, getFinalCounts, getInitialCounts, calculateOverdispersion, getIndices, calculateLengths
+
+def prepareData(
+    data_files: Dict[str, str],
+    only_singletons: bool = False,
+    singletons: bool = True,
+    controls: bool = True,
+) -> Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]:
+
+    """
+    Prepares data for the Valinor model.
+
+    Args:
+        data_files (Dict[str, str]): Path to the data files or dictionary of data files.
+        only_singletons (bool, optional): If True, only singleton data is included. Defaults to False.
+        no_singletons (bool, optional): If True, singleton data is not included. Defaults to False.
+        no_controls (bool, optional): If True, control data is not included. Defaults to True.
+
+    Returns:
+        Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]: Tuple containing data, lengths, and indices.
+    """
+
+    datasets = loadData(data_files)
+
+    finalCounts = getFinalCounts(datasets)
+    initialCounts = getInitialCounts(datasets)
+
+    meanOD, stdOD = calculateOverdispersion(datasets['combinations'])
+
+    prior_params = {'od_means' : meanOD, 'od_stds' : stdOD}
+
+    indices = getIndices(datasets['combinations'], datasets['singletons'], datasets['controls'])
+
+    lengths = calculateLengths(indices, singletons = singletons, neg_controls = controls)
+
+    checkBounds(indices, lengths)
+
+    return lenghts, indices, prior_params, finalCounts, initialCounts

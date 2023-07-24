@@ -5,30 +5,6 @@ from utils import getIndices, calculateLengths
 
 from typing import Dict, List, Tuple, Any
 
-
-def prepareData(
-    data_files: Dict[str, str],
-    only_singletons: bool = False,
-    no_singletons: bool = False,
-    no_controls: bool = True,
-) -> Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]:
-
-    """
-    Prepares data for the Valinor model.
-
-    Args:
-        data_files (Dict[str, str]): Path to the data files or dictionary of data files.
-        only_singletons (bool, optional): If True, only singleton data is included. Defaults to False.
-        no_singletons (bool, optional): If True, singleton data is not included. Defaults to False.
-        no_controls (bool, optional): If True, control data is not included. Defaults to True.
-
-    Returns:
-        Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]: Tuple containing data, lengths, and indices.
-    """
-
-    pass
-
-
 def runValinor(
     lengths: Dict[str, int],
     indices: Dict[str, Any],
