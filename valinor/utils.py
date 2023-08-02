@@ -44,22 +44,24 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
     return repsC["mean"].values, repsC["std"].values
 
+
 def loadData(data_files: Dict[str, str]):
 
     outFiles = {}
 
     for n, f in data_files.items():
 
-        if 'pq' in f:
+        if "pq" in f:
             d = pd.read_parquet(f)
-        elif 'h5' in f:
+        elif "h5" in f:
             d = pd.read_hdf(f)
         else:
-            print('File format not recognised:', f)
+            print("File format not recognised:", f)
 
         outFiles[n] = f
 
     return outFiles
+
 
 def getFinalCounts(datasets: Dict[str, str]):
 
@@ -70,7 +72,8 @@ def getFinalCounts(datasets: Dict[str, str]):
 
     return counts
 
-def getInitialCounts(datasets: Dict[str, str], initCountVar: str = 'plasmid'):
+
+def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 
     counts = {}
 
@@ -78,6 +81,7 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = 'plasmid'):
         counts[n] = getInitialCountsDF(d, initCountVar)
 
     return counts
+
 
 def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
 
@@ -318,3 +322,16 @@ def checkBounds(
         print(
             "WARNING: Some model gene pair parameters are un-referenced (no matching indices)."
         )
+
+
+def configArgs(args):
+
+    # Take from CLI, read from a config file, or use defaults (in that order)
+
+    config = json.load(open(args.config, "r")) if args.config else {}
+
+    for arg in vars(args):
+        if arg != "config":
+            config[arg] = getattr(args, arg)
+
+    return config

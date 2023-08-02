@@ -1,4 +1,12 @@
-from utils import loadData, getFinalCounts, getInitialCounts, calculateOverdispersion, getIndices, calculateLengths
+from utils import (
+    loadData,
+    getFinalCounts,
+    getInitialCounts,
+    calculateOverdispersion,
+    getIndices,
+    calculateLengths,
+)
+
 
 def prepareData(
     data_files: Dict[str, str],
@@ -25,14 +33,16 @@ def prepareData(
     finalCounts = getFinalCounts(datasets)
     initialCounts = getInitialCounts(datasets)
 
-    meanOD, stdOD = calculateOverdispersion(datasets['combinations'])
+    meanOD, stdOD = calculateOverdispersion(datasets["combinations"])
 
-    prior_params = {'od_means' : meanOD, 'od_stds' : stdOD}
+    prior_params = {"od_means": meanOD, "od_stds": stdOD}
 
-    indices = getIndices(datasets['combinations'], datasets['singletons'], datasets['controls'])
+    indices = getIndices(
+        datasets["combinations"], datasets["singletons"], datasets["controls"]
+    )
 
-    lengths = calculateLengths(indices, singletons = singletons, neg_controls = controls)
+    lengths = calculateLengths(indices, singletons=singletons, neg_controls=controls)
 
     checkBounds(indices, lengths)
 
-    return lenghts, indices, prior_params, finalCounts, initialCounts
+    return lengths, indices, prior_params, finalCounts, initialCounts

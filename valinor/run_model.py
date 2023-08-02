@@ -1,9 +1,10 @@
 import argparse
 
 from valinor import models
-from utils import getIndices, calculateLengths
+from utils import getIndices, calculateLengths, configArgs
 
 from typing import Dict, List, Tuple, Any
+
 
 def runValinor(
     lengths: Dict[str, int],
@@ -36,7 +37,12 @@ def runValinor(
 
     optimizer = numpyro.optim.Adam(step_size=config["lr"])
 
-    svi = SVI(model, guide, optimizer, loss=TraceMeanField_ELBO(num_particles=1))
+    svi = SVI(
+        model,
+        guide,
+        optimizer,
+        loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
+    )
 
     svi_result = svi.run(
         random.PRNGKey(42),
@@ -55,6 +61,8 @@ def runValinor(
 
     saveModelParams(params, config["paramsFileName"])
 
+    # Run selected post-processing, save samples, make plots, etc
+
     predictive = Predictive(guide, params=params, num_samples=config["nSamples"])
 
     # Sample from posterior
@@ -70,7 +78,7 @@ def runValinor(
     )
 
 
-if __name__ == "__main__":
+def makeArgs():
 
     # I'd like an argument, please
     argParser = argparse.ArgumentParser()
@@ -99,7 +107,43 @@ if __name__ == "__main__":
         help="No controls.",
     )
 
+    argParser.add_argument(
+        "--stable-update",
+        action="store_true",
+        dest="stable_update",
+        default=False,
+        help="Stable update.",
+    )
+
     argParser.add_argument("-n", type=str, dest="name", default="", help="Output name.")
+
+    argParser.add_argument(
+        "--paramsFileName",
+        type=str,
+        dest="paramsFileName",
+        default="params.h5",
+        help="Parameters file name.",
+    )
+
+    argParser.add_argument(
+        "--lr", type=float, dest="lr", default=0.01, help="Learning rate."
+    )
+
+    argParser.add_argument(
+        "--epochs",
+        type=int,
+        dest="epochs",
+        default=50000,
+        help="Number of epochs to train for.",
+    )
+
+    argParser.add_argument(
+        "--nSamples",
+        type=int,
+        dest="nSamples",
+        default=100,
+        help="Number of samples to draw from the fitted model.",
+    )
 
     argParser.add_argument(
         "--config",
@@ -110,7 +154,16 @@ if __name__ == "__main__":
         help="Config JSON file (overrides all other config)",
     )
 
+    return argParser
+
+
+if __name__ == "__main__":
+
+    argParser = makeArgs()
+
     args = argParser.parse_args()
+
+    config = configArgs(args)
 
     lengths, indices, prior_params, data = prepareData(args.only_singletons)
 
