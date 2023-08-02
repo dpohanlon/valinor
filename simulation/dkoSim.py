@@ -275,6 +275,7 @@ def populateCombinationDF(dko, returnCounts=False):
     dfCombs = pd.DataFrame(
         {
             "value": lfcs if not returnCounts else final_counts,
+            "plasmid": lfcs if not returnCounts else init_counts,
             "same_genes": sameGenes,
             "g1_idx": gene1,
             "g2_idx": gene2,
@@ -364,6 +365,7 @@ def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
         dfSgl = pd.DataFrame(
             {
                 "value": lfcs_s if not returnCounts else final_counts_s,
+                "plasmid": lfcs_s if not returnCounts else initial_counts_s,
                 "g1_idx": gene1_s_idx,
                 "g2_idx": gene2_s_idx,
                 "gene1": gene1_s,
@@ -754,6 +756,7 @@ class DoubleKO(object):
             else:
                 lfcs.append(
                     [
+                        nControlInitialCells,
                         np.power(2, lfcs_neg) * nControlInitialCells,
                         np.power(2, lfcs_pos) * nControlInitialCells,
                     ]
@@ -822,7 +825,7 @@ def makeDataset():
     # nGenes = 100
     # nCellLines = 22
     # nGenes = 444
-    nCellLines = 20
+    nCellLines = 5
     nGenes = 100
     nContexts = 5
     nVariantFrac = 0.10
@@ -910,14 +913,15 @@ def makeDataset():
 
     dfCalib = pd.DataFrame(
         {
-            "lfc_neg": calibData[:, 0, :].ravel(),
-            "lfc_pos": calibData[:, 1, :].ravel(),
+            "plasmid": calibData[:, 0, :].ravel(),
+            "lfc_neg": calibData[:, 1, :].ravel(),
+            "lfc_pos": calibData[:, 2, :].ravel(),
             "cell_line": np.tile(range(nCellLines), [nCalib, 1]).T.ravel(),
         }
     )
 
     dfCalib.to_hdf("dfCalib_ace.h5", "ace", complevel=9, mode="w")
-    dfCalib.to_hdf("dfCalib_ace.pq")
+    dfCalib.to_parquet("dfCalib_ace.pq")
 
     print("adding cell lines", time.time() - t)
     dfCombs, dkos = addCellLines(
