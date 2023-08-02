@@ -147,6 +147,14 @@ def makeArgs():
     )
 
     argParser.add_argument(
+        "--nParticles",
+        type=int,
+        dest="n_particles",
+        default=1,
+        help="Number of particles for the ELBO minimisation",
+    )
+
+    argParser.add_argument(
         "--config",
         "-c",
         type=str,
