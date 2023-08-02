@@ -37,6 +37,7 @@ def prepareData(
 
     prior_params = {"od_means": meanOD, "od_stds": stdOD}
 
+    # These args can be `None`
     indices = getIndices(
         datasets["combinations"], datasets["singletons"], datasets["controls"]
     )

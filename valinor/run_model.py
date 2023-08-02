@@ -2,6 +2,7 @@ import argparse
 
 from valinor import models
 from utils import getIndices, calculateLengths, configArgs
+from preprocessing import prepareData
 
 from typing import Dict, List, Tuple, Any
 
@@ -154,6 +155,30 @@ def makeArgs():
         help="Config JSON file (overrides all other config)",
     )
 
+    argParser.add_argument(
+        "--combinationsFile",
+        type=str,
+        dest="combinationsFile",
+        default=None,
+        help="Data combinations file.",
+    )
+
+    argParser.add_argument(
+        "--singletonsFile",
+        type=str,
+        dest="singletonsFile",
+        default=None,
+        help="Data singletons file.",
+    )
+
+    argParser.add_argument(
+        "--controlsFile",
+        type=str,
+        dest="controlsFile",
+        default=None,
+        help="Data controls file.",
+    )
+
     return argParser
 
 
@@ -165,6 +190,18 @@ if __name__ == "__main__":
 
     config = configArgs(args)
 
-    lengths, indices, prior_params, data = prepareData(args.only_singletons)
+    # These can be `None`, and the downstream methods will deal with it accordingly
+    data_files = {
+        "combinationsFile": config["combinationsFile"],
+        "singletonsFile": config["singletonsFile"],
+        "controlsFile": config["controlsFile"],
+    }
+
+    lengths, indices, prior_params, data = prepareData(
+        data_files,
+        config["only_singletons"],
+        ~config["no_singletons"],
+        ~config["no_controls"],
+    )
 
     runValinor(lengths, indices, prior_params, data, config)

@@ -98,11 +98,11 @@ def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
 
     initial_counts = (
         df.groupby("guide_pair_index")
-        .agg({"guide_pair_index": "first", "initCountVar": "first"})[
-            ["guide_pair_index", "initCountVar"]
+        .agg({"guide_pair_index": "first", f"{initCountVar}": "first"})[
+            ["guide_pair_index", f"{initCountVar}"]
         ]
         .reset_index(drop=True)
-        .sort_values("guide_pair_index")["initCountVar"]
+        .sort_values("guide_pair_index")[f"{initCountVar}"]
     )
 
     return initial_counts
