@@ -3,12 +3,26 @@ name = "valinor"
 version = "0.1.0"
 description = ""
 authors = ["Daniel O'Hanlon <dpohanlon@gmail.com>"]
+license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
+h5py = "^3.9.0"
+jax = "^0.4.14"
+numpy = "^1.25.2"
+pandas = "^2.0.3"
+numpyro = "^0.12.1"
+seaborn = "^0.12.2"
+matplotlib = "^3.7.2"
+tqdm = "^4.65.1"
+pyarrow = "^12.0.1"
+fastparquet = "^2023.7.0"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+valinor = "valinor.run_valinor:run"

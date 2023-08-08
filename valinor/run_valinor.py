@@ -1,8 +1,8 @@
 import argparse
 
 from valinor import models
-from utils import getIndices, calculateLengths, configArgs
-from preprocessing import prepareData
+from valinor.utils import getIndices, calculateLengths, configArgs
+from valinor.preprocessing import prepareData
 
 from typing import Dict, List, Tuple, Any
 
@@ -189,8 +189,7 @@ def makeArgs():
 
     return argParser
 
-
-if __name__ == "__main__":
+def run():
 
     argParser = makeArgs()
 
@@ -213,3 +212,7 @@ if __name__ == "__main__":
     )
 
     runValinor(lengths, indices, prior_params, data, config)
+
+if __name__ == "__main__":
+
+    run()

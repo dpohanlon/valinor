@@ -58,16 +58,17 @@ def loadData(data_files: Dict[str, str]):
         else:
             print("File format not recognised:", f)
 
-        outFiles[n] = f
+        outFiles[n] = d
 
     return outFiles
 
 
-def getFinalCounts(datasets: Dict[str, str]):
+def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
 
     counts = {}
 
-    for n, d in datasets:
+    for n, d in datasets.items():
+        print(n)
         counts[n] = jnp.array(d["value"].values.reshape(-1))
 
     return counts
@@ -77,7 +78,7 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 
     counts = {}
 
-    for n, d in datasets:
+    for n, d in datasets.items():
         counts[n] = getInitialCountsDF(d, initCountVar)
 
     return counts

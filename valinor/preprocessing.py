@@ -1,4 +1,4 @@
-from utils import (
+from valinor.utils import (
     loadData,
     getFinalCounts,
     getInitialCounts,
@@ -7,6 +7,7 @@ from utils import (
     calculateLengths,
 )
 
+from typing import Dict, List, Tuple, Any
 
 def prepareData(
     data_files: Dict[str, str],

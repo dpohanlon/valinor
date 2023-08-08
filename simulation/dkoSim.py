@@ -914,13 +914,13 @@ def makeDataset():
     dfCalib = pd.DataFrame(
         {
             "plasmid": calibData[:, 0, :].ravel(),
-            "lfc_neg": calibData[:, 1, :].ravel(),
-            "lfc_pos": calibData[:, 2, :].ravel(),
+            "value": calibData[:, 1, :].ravel(),
+            "value_pos": calibData[:, 2, :].ravel(),
             "cell_line": np.tile(range(nCellLines), [nCalib, 1]).T.ravel(),
         }
     )
 
-    dfCalib.to_hdf("dfCalib_ace.h5", "ace", complevel=9, mode="w")
+    # dfCalib.to_hdf("dfCalib_ace.h5", "ace", complevel=9, mode="w")
     dfCalib.to_parquet("dfCalib_ace.pq")
 
     print("adding cell lines", time.time() - t)
@@ -942,7 +942,7 @@ def makeDataset():
     dfCombs = dfCombs.sort_values(
         ["guide_pair_idxs", "rna1_idx", "cell_line"]
     ).reset_index()
-    dfCombs.to_hdf("dfCombs_ace.h5", "ace", complevel=9, mode="w")
+    # dfCombs.to_hdf("dfCombs_ace.h5", "ace", complevel=9, mode="w")
     dfCombs.to_parquet("dfCombs_ace.pq")
 
     offsetsCounts = np.zeros(len(offsets))
@@ -958,7 +958,7 @@ def makeDataset():
             "offsetsCounts": offsetsCounts.ravel(),
         }
     )
-    dfOffsets.to_hdf("dfOffsets_ace.h5", "offsets", complevel=9, mode="w")
+    # dfOffsets.to_hdf("dfOffsets_ace.h5", "offsets", complevel=9, mode="w")
     dfOffsets.to_parquet("dfOffsets_ace.pq")
 
     print("making singletons", time.time() - t)
@@ -973,7 +973,7 @@ def makeDataset():
     dfSgl = addReplicates(dfSgl, 3, returnCounts=returnCounts)
 
     dfSgl = dfSgl.sort_values(["rna1_idx", "rna2_idx", "cell_line"]).reset_index()
-    dfSgl.to_hdf("dfSgl_ace.h5", "ace", complevel=9, mode="w")
+    # dfSgl.to_hdf("dfSgl_ace.h5", "ace", complevel=9, mode="w")
     dfSgl.to_parquet("dfSgl_ace.pq")
 
 
