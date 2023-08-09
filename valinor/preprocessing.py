@@ -5,9 +5,11 @@ from valinor.utils import (
     calculateOverdispersion,
     getIndices,
     calculateLengths,
+    checkBounds,
 )
 
 from typing import Dict, List, Tuple, Any
+
 
 def prepareData(
     data_files: Dict[str, str],
@@ -15,7 +17,6 @@ def prepareData(
     singletons: bool = True,
     controls: bool = True,
 ) -> Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]:
-
     """
     Prepares data for the Valinor model.
 
@@ -47,4 +48,9 @@ def prepareData(
 
     checkBounds(indices, lengths)
 
-    return lengths, indices, prior_params, finalCounts, initialCounts
+    return (
+        lengths,
+        indices,
+        prior_params,
+        {"final": finalCounts, "initial": initialCounts},
+    )

@@ -58,7 +58,6 @@ def genePairStr(g1, g2):
 def getContextMatrix(
     nCellLines=30, nGenes=100, nContexts=10, nVariantFrac=0.05, variance=0.1
 ):
-
     linesPerContext = nCellLines // nContexts
     nVariantGenes = int(nVariantFrac * nGenes)
     contexts = np.zeros((nContexts, nGenes))
@@ -76,7 +75,6 @@ def getContextMatrix(
 
 
 def negativeBinomial(mean, variance=None, size=None):
-
     # Minimum observable
     mean[mean < 1e-8] = 10.0
 
@@ -126,7 +124,6 @@ def genCellLine(prototypeDKO, resampleFrac=0.2, fluctuateStd=0.05, context=None)
         )
 
     else:
-
         sgRNAEfficiencies1 = np.clip(
             np.random.normal(0.65, 0.02, size=nGenes * 1),
             0,
@@ -171,14 +168,12 @@ def addCellLines(
     offsets=None,
     returnCounts=False,
 ):
-
     dfDKO["cell_line"] = 0
 
     dfs = [dfDKO]
     dkos = [prototypeDKO]
 
     for i in tqdm(range(1, nCellLines)):
-
         dko = genCellLine(
             prototypeDKO,
             resampleFrac,
@@ -216,7 +211,6 @@ def addCellLines(
 
 
 def populateCombinationDF(dko, returnCounts=False):
-
     if returnCounts:
         final_counts, sgRNAEssentialities, init_counts, lfcs = dko.getLFCs(
             returnCounts=returnCounts
@@ -298,19 +292,16 @@ def populateCombinationDF(dko, returnCounts=False):
 
 
 def addReplicates(df, nReplicates, returnCounts=False):
-
     copies = []
     for i in tqdm(range(nReplicates)):
         replicate = df.copy()
 
         if not returnCounts:
-
             std = np.sqrt(1.0 / np.random.gamma(2, 5, size=len(replicate)))
 
             replicate["value"] = np.random.normal(replicate["value"].values, std)
 
         else:
-
             # replicate["value"] = np.random.poisson(replicate["value"])
             replicate["value"] = negativeBinomial(
                 replicate["value"].values, 50.0 * replicate["value"].values
@@ -324,13 +315,11 @@ def addReplicates(df, nReplicates, returnCounts=False):
 
 
 def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
-
     # TO DO: Use a separate make cell lines function, like for combinations
 
     dfs = []
 
     for i, dko in tqdm(enumerate(dkos)):
-
         singletonDKO, values = makeSingletons(dko, returnCounts=returnCounts)
 
         if returnCounts:
@@ -375,9 +364,9 @@ def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
                 "gene2": gene2_s,
                 "guide1_index_s": rna1_s,
                 "guide2_index_s": rna2_s,
-                "guide_pair_index" : guide_pair_index,
+                "guide_pair_index": guide_pair_index,
                 # The same as guide_idx + cell line offset
-                "gene_pair_index" : guide_pair_index + len(guide_pair_index) * i,
+                "gene_pair_index": guide_pair_index + len(guide_pair_index) * i,
                 "ess1": sgRNAEssentialities_s.ravel(),
                 "cell_line": i,
             }
@@ -391,7 +380,6 @@ def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
 
 
 def makeSingletons(dko, returnCounts=False):
-
     singletonDKO = copy.copy(dko)
 
     singletonDKO.synergies = np.zeros((singletonDKO.nGenes, 3))
@@ -425,7 +413,6 @@ def makeSingletons(dko, returnCounts=False):
     )
 
     if returnCounts:
-
         (
             final_counts_s,
             sgRNAEssentialities_s,
@@ -492,7 +479,6 @@ class DoubleKO(object):
         sgRNAEfficiencies=None,
         pairEfficiency=None,
     ):
-
         np.random.seed(seed)
 
         self.nInitialCellsV = nInitialCells
@@ -506,7 +492,6 @@ class DoubleKO(object):
         # Start with everything at the gene level
 
         if synergies is None:
-
             self.synergies = np.random.normal(0.0, 0.1, (self.nGenes, self.nGenes))
             np.fill_diagonal(self.synergies, 0)
 
@@ -514,16 +499,13 @@ class DoubleKO(object):
             self.synergies = np.tril(self.synergies) + np.tril(self.synergies, -1).T
 
         else:
-
             self.synergies = synergies
 
         if geneEssentiality is None:
-
             # We could even populate this with real data from the essentiality scores
             self.geneEssentiality = np.random.normal(0.1, 0.02, size=self.nGenes)
 
         else:
-
             self.geneEssentiality = geneEssentiality
 
         if not context is None:
@@ -535,7 +517,6 @@ class DoubleKO(object):
         )
 
         if sgRNAEfficiencies is None:
-
             self.sgRNAEfficiencies = np.clip(
                 np.random.normal(0.95, 0.02, size=self.nGenes * self.nGuidesPerGene),
                 0,
@@ -543,7 +524,6 @@ class DoubleKO(object):
             )
 
         else:
-
             self.sgRNAEfficiencies = sgRNAEfficiencies
 
         # From the ACE paper
@@ -552,7 +532,6 @@ class DoubleKO(object):
         )
 
         if pairEfficiency is None:
-
             # Efficiency for guide pair term (synergy prefactor)
             self.pairEfficiency = np.clip(
                 np.random.normal(
@@ -568,7 +547,6 @@ class DoubleKO(object):
             )
 
         else:
-
             self.pairEfficiency = pairEfficiency
 
         self.pairEfficiency = (
@@ -594,7 +572,6 @@ class DoubleKO(object):
         synergies,
         singletons=False,
     ):
-
         essEffSingle = geneEssentiality[self.rnaIdxToGeneIdx] * sgRNAEfficiencies
 
         essEffOuter = (
@@ -611,7 +588,6 @@ class DoubleKO(object):
     # Something like: (1 - eff_1 - eff_2 - eff_12) * g0 + (eff_1 - eff_12) * g1 + (eff_2 - eff_12) * g2 + eff_12 * g2
 
     def combinedEssentiality(self, essentiality, synergies=None, singletons=False):
-
         essentialityMatrix = np.add.outer(
             essentiality,
             essentiality if not singletons else np.zeros(3),
@@ -627,7 +603,6 @@ class DoubleKO(object):
         return np.clip(essentialityMatrix + synergies, None, 1)
 
     def combinedEfficiencies(self, efficiency, effComboFactor=None, singletons=False):
-
         efficiencyMatrix = np.outer(
             efficiency,
             efficiency if not singletons else np.ones(3 * self.nGuidesPerGene),
@@ -642,7 +617,6 @@ class DoubleKO(object):
         return np.clip(efficiencyMatrix * effComboFactor, 0, 1)
 
     def getLFCs(self, poisson=False, singletons=False, returnCounts=False):
-
         # Map vectors of length nGenes * nGuidesPerGene to the vector of length nGenes
         self.rnaIdxToGeneIdx = np.repeat(
             range(self.nGenes), self.nGuidesPerGene
@@ -726,14 +700,12 @@ class DoubleKO(object):
         posControlEssWidth=0.05,
         returnCounts=False,
     ):
-
         # Forget about gene/guides for now
         # Keep offset the same for pos, neg controls (just a shift)
         # Pos control essentiality is 0.7
 
         lfcs = []
         for offset in offsets:
-
             # negControlEss = 0.0
             # posControlEss = 0.8
 
@@ -771,7 +743,6 @@ class DoubleKO(object):
         return lfcs
 
     def plot(self, lfcs, sgRNAEssentialities, init_counts, final_counts):
-
         sns.histplot(self.efficiencies.ravel(), kde=True)
         plt.savefig("efficiencies.pdf")
         plt.clf()
@@ -825,7 +796,6 @@ class DoubleKO(object):
 
 
 def makeDataset():
-
     returnCounts = True
     # nCellLines = 10
     # nGenes = 100
@@ -919,11 +889,10 @@ def makeDataset():
     ).reset_index()
 
     # The same by our new definition
-    dfCombs['gene_unq_pair_index'] = dfCombs['gene_pair_index']
-    dfCombs['cell_line_index'] = dfCombs['cell_line']
-    dfCombs['gene1_unq_index'] = dfCombs['g1_idx']
-    dfCombs['gene2_unq_index'] = dfCombs['g2_idx']
-
+    dfCombs["gene_unq_pair_index"] = dfCombs["gene_pair_index"]
+    dfCombs["cell_line_index"] = dfCombs["cell_line"]
+    dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
+    dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
 
     # dfCombs.to_hdf("dfCombs_ace.h5", "ace", complevel=9, mode="w")
     dfCombs.to_parquet("dfCombs_ace.pq")
@@ -936,19 +905,23 @@ def makeDataset():
     )
 
     # Offset so they don't clash with the combs
-    dfSgl['guide_pair_index'] = dfSgl['guide_pair_index'] + np.max(dfCombs['guide_pair_index']) + 1
+    dfSgl["guide_pair_index"] = (
+        dfSgl["guide_pair_index"] + np.max(dfCombs["guide_pair_index"]) + 1
+    )
 
     # if not returnCounts:
     print("adding singleton replicates", time.time() - t)
     dfSgl = addReplicates(dfSgl, 3, returnCounts=returnCounts)
 
-    dfSgl['cell_line_index'] = dfCombs['cell_line']
+    dfSgl["cell_line_index"] = dfCombs["cell_line"]
     # The same by our new definition
-    dfSgl['gene_unq_pair_index'] = dfSgl['gene_pair_index']
-    dfSgl['gene1_unq_index'] = dfSgl['g1_idx']
-    dfSgl['guide1_index'] = dfSgl['guide1_index_s']
+    dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
+    dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
+    dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
 
-    dfSgl = dfSgl.sort_values(["guide1_index_s", "guide2_index_s", "cell_line"]).reset_index()
+    dfSgl = dfSgl.sort_values(
+        ["guide1_index_s", "guide2_index_s", "cell_line"]
+    ).reset_index()
     # dfSgl.to_hdf("dfSgl_ace.h5", "ace", complevel=9, mode="w")
     dfSgl.to_parquet("dfSgl_ace.pq")
 
@@ -972,19 +945,23 @@ def makeDataset():
     plt.clf()
 
     # Offset according to singletons (and therefore also combinations)
-    guide_pair_index_c = np.array(len(calibData[:, 0, :].ravel())) + np.max(dfCombs['guide_pair_index']) + 1
+    guide_pair_index_c = (
+        np.array(len(calibData[:, 0, :].ravel()))
+        + np.max(dfCombs["guide_pair_index"])
+        + 1
+    )
 
     dfCalib = pd.DataFrame(
         {
             "plasmid": calibData[:, 0, :].ravel(),
             "value": calibData[:, 1, :].ravel(),
             "value_pos": calibData[:, 2, :].ravel(),
-            "guide_pair_index" : guide_pair_index_c,
+            "guide_pair_index": guide_pair_index_c,
             "cell_line": np.tile(range(nCellLines), [nCalib, 1]).T.ravel(),
         }
     )
 
-    dfCalib['cell_line_index'] = dfCalib['cell_line']
+    dfCalib["cell_line_index"] = dfCalib["cell_line"]
 
     # dfCalib.to_hdf("dfCalib_ace.h5", "ace", complevel=9, mode="w")
     dfCalib.to_parquet("dfCalib_ace.pq")
@@ -1005,6 +982,6 @@ def makeDataset():
     # dfOffsets.to_hdf("dfOffsets_ace.h5", "offsets", complevel=9, mode="w")
     dfOffsets.to_parquet("dfOffsets_ace.pq")
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     makeDataset()

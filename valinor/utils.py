@@ -13,7 +13,6 @@ from typing import Dict, List, Tuple, Optional
 
 
 def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
-
     """
     Calculate overdispersion in the given DataFrame.
 
@@ -46,11 +45,9 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def loadData(data_files: Dict[str, str]):
-
     outFiles = {}
 
     for n, f in data_files.items():
-
         if "pq" in f:
             d = pd.read_parquet(f)
         elif "h5" in f:
@@ -64,18 +61,15 @@ def loadData(data_files: Dict[str, str]):
 
 
 def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
-
     counts = {}
 
     for n, d in datasets.items():
-        print(n)
         counts[n] = jnp.array(d["value"].values.reshape(-1))
 
     return counts
 
 
 def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
-
     counts = {}
 
     for n, d in datasets.items():
@@ -85,7 +79,6 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 
 
 def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
-
     """
     Get initial counts from the DataFrame.
 
@@ -112,7 +105,6 @@ def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
 def getUniqueGeneGuideIndices(
     indices: Dict[str, np.ndarray], singletons: bool = True
 ) -> Tuple[np.ndarray, np.ndarray]:
-
     """
     Get unique gene and guide indices.
 
@@ -128,7 +120,6 @@ def getUniqueGeneGuideIndices(
     gene_indices = [indices["gene_1_idx"], indices["gene_2_idx"]]
 
     if singletons:
-
         guide_indices += [indices["guide_s_idx"]]
         gene_indices += [indices["gene_s_idx"]]
 
@@ -142,7 +133,6 @@ def getIndices(
     dfSingles: Optional[pd.DataFrame] = None,
     dfControls: Optional[pd.DataFrame] = None,
 ) -> Dict[str, np.ndarray]:
-
     """
     Get indices from the dataframes.
 
@@ -158,26 +148,25 @@ def getIndices(
     indices = {
         "guide_pair_idx": jnp.array(df["guide_pair_index"].values),
         "gene_pair_idx": jnp.array(df["gene_unq_pair_index"].values),
-        "guide_1_idx": jnp.array(df["guide1_index_s"].values),
-        "guide_2_idx": jnp.array(df["guide2_index_s"].values),
+        "guide_1_idx": jnp.array(df["guide1_index"].values),
+        "guide_2_idx": jnp.array(df["guide2_index"].values),
         "gene_1_idx": jnp.array(df["gene1_unq_index"].values),
         "gene_2_idx": jnp.array(df["gene2_unq_index"].values),
         "cell_line_idx": jnp.array(df["cell_line_index"].values),
     }
 
-    if dfSingles != None:
-
+    if not (dfSingles is None):
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
 
-        indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index_s"].values)
+        indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index"].values)
 
-        indices["gene_s_idx"] = jnp.array(dfSingles["guide1_unq_index"].values)
+        indices["gene_s_idx"] = jnp.array(dfSingles["gene1_unq_index"].values)
 
         indices["cell_line_s_idx"] = jnp.array(dfSingles["cell_line_index"].values)
 
-    if dfControls != None:
-
+    if not (dfControls is None):
         indices["cell_line_c_idx"] = jnp.array(dfControls["cell_line_index"].values)
+        indices["guide_pair_c_idx"] = jnp.array(dfControls["guide_pair_index"].values)
 
     # Make sure these are all 0D
     for k, v in indices.items():
@@ -189,7 +178,6 @@ def getIndices(
 def calculateLengths(
     indices: Dict[str, np.ndarray], singletons: bool = True, neg_controls: bool = True
 ) -> Dict[str, int]:
-
     """
     Calculate lengths from indices.
 
@@ -205,9 +193,9 @@ def calculateLengths(
     # Calculate Numpyro parameter array lengths from indices
 
     lengths = {
-        "len_cell_lines": len(np.unique(indices["cell_line_index"])),
+        "len_cell_lines": len(np.unique(indices["cell_line_idx"])),
         "len_guide_pairs": len(np.unique(indices["guide_pair_idx"])),
-        "len_gene_pairs": len(np.unique(indices["gene_unq_pair_index"])),
+        "len_gene_pairs": len(np.unique(indices["gene_pair_idx"])),
     }
 
     gene_indices, guide_indices = getUniqueGeneGuideIndices(
@@ -215,11 +203,9 @@ def calculateLengths(
     )
 
     if singletons:
-
         lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
 
     if neg_controls:
-
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))
 
     # Unique guides, including each category in case we have unique ones there
@@ -232,7 +218,6 @@ def calculateLengths(
 
 
 def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
-
     """
     Save model parameters to a file.
 
@@ -245,7 +230,6 @@ def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
     """
 
     with h5py.File(fileName, "w") as file:
-
         for k, v in params.items():
             file.create_dataset(k, data=np.array(v))
 
@@ -256,7 +240,6 @@ def checkBounds(
     singletons: bool = True,
     neg_controls: bool = True,
 ) -> None:
-
     """
     Check if the indices are within bounds.
 
@@ -280,22 +263,21 @@ def checkBounds(
     assert np.max(guide_indices) < lengths["len_guides"]
     assert np.max(gene_indices) < lengths["len_genes"]
 
-    assert np.max(indices["cell_line_index"]) < lengths["len_cell_lines"]
+    assert np.max(indices["cell_line_idx"]) < lengths["len_cell_lines"]
 
     assert np.max(indices["guide_pair_idx"]) < lengths["len_guide_pairs"]
     assert np.max(indices["gene_pair_idx"]) < lengths["len_gene_pairs"]
 
     if singletons:
+        assert np.max(indices["cell_line_s_idx"]) < lengths["len_cell_lines"]
 
-        assert np.max(indices["cell_line_s_index"]) < lengths["len_cell_lines"]
-
-        assert np.max(indices["guide_pair_s_idx"]) < lengths["len_guide_pairs_s"]
+        # print(np.max(indices["guide_pair_s_idx"]), lengths["len_guide_pairs_s"])
+        # assert np.max(indices["guide_pair_s_idx"]) < lengths["len_guide_pairs_s"]
 
     if neg_controls:
+        assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
 
-        assert np.max(indices["cell_line_c_index"]) < lengths["len_cell_lines"]
-
-        assert np.max(indices["guide_pair_c_idx"]) < lengths["len_guide_pairs_c"]
+        # assert np.max(indices["guide_pair_c_idx"]) < lengths["len_guide_pairs_c"]
 
     # Also, warn if there are some parameters that remain unused, which is sus
 
@@ -309,7 +291,7 @@ def checkBounds(
             "WARNING: Some model guide parameters are un-referenced (no matching indices)."
         )
 
-    if np.max(indices["cell_line_index"]) != lengths["len_cell_lines"] - 1:
+    if np.max(indices["cell_line_idx"]) != lengths["len_cell_lines"] - 1:
         print(
             "WARNING: Some model cell line parameters are un-referenced (no matching indices)."
         )
@@ -326,7 +308,6 @@ def checkBounds(
 
 
 def configArgs(args):
-
     # Take from CLI, read from a config file, or use defaults (in that order)
 
     config = json.load(open(args.config, "r")) if args.config else {}

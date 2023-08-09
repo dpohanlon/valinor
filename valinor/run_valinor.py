@@ -1,5 +1,13 @@
 import argparse
 
+import jax.numpy as jnp
+
+from jax import random
+import numpyro
+
+from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
+from numpyro.infer.autoguide import AutoNormal
+
 from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs
 from valinor.preprocessing import prepareData
@@ -18,7 +26,6 @@ def runValinor(
     only_singletons: bool = False,
     no_controls: bool = False,
 ) -> None:
-
     """
     Runs the Valinor model on the provided data.
 
@@ -39,7 +46,7 @@ def runValinor(
     optimizer = numpyro.optim.Adam(step_size=config["lr"])
 
     svi = SVI(
-        model,
+        models.valinorHierarchy,
         guide,
         optimizer,
         loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
@@ -80,7 +87,6 @@ def runValinor(
 
 
 def makeArgs():
-
     # I'd like an argument, please
     argParser = argparse.ArgumentParser()
 
@@ -189,8 +195,8 @@ def makeArgs():
 
     return argParser
 
-def run():
 
+def run():
     argParser = makeArgs()
 
     args = argParser.parse_args()
@@ -199,9 +205,9 @@ def run():
 
     # These can be `None`, and the downstream methods will deal with it accordingly
     data_files = {
-        "combinationsFile": config["combinationsFile"],
-        "singletonsFile": config["singletonsFile"],
-        "controlsFile": config["controlsFile"],
+        "combinations": config["combinationsFile"],
+        "singletons": config["singletonsFile"],
+        "controls": config["controlsFile"],
     }
 
     lengths, indices, prior_params, data = prepareData(
@@ -213,6 +219,6 @@ def run():
 
     runValinor(lengths, indices, prior_params, data, config)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     run()

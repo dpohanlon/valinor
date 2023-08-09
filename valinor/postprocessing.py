@@ -8,11 +8,11 @@ from valinor import models
 
 from typing import Dict, List, Tuple
 
+
 # Average over samples from the posterior to pack into a Pandas DataFrame
 def averageOverSamples(
     samples: Dict[str, np.ndarray]
 ) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
-
     """
     Calculate the mean and standard deviation over the samples in the input dictionary.
 
@@ -32,7 +32,6 @@ def averageOverSamples(
 
 # To be run over params['combs'], etc, so that each category has its own DataFrame
 def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
-
     """
     Create a Pandas DataFrame from the provided parameter samples.
 
@@ -63,7 +62,6 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 def sampleParams(
     samples: Dict[str, np.ndarray], indices: Dict[str, np.ndarray]
 ) -> Dict[str, Dict[str, np.ndarray]]:
-
     """
     Sample parameters based on the provided samples and indices.
 
@@ -85,7 +83,6 @@ def sampleParams(
     controls = "guide_init_count_c" in samples
 
     if singletons:
-
         singlesParams = {}
 
         singlesParams["init_count_s"] = samples["guide_init_count_s"][
@@ -120,7 +117,6 @@ def sampleParams(
         params["singles"] = singlesParams
 
     if controls:
-
         pass
 
     combsParams = {}

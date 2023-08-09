@@ -11,7 +11,6 @@ import numpy as np
 
 
 def dkoLikelihoodInitial(init_theta: float) -> Distribution:
-
     """
     Returns a Poisson distribution with the provided parameter.
 
@@ -36,7 +35,6 @@ def dkoLikelihoodFinal(
     gene_ko_growth_12: float,
     mv: float,
 ) -> Distribution:
-
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
 
@@ -79,7 +77,6 @@ def dkoLikelihoodFullFinal(
     gene_ko_growth_12: float,
     mv: float,
 ) -> Distribution:
-
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
 
@@ -118,7 +115,6 @@ def dkoLikelihoodFullFinal(
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
-
     """
     Returns a Poisson distribution with the provided parameter.
 
@@ -139,7 +135,6 @@ def skoLikelihoodFinal(
     gene_ko_growth_s: float,
     mv: float,
 ) -> Distribution:
-
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
 
@@ -190,7 +185,6 @@ def valinorHierarchy(
     """
 
     with numpyro.plate("guides", lengths["len_guides"]):
-
         mean_l, mean_s = prior_params["guide_eff_mean"]
         std_l, std_s = prior_params["guide_eff_std"]
 
@@ -203,7 +197,6 @@ def valinorHierarchy(
         )
 
     with numpyro.plate("genes", lengths["len_genes"]):
-
         growth_l, growth_s = prior_params["gene_ko_growth"]
 
         gene_ko_growth = numpyro.sample(
@@ -211,7 +204,6 @@ def valinorHierarchy(
         )
 
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-
         growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
 
         cell_line_growth = numpyro.sample(
@@ -232,9 +224,7 @@ def valinorHierarchy(
         )
 
     if not only_singletons:
-
         with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
-
             init_l, init_s = prior_params["init_count"]
 
             guide_init_count = numpyro.sample(
@@ -257,7 +247,6 @@ def valinorHierarchy(
             )
 
         with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
-
             pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
             gene_pair_ko_growth = numpyro.sample(
@@ -326,14 +315,12 @@ def valinorHierarchy(
             mv,
         )
 
-        numpyro.sample("obs_init", init_lh, obs=data["initial_counts"])
+        numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
 
-        numpyro.sample("obs", lh, obs=data["counts"])
+        numpyro.sample("obs", lh, obs=data["final"]["combinations"])
 
     if not no_singletons:
-
         with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
-
             init_s_l, init_s_s = prior_params["init_count_s"]
 
             guide_init_count_s = numpyro.sample(
@@ -372,10 +359,10 @@ def valinorHierarchy(
             init_theta_s, guide_eff_s, cell_line_growth_s, gene_ko_growth_s, mv_s
         )
 
-        numpyro.sample("obs_init_s", init_lh_s, obs=data["initial_counts_s"])
+        numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
 
         numpyro.sample(
             "obs_s",
             lh_s,
-            obs=data["counts_s"],
+            obs=data["final"]["singletons"],
         )
