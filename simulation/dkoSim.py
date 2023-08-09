@@ -202,8 +202,8 @@ def addCellLines(
         df["g1_idx"] += len(np.unique(df["g1_idx"])) * i
         df["g2_idx"] += len(np.unique(df["g2_idx"])) * i
 
-        if "gene_pair_idxs" in df.columns:
-            df["gene_pair_idxs"] += len(np.unique(df["gene_pair_idxs"])) * i
+        if "gene_pair_index" in df.columns:
+            df["gene_pair_index"] += len(np.unique(df["gene_pair_index"])) * i
 
         df["cell_line"] = i
 
@@ -269,8 +269,8 @@ def populateCombinationDF(dko, returnCounts=False):
         unique_guide_pairs[i]: i for i in range(len(unique_guide_pairs))
     }
 
-    gene_pair_idxs = [unique_gene_pairs[g] for g in gene_pairs]
-    guide_pair_idxs = [unique_guide_pairs[g] for g in guide_pairs]
+    gene_pair_index = [unique_gene_pairs[g] for g in gene_pairs]
+    guide_pair_index = [unique_guide_pairs[g] for g in guide_pairs]
 
     dfCombs = pd.DataFrame(
         {
@@ -281,8 +281,8 @@ def populateCombinationDF(dko, returnCounts=False):
             "g2_idx": gene2,
             "gene1": gene1,
             "gene2": gene2,
-            "rna1_idx": rna1,
-            "rna2_idx": rna2,
+            "guide1_index": rna1,
+            "guide2_index": rna2,
             "ess1": ess1,
             "ess2": ess2,
             "syn": syn,
@@ -290,8 +290,9 @@ def populateCombinationDF(dko, returnCounts=False):
     )
 
     dfCombs = dfCombs.query("same_genes == False").copy()
-    dfCombs["gene_pair_idxs"] = gene_pair_idxs
-    dfCombs["guide_pair_idxs"] = guide_pair_idxs
+    dfCombs["gene_pair_index"] = gene_pair_index
+    dfCombs["guide_pair_index"] = guide_pair_index
+    dfCombs["GuidePair"] = guide_pair_index
 
     return dfCombs
 
@@ -362,6 +363,8 @@ def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
         gene1_s_idx = gene1_s + len(np.unique(gene1_s)) * i
         gene2_s_idx = gene2_s + len(np.unique(gene2_s)) * i
 
+        guide_pair_index = np.array(range(len(gene1_s_idx)))
+
         dfSgl = pd.DataFrame(
             {
                 "value": lfcs_s if not returnCounts else final_counts_s,
@@ -370,8 +373,11 @@ def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
                 "g2_idx": gene2_s_idx,
                 "gene1": gene1_s,
                 "gene2": gene2_s,
-                "rna1_idx": rna1_s,
-                "rna2_idx": rna2_s,
+                "guide1_index_s": rna1_s,
+                "guide2_index_s": rna2_s,
+                "guide_pair_index" : guide_pair_index,
+                # The same as guide_idx + cell line offset
+                "gene_pair_index" : guide_pair_index + len(guide_pair_index) * i,
                 "ess1": sgRNAEssentialities_s.ravel(),
                 "cell_line": i,
             }
@@ -892,6 +898,60 @@ def makeDataset():
 
     dfCombs = populateCombinationDF(dko, returnCounts=returnCounts)
 
+    print("adding cell lines", time.time() - t)
+    dfCombs, dkos = addCellLines(
+        dko,
+        dfCombs,
+        nCellLines,
+        contexts=contexts,
+        # offsets=offsets,
+        returnCounts=returnCounts,
+    )
+
+    # if not returnCounts:
+    print("adding combo replicates", time.time() - t)
+    dfCombs = addReplicates(dfCombs, 3, returnCounts=returnCounts)
+
+    # So the replicates can be projected out
+    # Sloooow
+    dfCombs = dfCombs.sort_values(
+        ["guide_pair_index", "guide1_index", "cell_line"]
+    ).reset_index()
+
+    # The same by our new definition
+    dfCombs['gene_unq_pair_index'] = dfCombs['gene_pair_index']
+    dfCombs['cell_line_index'] = dfCombs['cell_line']
+    dfCombs['gene1_unq_index'] = dfCombs['g1_idx']
+    dfCombs['gene2_unq_index'] = dfCombs['g2_idx']
+
+
+    # dfCombs.to_hdf("dfCombs_ace.h5", "ace", complevel=9, mode="w")
+    dfCombs.to_parquet("dfCombs_ace.pq")
+
+    print("making singletons", time.time() - t)
+    dfSgl = makeSingletonsDF(
+        dkos,
+        # offsets=offsets,
+        returnCounts=returnCounts,
+    )
+
+    # Offset so they don't clash with the combs
+    dfSgl['guide_pair_index'] = dfSgl['guide_pair_index'] + np.max(dfCombs['guide_pair_index']) + 1
+
+    # if not returnCounts:
+    print("adding singleton replicates", time.time() - t)
+    dfSgl = addReplicates(dfSgl, 3, returnCounts=returnCounts)
+
+    dfSgl['cell_line_index'] = dfCombs['cell_line']
+    # The same by our new definition
+    dfSgl['gene_unq_pair_index'] = dfSgl['gene_pair_index']
+    dfSgl['gene1_unq_index'] = dfSgl['g1_idx']
+    dfSgl['guide1_index'] = dfSgl['guide1_index_s']
+
+    dfSgl = dfSgl.sort_values(["guide1_index_s", "guide2_index_s", "cell_line"]).reset_index()
+    # dfSgl.to_hdf("dfSgl_ace.h5", "ace", complevel=9, mode="w")
+    dfSgl.to_parquet("dfSgl_ace.pq")
+
     # Offsets to test calibration
 
     nCalib = 100  # Number of genes for calibration
@@ -911,39 +971,23 @@ def makeDataset():
     plt.savefig("calib.pdf")
     plt.clf()
 
+    # Offset according to singletons (and therefore also combinations)
+    guide_pair_index_c = np.array(len(calibData[:, 0, :].ravel())) + np.max(dfCombs['guide_pair_index']) + 1
+
     dfCalib = pd.DataFrame(
         {
             "plasmid": calibData[:, 0, :].ravel(),
             "value": calibData[:, 1, :].ravel(),
             "value_pos": calibData[:, 2, :].ravel(),
+            "guide_pair_index" : guide_pair_index_c,
             "cell_line": np.tile(range(nCellLines), [nCalib, 1]).T.ravel(),
         }
     )
 
+    dfCalib['cell_line_index'] = dfCalib['cell_line']
+
     # dfCalib.to_hdf("dfCalib_ace.h5", "ace", complevel=9, mode="w")
     dfCalib.to_parquet("dfCalib_ace.pq")
-
-    print("adding cell lines", time.time() - t)
-    dfCombs, dkos = addCellLines(
-        dko,
-        dfCombs,
-        nCellLines,
-        contexts=contexts,
-        # offsets=offsets,
-        returnCounts=returnCounts,
-    )
-
-    # if not returnCounts:
-    print("adding combo replicates", time.time() - t)
-    dfCombs = addReplicates(dfCombs, 3, returnCounts=returnCounts)
-
-    # So the replicates can be projected out
-    # Sloooow
-    dfCombs = dfCombs.sort_values(
-        ["guide_pair_idxs", "rna1_idx", "cell_line"]
-    ).reset_index()
-    # dfCombs.to_hdf("dfCombs_ace.h5", "ace", complevel=9, mode="w")
-    dfCombs.to_parquet("dfCombs_ace.pq")
 
     offsetsCounts = np.zeros(len(offsets))
     for i, dko in enumerate(dkos):
@@ -960,22 +1004,6 @@ def makeDataset():
     )
     # dfOffsets.to_hdf("dfOffsets_ace.h5", "offsets", complevel=9, mode="w")
     dfOffsets.to_parquet("dfOffsets_ace.pq")
-
-    print("making singletons", time.time() - t)
-    dfSgl = makeSingletonsDF(
-        dkos,
-        # offsets=offsets,
-        returnCounts=returnCounts,
-    )
-
-    # if not returnCounts:
-    print("adding singleton replicates", time.time() - t)
-    dfSgl = addReplicates(dfSgl, 3, returnCounts=returnCounts)
-
-    dfSgl = dfSgl.sort_values(["rna1_idx", "rna2_idx", "cell_line"]).reset_index()
-    # dfSgl.to_hdf("dfSgl_ace.h5", "ace", complevel=9, mode="w")
-    dfSgl.to_parquet("dfSgl_ace.pq")
-
 
 if __name__ == "__main__":
 
