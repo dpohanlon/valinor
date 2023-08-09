@@ -12,38 +12,6 @@ from typing import Dict, List, Tuple, Optional
 # so that it generalises to more parameters and categories
 
 
-def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Calculate overdispersion in the given DataFrame.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: Mean and standard deviation of overdispersion.
-    """
-
-    reps = (
-        df.groupby(["GuidePair", "cell_line_index"])
-        .agg(
-            mean=("value", np.mean),
-            std=("value", np.std),
-            cell_line_index=("cell_line_index", "first"),
-        )
-        .reset_index(drop=True)
-    )
-
-    reps["var"] = reps["std"] ** 2
-    reps["od"] = reps["var"] / reps["mean"]
-
-    repsC = reps.groupby(["cell_line_index"]).agg(
-        mean=("od", np.median), std=("od", np.std)
-    )
-    repsC = repsC.sort_values("cell_line_index")
-
-    return repsC["mean"].values, repsC["std"].values
-
-
 def loadData(data_files: Dict[str, str]):
     outFiles = {}
 

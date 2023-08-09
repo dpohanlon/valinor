@@ -21,7 +21,7 @@ def dkoLikelihoodInitial(init_theta: float) -> Distribution:
         A Poisson distribution object.
     """
 
-    return dist.Poisson(init_theta)
+    return dist.Poisson(init_theta), init_theta
 
 
 def dkoLikelihoodFinal(
@@ -63,7 +63,7 @@ def dkoLikelihoodFinal(
 
     theta *= init_theta
 
-    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv))
+    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
 
 
 def dkoLikelihoodFullFinal(
@@ -111,7 +111,7 @@ def dkoLikelihoodFullFinal(
 
     theta = jax.nn.softplus(theta)
 
-    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv))
+    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
@@ -299,12 +299,12 @@ def valinorHierarchy(
 
         cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
-        init_theta = guide_init_count[indices["guide_pair_idx"]]
+        init_count = guide_init_count[indices["guide_pair_idx"]]
 
-        init_lh = dkoLikelihoodInitial(init_theta)
+        init_lh, theta_init = dkoLikelihoodInitial(init_count)
 
-        lh = dkoLikelihoodFinal(
-            init_theta,
+        lh, theta = dkoLikelihoodFinal(
+            theta_init,
             guide_eff_1,
             guide_eff_2,
             guide_eff_12,
@@ -353,7 +353,7 @@ def valinorHierarchy(
 
         cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
-        init_lh_s = skoLikelihoodInitial(guide_init_count_s)
+        init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
         lh_s = skoLikelihoodFinal(
             init_theta_s, guide_eff_s, cell_line_growth_s, gene_ko_growth_s, mv_s

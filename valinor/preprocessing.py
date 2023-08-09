@@ -2,11 +2,12 @@ from valinor.utils import (
     loadData,
     getFinalCounts,
     getInitialCounts,
-    calculateOverdispersion,
     getIndices,
     calculateLengths,
     checkBounds,
 )
+
+from valinor.priors import calculateOverdispersion, defaultPriors
 
 from typing import Dict, List, Tuple, Any
 
@@ -37,7 +38,9 @@ def prepareData(
 
     meanOD, stdOD = calculateOverdispersion(datasets["combinations"])
 
-    prior_params = {"od_means": meanOD, "od_stds": stdOD}
+    prior_params = defaultPriors()
+    prior_params["od_means"] = meanOD
+    prior_params["od_stds"] = stdOD
 
     # These args can be `None`
     indices = getIndices(
