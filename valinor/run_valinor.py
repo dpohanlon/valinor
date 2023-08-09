@@ -9,7 +9,7 @@ from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
 from numpyro.infer.autoguide import AutoNormal
 
 from valinor import models
-from valinor.utils import getIndices, calculateLengths, configArgs
+from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
 
 from typing import Dict, List, Tuple, Any

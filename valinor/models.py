@@ -299,12 +299,12 @@ def valinorHierarchy(
 
         cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
-        init_count = guide_init_count[indices["guide_pair_idx"]]
+        init_count = guide_init_count
 
         init_lh, theta_init = dkoLikelihoodInitial(init_count)
 
         lh, theta = dkoLikelihoodFinal(
-            theta_init,
+            theta_init[indices["guide_pair_idx"]],
             guide_eff_1,
             guide_eff_2,
             guide_eff_12,
@@ -355,8 +355,8 @@ def valinorHierarchy(
 
         init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
-        lh_s = skoLikelihoodFinal(
-            init_theta_s, guide_eff_s, cell_line_growth_s, gene_ko_growth_s, mv_s
+        lh_s, theta_s = skoLikelihoodFinal(
+            init_theta_s[indices["guide_pair_s_idx"]], guide_eff_s, cell_line_growth_s, gene_ko_growth_s, mv_s
         )
 
         numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])

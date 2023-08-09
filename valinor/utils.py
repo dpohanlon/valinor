@@ -67,7 +67,7 @@ def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
         .sort_values("guide_pair_index")[f"{initCountVar}"]
     )
 
-    return initial_counts
+    return initial_counts.values
 
 
 def getUniqueGeneGuideIndices(
