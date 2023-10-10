@@ -11,6 +11,7 @@ from numpyro.infer.autoguide import AutoNormal
 from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
+from plotting.plots import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
 
@@ -85,6 +86,7 @@ def runValinor(
         no_controls=config["no_controls"],
     )
 
+    plotDiagPlots(svi_result)
 
 def makeArgs():
     # I'd like an argument, please
