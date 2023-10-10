@@ -356,7 +356,11 @@ def valinorHierarchy(
         init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
         lh_s, theta_s = skoLikelihoodFinal(
-            init_theta_s[indices["guide_pair_s_idx"]], guide_eff_s, cell_line_growth_s, gene_ko_growth_s, mv_s
+            init_theta_s[indices["guide_pair_s_idx"]],
+            guide_eff_s,
+            cell_line_growth_s,
+            gene_ko_growth_s,
+            mv_s,
         )
 
         numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])

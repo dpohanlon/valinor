@@ -4,6 +4,7 @@ import numpy as np
 
 from typing import Dict, List, Tuple, Any
 
+
 def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     """
     Calculate overdispersion in the given DataFrame.
@@ -35,8 +36,8 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
     return repsC["mean"].values, repsC["std"].values
 
-def defaultPriors():
 
+def defaultPriors():
     prior_params = {}
 
     prior_params["guide_eff_mean"] = (0.9, 0.1)

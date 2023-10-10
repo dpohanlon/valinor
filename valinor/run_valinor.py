@@ -91,13 +91,14 @@ def runValinor(
 
     sampledParams = sampleParams(samples, indices)
 
-    singlesDF = createDataFrame(sampledParams['singles'])
-    combsDF = createDataFrame(sampledParams['combs'])
+    singlesDF = createDataFrame(sampledParams["singles"])
+    combsDF = createDataFrame(sampledParams["combs"])
 
     # Save these separately to Parquet just for now
 
-    singlesDF.to_parquet('singlesModel.pq')
-    combsDF.to_parquet('combsModel.pq')
+    singlesDF.to_parquet("singlesModel.pq")
+    combsDF.to_parquet("combsModel.pq")
+
 
 def makeArgs():
     # I'd like an argument, please
