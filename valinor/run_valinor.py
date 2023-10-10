@@ -11,6 +11,7 @@ from numpyro.infer.autoguide import AutoNormal
 from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
+from valinor.postprocessing import sampleParams, createDataFrame
 from plotting.plots import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
@@ -66,6 +67,8 @@ def runValinor(
         stable_update=config["stable_update"],
     )
 
+    plotDiagPlots(svi_result)
+
     params = svi_result.params
 
     saveModelParams(params, config["paramsFileName"])
@@ -86,7 +89,15 @@ def runValinor(
         no_controls=config["no_controls"],
     )
 
-    plotDiagPlots(svi_result)
+    sampledParams = sampleParams(samples, indices)
+
+    singlesDF = createDataFrame(sampledParams['singles'])
+    combsDF = createDataFrame(sampledParams['combs'])
+
+    # Save these separately to Parquet just for now
+
+    singlesDF.to_parquet('singlesModel.pq')
+    combsDF.to_parquet('combsModel.pq')
 
 def makeArgs():
     # I'd like an argument, please
