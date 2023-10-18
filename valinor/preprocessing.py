@@ -49,7 +49,7 @@ def prepareData(
 
     lengths = calculateLengths(indices, singletons=singletons, neg_controls=controls)
 
-    checkBounds(indices, lengths)
+    checkBounds(indices, lengths, singletons = singletons, neg_controls = controls)
 
     return (
         lengths,

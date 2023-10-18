@@ -12,7 +12,7 @@ from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
 from valinor.postprocessing import sampleParams, createDataFrame
-from plotting.plots import plotDiagPlots
+from valinor.plots import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
 
@@ -227,8 +227,8 @@ def run():
     lengths, indices, prior_params, data = prepareData(
         data_files,
         config["only_singletons"],
-        ~config["no_singletons"],
-        ~config["no_controls"],
+        not config["no_singletons"],
+        not config["no_controls"],
     )
 
     runValinor(lengths, indices, prior_params, data, config)
