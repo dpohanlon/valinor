@@ -12,7 +12,7 @@ from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
 from valinor.postprocessing import sampleParams, createDataFrame
-from valinor.plots import plotDiagPlots
+from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
 
