@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <title>Valinor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Le styles -->
+    <link href="Bootstrap/bootstrap.css" rel="stylesheet">
+    <style type="text/css">
+      body {
+        padding-top: 60px;
+        padding-bottom: 40px;
+      }
+      .sidebar-nav {
+        padding: 9px 0;
+      }
+    </style>
+    <link href="Bootstrap/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="https://cdn.jsdelivr.net/npm/html5shiv@3.7.3/dist/html5shiv.min.js"></script>
+    <![endif]-->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega@5"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega-lite@4.17.0"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega-embed@6"></script>
+
+    <!-- Le fav and touch icons -->
+    <!-- <link rel="shortcut icon" href="https://getbootstrap.com/2.0.3/assets/ico/favicon.ico"> -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="apple-touch-icon-precomposed" sizes="144x144" href="https://getbootstrap.com/2.0.3/assets/ico/apple-touch-icon-144-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="114x114" href="https://getbootstrap.com/2.0.3/assets/ico/apple-touch-icon-114-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" sizes="72x72" href="https://getbootstrap.com/2.0.3/assets/ico/apple-touch-icon-72-precomposed.png">
+    <link rel="apple-touch-icon-precomposed" href="https://getbootstrap.com/2.0.3/assets/ico/apple-touch-icon-57-precomposed.png">
+
+
+
+
+  </head>
+
+  <body>
+    <div class="navbar navbar-fixed-top ">
+      <div class="navbar-inner">
+        <div class="container-fluid">
+          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </a>
+          <a class="brand" href="#">
+            <img src="valinor_white.png" alt="Bootstrap" width="17.3" height="30">
+            Valinor
+          </a>
+          <div class="nav-collapse">
+            <ul class="nav">
+              <li class="active"><a href="#home" data-toggle="tab">Home</a></li>
+              <li><a href="#paramfit" data-toggle="tab">Parameter Fits</a></li>
+              <li><a href="#datastats" data-toggle="tab">Data Stats</a></li>
+              <li><a href="#diagnosticplots" data-toggle="tab">Diagnostic Plots</a></li>
+              <li><a href="#hitprioritisation" data-toggle="tab">Hit Prioritisation</a></li>
+              <li><a href="#genepairview" data-toggle="tab">Gene Pair View</a></li>
+              <li><a href="#warnings" data-toggle="tab">Warnings</a></li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </nav>
+      </div>
+    </div>
+
+    <div class="tab-content">
+        <div class="tab-pane active" id="home">
+          <div class="container-fluid">
+            <div class="row-fluid">
+              <div class="span3">
+                <div class="well sidebar-nav">
+                  <ul class="nav nav-list">
+                    <li class="nav-header">Sections</li>
+                    <li><a href="#lossfunction">Loss Function</a></li>
+                    <li><a href="#modelfit">Model Fit - End of Experiment Counts</a></li>
+                    <li><a href="#modelfitplasmid">Model Fit - Plasmid Counts</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="span9">
+                <div class="hero-unit">
+                  <h1>Valinor Report</h1>
+                  <p>Report created on: {{ date }}</p>
+                  <div class="row-fluid">
+                    <div class="span8">
+                      <form id="upload">
+                        <label for="file"><b>Upload JSON file containing Valinor results</b></label>
+                        <input type="file" id="file" accept=".csv">
+                        <button>Upload</button>
+                      </form>
+                    </div>
+                  </div>
+                  <div class='row-fluid'>
+                    <div class="span9">
+                      <h2>Overview Stats</h2>
+                      <p>{{ overviewstats }}</p>
+                    </div>
+                  </div>
+                  <div class='row-fluid'>
+                    <div class="span9">
+                      <h3>Combinations</h3>
+                      <p>{{ overviewstatscomb }}</p>
+                    </div>
+                  </div>
+                  <div class='row-fluid'>
+                    <div class="span9">
+                      <h2>Singletons</h2>
+                      <p>{{ overviewstatssingle }}</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="row-fluid" id="lossfunction">
+                  <div class="span4">
+                    <h2>Loss Function</h2>
+                    <img src="plots/lossfunction.svg" alt="Model Loss">
+                  </div>
+                </div>
+                <div class="row-fluid" id="modelfit">
+                  <h2>Model Fit - End of Experiment Counts</h2>
+                  <div class="span4">
+                    <h3>Combinations</h3>
+                    <img src="plots/modelperformance_combo.svg" alt="Model performance on combinations">
+                  </div>
+                  <div class="span4">
+                    <h3>Singletons</h3>
+                    <img src="plots/modelperformance_single.svg" alt="Model performance on singletons">
+                  </div>
+                </div>
+                <div class="row-fluid" id="modelfitplasmid">
+                  <h2>Model Fit - Plasmid Counts</h2>
+                  <div class="span4">
+                    <h3>Combinations</h3>
+                    <img src="plots/modelperformance_combo_plasmid.svg" alt="Model performance on combinations in plasmid">
+                  </div>
+                  <div class="span4">
+                    <h3>Singletons</h3>
+                    <img src="plots/modelperformance_single_plasmid.svg" alt="Model performance on singletons in plasmid">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="paramfit">
+          <div class="container-fluid">
+            <div class="row-fluid">
+              <div class="span3">
+                <div class="well sidebar-nav">
+                  <ul class="nav nav-list">
+                    <li class="nav-header">Sections</li>
+                    <li class="nav-header">Guide Efficiencies</li>
+                    <li><a href="#guideeffhier">Hyper Distributions - Combinations</a></li>
+                    <li><a href="#guideeff">Guide Efficiencies - Combinations</a></li>
+                    <!-- <li class="nav-header">Singletons</li>
+                    <li><a href="#guideeffs">Guide Efficiencies</a></li>
+                    <li><a href="#guideeffhiers">Guide Efficiencies - Hierarchy</a></li> -->
+                  </ul>
+                </div>
+              </div>
+              <div class="span9">
+                <h1>Distributions of Model Parameters</h1>
+                <p>There should be an explanation about what the important parameters are and how the hierarchy works.</p>
+                <h2>Guide Efficiencies</h2>
+                <div class="row-fluid" id="guideeffhier">
+                  <div class="span8">
+                    <h3>Hyper Distributions</h3>
+                    <img src="plots/parameterfits_guideeffs_metahier_combo.svg" alt="Guide Efficiencies">
+                  </div>
+                </div>
+                <div class='row-fluid' id="overdisp">
+                  <div class="span8">
+                    <h3>Gene Pair and Cell line specific Guide Efficiencies</h3>
+                    <div id="parameterfits_guideeffs_devprior_combo"></div>
+                    <script>
+                      // Get the form and file field
+                      let form = document.querySelector('#upload');
+                      let file = document.querySelector('#file');
+                      form.addEventListener('submit', function(event) {handleSubmit(event, ParameterFitsGuideEffs);});
+                    </script>
+                  </div>
+                </div>
+                <!-- <div class="row-fluid" id="guideeff">
+                  <div class="span8">
+                    <h3>Gene Pair and Cell line specific Guide Efficiencies</h3>
+                    <div id="parameterfits_guideeffs_devprior_combo"></div>
+                    <script>
+                      form.addEventListener('submit', function(event) {handleSubmit(event, ParameterFitsGuideEffs);});
+                    </script>
+                  </div>
+                </div> -->
+                <!-- <div class="row-fluid" id="guideeffhier">
+                  <div class="span8">
+                    <img src="plots/parameterfits_guideeffs_metahier.svg" alt="Model performance on combinations">
+                  </div>
+                </div> -->
+                <!-- <h2>Singletons</h2> -->
+                <!-- <div class="row-fluid" id="guideeffs">
+                  <div class="span8">
+                    <h3>Guide Efficiencies</h3>
+                    <img src="plots/parameterfits_guideeffs_cls_s.svg" alt="Guide Efficiencies">
+                  </div>
+                </div>
+                <div class="row-fluid" id="guideeffhiers">
+                  <div class="span8">
+                    <h3>Guide Efficiencies - Hierarchy</h3>
+                    <img src="plots/parameterfits_guideeffs_metahier_s.svg" alt="Model performance on combinations">
+                  </div>
+                </div> -->
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="datastats">
+          <div class="container-fluid">
+            <div class="row-fluid">
+              <div class="span3">
+                <div class="well sidebar-nav">
+                  <ul class="nav nav-list">
+                    <li><a href="#counts">Counts</a></li>
+                    <li><a href="#overdisp">Overdispersion of replicates</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="span9">
+                <div class='row-fluid'>
+                  <div class="span9">
+                    <h1>Input Data Stats</h1>
+                    <div class="row-fluid" id="counts">
+                      <div class="span8">
+                        <h2>Distribution of Counts</h2>
+                        <div id="datastats_count_plot"></div>
+                        <script>
+                          // Listen for submit events
+                          form.addEventListener('submit', function(event) {handleSubmit(event, DatastatsCountPlot);});
+                          // form.addEventListener('submit', handleSubmit);
+                        </script>
+                      </div>
+                    </div>
+                  </div>
+                  <div class='row-fluid' id="overdisp">
+                    <div class="span8">
+                      <h2>Overdispersion of replicates</h2>
+                      <div id="datastats_disp_plot"></div>
+                      <script>
+                        form.addEventListener('submit', function(event) {handleSubmit(event, DatastatsDispPlot);});
+                          // Listen for submit events
+                        // form.addEventListener('submit', handleSubmit);
+                      </script>
+                    </div>
+                  </div>
+                  <!-- <div class='row-fluid' id="genepair">
+                    <div class="span8">
+                      <h2>Gene pair</h2>
+                      <div id="genepair_plot"></div>
+                      <script>
+                        form.addEventListener('submit', function(event) {handleSubmit(event, GenePairPlot);});
+                      </script>
+                    </div>
+                  </div> -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="diagnosticplots">
+          <div class="container-fluid">
+            <div class="row-fluid">
+              <div class="span3">
+                <div class="well sidebar-nav">
+                  <ul class="nav nav-list">
+                    <li><a href="#diagnplotDlfcVal">dLFC vs. Valinor Score</a></li>
+                    <li><a href="#diagnplotKoGrowthStd">Uncertainty of Growth Defect of Combinations</a></li>
+                    <li><a href="#diagnplotSingleLfcVal">Singleton Gene LFC vs. Singleton Valinor Score</a></li>
+                    <li><a href="#diagnplotSingleLfcEffic">Singleton Guide LFC vs. Estimated Efficiency</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="span9">
+                <div class='row-fluid'>
+                  <div class="span9">
+                    <h1>Diagnostic Plots</h1>
+                    <div class="row-fluid" id="diagnplotDlfcVal">
+                      <div class="span8">
+                        <h2>dLFC vs. Valinor Score</h2>
+                        <div id="diagnplots_dlfcval_plot"></div>
+                        <script>
+                          form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsDlfcVal);});
+                        </script>
+                      </div>
+                    </div>
+                    <div class="row-fluid" id="diagnplotKoGrowthStd">
+                      <div class="span8">
+                        <h2>Uncertainty of Growth Defect of Combinations</h2>
+                        <div id="diagnplots_kogrowthstd_plot"></div>
+                        <script>
+                          form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsKoGrowthStd);});
+                        </script>
+                      </div>
+                    </div>
+                    <div class="row-fluid" id="diagnplotSingleLfcVal">
+                      <div class="span8">
+                        <h2>Singleton Gene LFC vs. Singleton Valinor Score</h2>
+                        <div id="diagnplots_singlelfcval_plot"></div>
+                        <script>
+                          form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsSingleLfcVal);});
+                        </script>
+                      </div>
+                    </div>
+                    <div class="row-fluid" id="diagnplotSingleLfcEffic">
+                      <div class="span8">
+                        <h2>Singleton Guide LFC vs. Estimated Efficiency</h2>
+                        <div id="diagnplots_singleLFCeffic_plot"></div>
+                        <script>
+                          form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsSingleLfcEffic);});
+                        </script>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="hitprioritisation">
+          <div class='row-fluid' id="prioritisation">
+            <div class="span3">
+              <div class="well sidebar-nav">
+                <ul class="nav nav-list">
+                  <li class="nav-header">Sections</li>
+                  <li><a href="#hitpriorlfcvalavg">LFC vs. Valinor Score - Average across Cell Lines</a></li>
+                  <li><a href="#hitpriorgrowthdefects">Growth Defects of Individual Genes vs. in Combination</a></li>
+                  <li><a href="#hitpriorlfcvalselect">LFC vs. Valinor Score - Select Region</a></li>
+                </ul>
+              </div>
+            </div>
+            <div class="span8">
+              <div class='row-fluid'>
+                <h1>Hit Prioritisation</h1>
+              </div>
+              <div class='row-fluid' id="hitpriorlfcvalavg">
+                <h2>LFC vs. Valinor Score - Average across Cell Lines</h2>
+                <div id="hit_prioritisation_cell_avg_plot"></div>
+                <script>
+                  form.addEventListener('submit', function(event) {handleSubmit(event, HitPrioritisationLfcValAvgPlot);});
+                </script>
+              </div> 
+              <div class='row-fluid' id="hitpriorgrowthdefects">
+                <h2>Growth Defects of Individual Genes vs. in Combination</h2>
+                <div id="hit_prioritisation_growthdefecscatter"></div>
+                <script>
+                  form.addEventListener('submit', function(event) {handleSubmit(event, HitPrioritisationKoGrowthPlot);});
+                </script>
+              </div> 
+              <div class='row-fluid' id="hitpriorlfcvalselect">
+                <h2>LFC vs. Valinor Score - Select Region</h2>
+                <div id="hit_prioritisation_lfcvsval_histo"></div>
+                <script>
+                  form.addEventListener('submit', function(event) {handleSubmit(event, HitPrioritisationLfcValHistPlot);});
+                </script>
+              </div>  
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="genepairview">
+          <div class="container-fluid">
+            <div class="row-fluid">
+              <div class="span3">
+                <div class="well sidebar-nav">
+                  <ul class="nav nav-list">
+                    <li><a href="#genepair">Gene pair</a></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="span9">
+                <div class='row-fluid'>
+                  <div class="span9">
+                    <label for="gene-pair-selection">Select a value:</label>
+                    <input type="text"
+                           id="gene-pair-selection"
+                           name="gene-pair-selection"
+                           autocomplete="off"
+                           size = 25
+                           list="gene-pair-selection-options">
+                    <datalist id="gene-pair-selection-options">
+
+                      {{gene_pair_list}}
+
+                    </datalist>
+                  </div>
+                </div>
+                <div class='row-fluid' id="genepair">
+                  <div class="span8">
+                    <h2>Valinor score across cell lines</h2>
+                    <div id="genepair_valinorscore_plot"></div>
+                    <script>
+                      form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScorePlot);});
+                    </script>
+                  </div>
+                </div>
+                <div class='row-fluid' id="genepair">
+                  <div class="span8">
+                    <h2>Valinor score vs. LFC</h2>
+                    <div id="genepair_valinorscorevslfc_plot"></div>
+                    <script>
+                      form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScorevsLFCPlot);});
+                    </script>
+                  </div>
+                </div>
+                <div class='row-fluid' id="genepair">
+                  <div class="span8">
+                    <h2>Valinor score combination vs. single genes</h2>
+                    <div id="genepair_valscorescombovssingle_plot"></div>
+                    <script>
+                      form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScoreCombvsSinglePlot);});
+                    </script>
+                  </div>
+                </div>
+                <div class='row-fluid' id="genepair">
+                  <div class="span8">
+                    <h2>Valinor score single genes vs. LFCs</h2>
+                    <div id="genepair_valscoresinglevslfc_plot"></div>
+                    <script>
+                      form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScoreSinglevsLFCPlot);});
+                    </script>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-pane" id="warnings">
+          <h>warnings</h>
+        </div>
+      </div>
+    </div>
+
+
+      <hr>
+
+      <footer>
+        <p>Daniel O'Hanlon, Paula Weidemueller</p>
+      </footer>
+
+  </div><!--/.fluid-container-->
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="Bootstrap/jquery.js"></script>
+    <script src="Bootstrap/bootstrap-transition.js"></script>
+    <script src="Bootstrap/bootstrap-alert.js"></script>
+    <script src="Bootstrap/bootstrap-modal.js"></script>
+    <script src="Bootstrap/bootstrap-dropdown.js"></script>
+    <script src="Bootstrap/bootstrap-scrollspy.js"></script>
+    <script src="Bootstrap/bootstrap-tab.js"></script>
+    <script src="Bootstrap/bootstrap-tooltip.js"></script>
+    <script src="Bootstrap/bootstrap-popover.js"></script>
+    <script src="Bootstrap/bootstrap-button.js"></script>
+    <script src="Bootstrap/bootstrap-collapse.js"></script>
+    <script src="Bootstrap/bootstrap-carousel.js"></script>
+    <script src="Bootstrap/bootstrap-typeahead.js"></script>
+
+  <script>
+    // https://gomakethings.com/how-to-upload-and-process-a-json-file-with-vanilla-js/
+    /**
+     * Log the uploaded file to the console
+     * @param {event} Event The file loaded event
+     */
+    function DatastatsCountPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        window.alert("Check out the other tabs to see Valinor results.");
+        {{datastats_count_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function DatastatsDispPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{datastats_disp_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function ParameterFitsGuideEffs (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{parameterfits_guideeffs_devprior_combo}}
+
+    })(vegaEmbed);
+
+    }
+    function DiagnPlotsDlfcVal (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{diagnplots_dlfcval_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function DiagnPlotsKoGrowthStd (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{diagnplots_kogrowthstd_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function DiagnPlotsSingleLfcVal (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{diagnplots_singlelfcval_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function DiagnPlotsSingleLfcEffic (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{diagnplots_singleLFCeffic_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function HitPrioritisationLfcValAvgPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{hit_prioritisation_cell_avg_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function HitPrioritisationLfcValHistPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{hit_prioritisation_lfcvsval_histo}}
+
+    })(vegaEmbed);
+
+    }
+    function HitPrioritisationKoGrowthPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{hit_prioritisation_growthdefecscatter}}
+
+    })(vegaEmbed);
+
+    }
+    function GenePairValinorScorePlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{genepair_valinorscore_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function GenePairValinorScorevsLFCPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{genepair_valinorscorevslfc_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function GenePairValinorScoreCombvsSinglePlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{genepair_valscorescombovssingle_plot}}
+
+    })(vegaEmbed);
+
+    }
+    function GenePairValinorScoreSinglevsLFCPlot (event) {
+    let csv = event.target.result;
+    console.log('csv', csv);
+
+    (function(vegaEmbed) {
+
+        {{genepair_valscoresinglevslfc_plot}}
+
+    })(vegaEmbed);
+
+    }
+    
+
+    /**
+     * Handle submit events
+     * @param  {Event} event The event object
+     */
+    function handleSubmit (event, plotstoplot) {
+
+    // Stop the form from reloading the page
+    event.preventDefault();
+
+    // If there's no file, do nothing
+    if (!file.value.length) return;
+
+    // Create a new FileReader() object
+    let reader = new FileReader();
+
+    // Setup the callback event to run when the file is read
+    reader.onload = plotstoplot;
+
+    // Read the file
+    reader.readAsText(file.files[0]);
+
+    }
+
+
+  </script>
+
+</body></html>
