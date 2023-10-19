@@ -29,7 +29,7 @@ def dkoLikelihoodFinal(
     guide_eff_1: float,
     guide_eff_2: float,
     guide_eff_12: float,
-    cell_line_growth_v: float,
+    cell_line_growth: float,
     gene_ko_growth_1: float,
     gene_ko_growth_2: float,
     gene_ko_growth_12: float,
@@ -55,7 +55,7 @@ def dkoLikelihoodFinal(
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
         jnp.exp(
-            cell_line_growth_v
+            cell_line_growth
             + (gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
         )
         - 1.0
@@ -103,7 +103,7 @@ def dkoLikelihoodFullFinal(
     g2 = gene_ko_growth_2 - cell_line_growth
     g12 = gene_ko_growth_12 - cell_line_growth
 
-    theta = init_theta[indices["guide_pair_idx"]] * (
+    theta = init_theta * (
         p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
     )
 
@@ -134,6 +134,7 @@ def skoLikelihoodFinal(
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
     mv: float,
+    alternate: bool = False
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -149,12 +150,14 @@ def skoLikelihoodFinal(
         A Negative Binomial distribution object.
     """
 
-    return dkoLikelihoodFinal(
+    lh = dkoLikelihoodFinal if alternate else dkoLikelihoodFullFinal
+
+    return lh(
         init_theta=init_theta_s,
         guide_eff_1=guide_eff_s,
         guide_eff_2=0.0,
         guide_eff_12=0.0,
-        cell_line_growth_v=cell_line_growth_s,
+        cell_line_growth=cell_line_growth_s,
         gene_ko_growth_1=gene_ko_growth_s,
         gene_ko_growth_2=0.0,
         gene_ko_growth_12=0.0,
@@ -170,6 +173,7 @@ def valinorHierarchy(
     no_singletons: bool = False,
     only_singletons: bool = False,
     no_controls: bool = True,
+    alternate: bool = False,
 ) -> None:
     """
     Defines a hierarchy of distributions based on the provided data and parameters.
@@ -299,11 +303,11 @@ def valinorHierarchy(
 
         cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
-        init_count = guide_init_count
+        init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
 
-        init_lh, theta_init = dkoLikelihoodInitial(init_count)
+        finalLH = dkoLikelihoodFinal if alternate else dkoLikelihoodFullFinal
 
-        lh, theta = dkoLikelihoodFinal(
+        lh, theta = finalLH(
             theta_init[indices["guide_pair_idx"]],
             guide_eff_1,
             guide_eff_2,
@@ -361,6 +365,7 @@ def valinorHierarchy(
             cell_line_growth_s,
             gene_ko_growth_s,
             mv_s,
+            alternate
         )
 
         numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])

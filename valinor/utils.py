@@ -40,7 +40,7 @@ def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
     return counts
 
 
-def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid_norm"):
+def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "pDNA"):
     counts = {}
 
     for n, d in datasets.items():
@@ -191,6 +191,8 @@ def calculateLengths(
 def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
     """
     Save model parameters to a file.
+
+    TODO: Save the transformed and untransformed params
 
     Args:
         params (Dict[str, np.ndarray]): Dictionary of model parameters.

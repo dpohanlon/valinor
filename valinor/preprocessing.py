@@ -1,3 +1,5 @@
+import numpy as np
+
 from valinor.utils import (
     loadData,
     getFinalCounts,
@@ -36,11 +38,17 @@ def prepareData(
     finalCounts = getFinalCounts(datasets)
     initialCounts = getInitialCounts(datasets)
 
-    meanOD, stdOD = calculateOverdispersion(datasets["combinations"])
+    meanOD, stdOD = calculateOverdispersion(datasets["combinations"] if not (datasets["combinations"] is None) else datasets["singletons"])
 
     prior_params = defaultPriors()
     prior_params["od_means"] = meanOD
     prior_params["od_stds"] = stdOD
+
+    prior_params["init_count"] = (np.mean(datasets["combinations"]['pDNA']), np.std(datasets["combinations"]['pDNA']),)
+
+    if not (datasets["singletons"] is None):
+
+        prior_params["init_count_s"] = (np.mean(datasets["singletons"]['pDNA']), np.std(datasets["singletons"]['pDNA']),)
 
     # These args can be `None`
     indices = getIndices(

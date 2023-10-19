@@ -23,10 +23,6 @@ def runValinor(
     prior_params: Dict[str, Any],
     data: Dict[str, Any],
     config: Dict[str, Any],
-    name: str = "",
-    no_singletons: bool = False,
-    only_singletons: bool = False,
-    no_controls: bool = False,
 ) -> None:
     """
     Runs the Valinor model on the provided data.
@@ -64,10 +60,11 @@ def runValinor(
         no_singletons=config["no_singletons"],
         only_singletons=config["only_singletons"],
         no_controls=config["no_controls"],
+        alternate=config['alternateLH'],
         stable_update=config["stable_update"],
     )
 
-    plotDiagPlots(svi_result)
+    plotDiagPlots(svi_result, name = config['name'])
 
     params = svi_result.params
 
@@ -89,7 +86,7 @@ def runValinor(
         no_controls=config["no_controls"],
     )
 
-    sampledParams = sampleParams(samples, indices)
+    sampledParams = sampleParams(samples, indices, config['alternateLH'])
 
     singlesDF = createDataFrame(sampledParams["singles"])
     combsDF = createDataFrame(sampledParams["combs"])
@@ -136,7 +133,15 @@ def makeArgs():
         help="Stable update.",
     )
 
-    argParser.add_argument("-n", type=str, dest="name", default="", help="Output name.")
+    argParser.add_argument(
+        "--alternateLH",
+        action="store_true",
+        dest="alternateLH",
+        default=False,
+        help="Whether to use the alternate approximate likelihood.",
+    )
+
+    argParser.add_argument("-n", type=str, dest="name", default=None, help="Output name.")
 
     argParser.add_argument(
         "--paramsFileName",
