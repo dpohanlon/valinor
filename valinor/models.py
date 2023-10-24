@@ -107,8 +107,6 @@ def dkoLikelihoodFullFinal(
         p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
     )
 
-    theta *= init_theta
-
     theta = jax.nn.softplus(theta)
 
     return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
