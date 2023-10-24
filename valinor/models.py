@@ -95,9 +95,9 @@ def dkoLikelihoodFullFinal(
         A Negative Binomial distribution object.
     """
 
-    p_1 = guide_eff_1 * (1 - guide_eff_2)
-    p_2 = guide_eff_2 * (1 - guide_eff_1)
-    p_12 = jnp.clip(guide_eff_1 * guide_eff_2, 0.0, 1.0)
+    p_1 = guide_eff_1 * (1. - guide_eff_2)
+    p_2 = guide_eff_2 * (1. - guide_eff_1)
+    p_12 = jnp.clip(1. - p_1 * p_2, 0.0, 1.0)
 
     g1 = gene_ko_growth_1 - cell_line_growth
     g2 = gene_ko_growth_2 - cell_line_growth
