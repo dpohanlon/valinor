@@ -161,7 +161,7 @@ def sampleParams(
     # ][  # Check whether this should be specified given the hierarchy, ordering, etc
     #     :, indices["guide_2_idx"]
     # ]
-    combsParams["guide_eff_12"] = samples["guide_eff_12"]
+    # combsParams["guide_eff_12"] = samples["guide_eff_12"]
 
     combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
         :, indices["gene_1_idx"]
@@ -185,7 +185,7 @@ def sampleParams(
         combsParams["init_count"],
         combsParams["guide_eff_1"],
         combsParams["guide_eff_2"],
-        combsParams["guide_eff_12"],
+        # combsParams["guide_eff_12"],
         combsParams["cell_line_growth"],
         combsParams["gene_ko_growth_1"],
         combsParams["gene_ko_growth_2"],

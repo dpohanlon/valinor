@@ -69,7 +69,6 @@ def dkoLikelihoodFullFinal(
     init_theta: float,
     guide_eff_1: float,
     guide_eff_2: float,
-    guide_eff_12: float,
     cell_line_growth: float,
     gene_ko_growth_1: float,
     gene_ko_growth_2: float,
@@ -83,7 +82,6 @@ def dkoLikelihoodFullFinal(
         init_theta (float): Initial parameter.
         guide_eff_1 (float): Guide efficiency 1.
         guide_eff_2 (float): Guide efficiency 2.
-        guide_eff_12 (float): Guide efficiency 12.
         cell_line_growth (float): Cell line growth.
         gene_ko_growth_1 (float): Gene knockout growth 1.
         gene_ko_growth_2 (float): Gene knockout growth 2.
@@ -153,7 +151,6 @@ def skoLikelihoodFinal(
         init_theta=init_theta_s,
         guide_eff_1=guide_eff_s,
         guide_eff_2=0.0,
-        guide_eff_12=0.0,
         cell_line_growth=cell_line_growth_s,
         gene_ko_growth_1=gene_ko_growth_s,
         gene_ko_growth_2=0.0,
@@ -162,40 +159,146 @@ def skoLikelihoodFinal(
     )
 
 
-def sample_guide_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
-    with numpyro.plate("guides", lengths["len_guides"]):
-        mean_l, mean_s = prior_params["guide_eff_mean"]
-        std_l, std_s = prior_params["guide_eff_std"]
-        numpyro.sample(
-            "guide_eff_mean",
-            dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+def sample_guide_distributions(
+    lengths: Dict[str, int], prior_params: Dict[str, Any], config="partial_pooling"
+):
+
+    mean_l, mean_s = prior_params["guide_eff_mean"]
+    std_l, std_s = prior_params["guide_eff_std"]
+
+    # guide_eff must still have shape [n_guides, n_cell_lines]
+
+    if config == "partial_pooling":
+
+        with numpyro.plate("guides", lengths["len_guides"]):
+
+            guide_eff_mean = numpyro.sample(
+                "guide_eff_mean",
+                dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+            )
+            guide_eff_std = numpyro.sample(
+                "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
+            )
+
+        with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+
+            guide_eff = numpyro.sample(
+                "guide_eff",
+                dist.TruncatedNormal(
+                    loc=jnp.repeat(
+                        guide_eff_mean[:, None], lengths["len_cell_lines"], axis=1
+                    ),
+                    scale=jnp.repeat(
+                        guide_eff_std[:, None], lengths["len_cell_lines"], axis=1
+                    ),
+                    low=0.0,
+                    high=1.0,
+                ),
+            )
+
+    elif config == "partial_pooling_low":
+
+        with numpyro.plate("guides", lengths["len_guides"]):
+
+            guide_eff_mean = numpyro.sample(
+                "guide_eff_mean",
+                dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+            )
+            guide_eff_std = numpyro.sample(
+                "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
+            )
+
+        with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+
+            guide_eff = numpyro.sample(
+                "guide_eff",
+                dist.TruncatedNormal(
+                    loc=guide_eff_mean.reshape(-1, 1),
+                    scale=guide_eff_std.reshape(-1, 1),
+                    low=0.0,
+                    high=1.0,
+                ),
+            )
+
+    elif config == "no_pooling":
+
+        with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+            with numpyro.plate("guides", lengths["len_guides"]):
+
+                guide_eff = numpyro.sample(
+                    "guide_eff",
+                    dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+                )
+
+    elif config == "full_pooling":
+
+        with numpyro.plate("guides", lengths["len_guides"]):
+
+            guide_eff_single = numpyro.sample(
+                "guide_eff_single",
+                dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+            )
+            guide_eff = numpyro.deterministic(
+                "guide_eff",
+                jnp.repeat(
+                    guide_eff_single[:, None], lengths["len_cell_lines"], axis=1
+                ),
+            )
+
+    else:
+
+        raise ValueError(
+            "Guide config must be one of ['partial_pooling', 'no_pooling', 'full_pooling']."
         )
-        numpyro.sample(
-            "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
-        )
+
+    return guide_eff
 
 
 def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
     with numpyro.plate("genes", lengths["len_genes"]):
         growth_l, growth_s = prior_params["gene_ko_growth"]
-        numpyro.sample("gene_ko_growth", dist.Normal(growth_l, growth_s))
+        gene_ko_growth = numpyro.sample(
+            "gene_ko_growth", dist.Normal(growth_l, growth_s)
+        )
+
+    return gene_ko_growth
 
 
 def sample_cell_line_distributions(
-    lengths: Dict[str, int], prior_params: Dict[str, Any]
+    lengths: Dict[str, int],
+    prior_params: Dict[str, Any],
 ):
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
         growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
-        numpyro.sample(
+
+        cell_line_growth = numpyro.sample(
             "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
         )
+
+        od_means = prior_params["od_means"]
+        od_stds = prior_params["od_stds"]
+
+        mv_mean_s = prior_params["mv_mean_scale"]
+        mv_std_s = prior_params["mv_std_scale"]
+
+        inv_mv_mean = numpyro.sample(
+            "inv_mv_mean", dist.TruncatedNormal(loc=od_means, scale=mv_mean_s, low=1.0)
+        )
+        inv_mv_std = numpyro.sample(
+            "inv_mv_std", dist.TruncatedNormal(loc=od_stds, scale=mv_std_s, low=0.0)
+        )
+
+    return cell_line_growth, inv_mv_mean, inv_mv_std
 
 
 def sample_dko_distributions(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
+    indices,
     prior_params: Dict[str, Any],
     guide_eff,
+    gene_ko_growth,
+    cell_line_growth,
     inv_mv_mean,
     inv_mv_std,
     alternate: bool = False,
@@ -208,20 +311,6 @@ def sample_dko_distributions(
             dist.TruncatedNormal(loc=init_l, scale=init_s, low=0.0),
         )
 
-        pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
-        pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
-
-        guide_pair_eff_mean = numpyro.sample(
-            "guide_pair_eff_mean",
-            dist.TruncatedNormal(
-                loc=pair_eff_mean_l, scale=pair_eff_mean_s, low=0.0, high=1.0
-            ),
-        )
-        guide_pair_eff_std = numpyro.sample(
-            "guide_pair_eff_std",
-            dist.TruncatedNormal(loc=pair_eff_std_l, scale=pair_eff_std_s, low=0.0),
-        )
-
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
@@ -231,16 +320,6 @@ def sample_dko_distributions(
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
     guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
-
-    guide_eff_12 = numpyro.sample(
-        "guide_eff_12",
-        dist.TruncatedNormal(
-            loc=guide_pair_eff_mean[indices["guide_pair_idx"]],
-            scale=guide_pair_eff_std[indices["guide_pair_idx"]],
-            low=0.0,
-            high=1.0,
-        ),
-    )
 
     inv_mv = numpyro.sample(
         "inv_mv",
@@ -267,7 +346,6 @@ def sample_dko_distributions(
         theta_init[indices["guide_pair_idx"]],
         guide_eff_1,
         guide_eff_2,
-        guide_eff_12,
         cell_line_growth_v,
         gene_ko_growth_1,
         gene_ko_growth_2,
@@ -283,8 +361,11 @@ def sample_dko_distributions(
 def sample_sko_distributions(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
+    indices,
     prior_params: Dict[str, Any],
     guide_eff,
+    gene_ko_growth,
+    cell_line_growth,
     inv_mv_mean,
     inv_mv_std,
     alternate: bool = False,
@@ -344,15 +425,35 @@ def valinorHierarchy(
     no_controls: bool = True,
     alternate: bool = False,
 ) -> None:
-    sample_guide_distributions(lengths, prior_params)
-    sample_gene_distributions(lengths, prior_params)
-    sample_cell_line_distributions(lengths, prior_params)
+    guide_eff = sample_guide_distributions(lengths, prior_params, config="full_pooling")
+    gene_ko_growth = sample_gene_distributions(lengths, prior_params)
+    cell_line_growth, inv_mv_mean, inv_mv_std = sample_cell_line_distributions(
+        lengths, prior_params
+    )
 
     if not only_singletons:
         sample_dko_distributions(
-            data, lengths, prior_params, guide_eff, inv_mv_mean, inv_mv_std, alternate
+            data,
+            lengths,
+            indices,
+            prior_params,
+            guide_eff,
+            gene_ko_growth,
+            cell_line_growth,
+            inv_mv_mean,
+            inv_mv_std,
+            alternate,
         )
     if not no_singletons:
         sample_sko_distributions(
-            data, lengths, prior_params, guide_eff, inv_mv_mean, inv_mv_std, alternate
+            data,
+            lengths,
+            indices,
+            prior_params,
+            guide_eff,
+            gene_ko_growth,
+            cell_line_growth,
+            inv_mv_mean,
+            inv_mv_std,
+            alternate,
         )

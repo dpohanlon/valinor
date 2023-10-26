@@ -8,6 +8,8 @@ import numpyro
 from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
 from numpyro.infer.autoguide import AutoNormal
 
+from numpyro.handlers import seed, trace
+
 from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
@@ -15,6 +17,11 @@ from valinor.postprocessing import sampleParams, createDataFrame
 from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
+
+
+def get_model_sites(model, *args):
+    model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args)
+    return list(model_trace.keys())
 
 
 def runValinor(
@@ -72,7 +79,24 @@ def runValinor(
 
     # Run selected post-processing, save samples, make plots, etc
 
-    predictive = Predictive(guide, params=params, num_samples=config["nSamples"])
+    sites_from_model = get_model_sites(
+        models.valinorHierarchy,
+        data,
+        lengths,
+        indices,
+        prior_params,
+        config["no_singletons"],
+        config["only_singletons"],
+        config["no_controls"],
+        config["alternateLH"],
+    )
+
+    predictive = Predictive(
+        guide,
+        params=params,
+        num_samples=config["nSamples"],
+        return_sites=sites_from_model,
+    )
 
     # Sample from posterior
     samples = predictive(
