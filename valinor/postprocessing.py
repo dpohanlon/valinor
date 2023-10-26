@@ -63,7 +63,9 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 
 
 def sampleParams(
-    samples: Dict[str, np.ndarray], indices: Dict[str, np.ndarray], alternate: bool = False,
+    samples: Dict[str, np.ndarray],
+    indices: Dict[str, np.ndarray],
+    alternate: bool = False,
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Sample parameters based on the provided samples and indices.
@@ -122,7 +124,7 @@ def sampleParams(
             singlesParams["cell_growth_s"],
             singlesParams["ko_growth_s"],
             singlesParams["mv_s"],
-            alternate
+            alternate,
         )[0].sample(random.PRNGKey(42))
 
         params["singles"] = singlesParams
@@ -139,10 +141,14 @@ def sampleParams(
         :, indices["cell_line_idx"]
     ]
 
-    combsParams["guide_eff_1"] = samples["guide_eff"][ # Check whether this should be specified given the hierarchy, ordering, etc
+    combsParams["guide_eff_1"] = samples[
+        "guide_eff"
+    ][  # Check whether this should be specified given the hierarchy, ordering, etc
         :, indices["guide_1_idx"], indices["cell_line_idx"]
     ]
-    combsParams["guide_eff_2"] = samples["guide_eff"][ # Check whether this should be specified given the hierarchy, ordering, etc
+    combsParams["guide_eff_2"] = samples[
+        "guide_eff"
+    ][  # Check whether this should be specified given the hierarchy, ordering, etc
         :, indices["guide_2_idx"], indices["cell_line_idx"]
     ]
     # combsParams["guide_eff_1"] = samples[

@@ -10,12 +10,14 @@ Welcome to Valinor's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   run_model
+   run_valinor
    models
    preprocessing
    postprocessing
-   plots
+   plotting
    utils
+   priors
+   tests
 
 
 

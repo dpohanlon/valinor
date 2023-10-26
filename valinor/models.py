@@ -55,8 +55,7 @@ def dkoLikelihoodFinal(
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
         jnp.exp(
-            cell_line_growth
-            + (gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
+            cell_line_growth + (gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
         )
         - 1.0
     )
@@ -95,9 +94,9 @@ def dkoLikelihoodFullFinal(
         A Negative Binomial distribution object.
     """
 
-    p_1 = guide_eff_1 * (1. - guide_eff_2)
-    p_2 = guide_eff_2 * (1. - guide_eff_1)
-    p_12 = jnp.clip(1. - p_1 * p_2, 0.0, 1.0)
+    p_1 = guide_eff_1 * (1.0 - guide_eff_2)
+    p_2 = guide_eff_2 * (1.0 - guide_eff_1)
+    p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
 
     g1 = gene_ko_growth_1 - cell_line_growth
     g2 = gene_ko_growth_2 - cell_line_growth
@@ -132,7 +131,7 @@ def skoLikelihoodFinal(
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
     mv: float,
-    alternate: bool = False
+    alternate: bool = False,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -212,7 +211,15 @@ def valinorHierarchy(
             "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
         )
 
-        guide_eff = numpyro.sample('guide_eff', dist.TruncatedNormal(loc = guide_eff_mean.reshape(-1, 1), scale = guide_eff_std.reshape(-1, 1), low = 0.0, high = 1.0))
+        guide_eff = numpyro.sample(
+            "guide_eff",
+            dist.TruncatedNormal(
+                loc=guide_eff_mean.reshape(-1, 1),
+                scale=guide_eff_std.reshape(-1, 1),
+                low=0.0,
+                high=1.0,
+            ),
+        )
 
         od_means = prior_params["od_means"]
         od_stds = prior_params["od_stds"]
@@ -257,8 +264,8 @@ def valinorHierarchy(
                 "gene_pair_ko_growth", dist.Normal(pair_growth_l, pair_growth_s)
             )
 
-        guide_eff_1 = guide_eff[indices['guide_1_idx'], indices['cell_line_idx']]
-        guide_eff_2 = guide_eff[indices['guide_2_idx'], indices['cell_line_idx']]
+        guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
+        guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
 
         guide_eff_12 = numpyro.sample(
             "guide_eff_12",
@@ -316,7 +323,7 @@ def valinorHierarchy(
                 dist.TruncatedNormal(loc=init_s_l, scale=init_s_s, low=0.0),
             )
 
-        guide_eff_s = guide_eff[indices['guide_s_idx'], indices['cell_line_s_idx']]
+        guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
         inv_mv_s = numpyro.sample(
             "inv_mv_s",
@@ -341,7 +348,7 @@ def valinorHierarchy(
             cell_line_growth_s,
             gene_ko_growth_s,
             mv_s,
-            alternate
+            alternate,
         )
 
         numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])

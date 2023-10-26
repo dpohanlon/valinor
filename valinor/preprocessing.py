@@ -38,17 +38,26 @@ def prepareData(
     finalCounts = getFinalCounts(datasets)
     initialCounts = getInitialCounts(datasets)
 
-    meanOD, stdOD = calculateOverdispersion(datasets["combinations"] if not (datasets["combinations"] is None) else datasets["singletons"])
+    meanOD, stdOD = calculateOverdispersion(
+        datasets["combinations"]
+        if not (datasets["combinations"] is None)
+        else datasets["singletons"]
+    )
 
     prior_params = defaultPriors()
     prior_params["od_means"] = meanOD
     prior_params["od_stds"] = stdOD
 
-    prior_params["init_count"] = (np.mean(datasets["combinations"]['plasmid']), np.std(datasets["combinations"]['plasmid']),)
+    prior_params["init_count"] = (
+        np.mean(datasets["combinations"]["plasmid"]),
+        np.std(datasets["combinations"]["plasmid"]),
+    )
 
     if not (datasets["singletons"] is None):
-
-        prior_params["init_count_s"] = (np.mean(datasets["singletons"]['plasmid']), np.std(datasets["singletons"]['plasmid']),)
+        prior_params["init_count_s"] = (
+            np.mean(datasets["singletons"]["plasmid"]),
+            np.std(datasets["singletons"]["plasmid"]),
+        )
 
     # These args can be `None`
     indices = getIndices(
@@ -57,7 +66,7 @@ def prepareData(
 
     lengths = calculateLengths(indices, singletons=singletons, neg_controls=controls)
 
-    checkBounds(indices, lengths, singletons = singletons, neg_controls = controls)
+    checkBounds(indices, lengths, singletons=singletons, neg_controls=controls)
 
     return (
         lengths,
