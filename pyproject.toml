@@ -18,6 +18,8 @@ matplotlib = "^3.7.2"
 tqdm = "^4.65.1"
 pyarrow = "^12.0.1"
 fastparquet = "^2023.7.0"
+sphinx = "^7.2.6"
+sphinx-rtd-theme = "^1.3.0"
 
 
 [build-system]
@@ -26,3 +28,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 valinor = "valinor.run_valinor:run"
+
+[tool.poetry.extras]
+docs = ["sphinx","sphinx-rtd-theme"]
