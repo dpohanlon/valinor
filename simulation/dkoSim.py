@@ -980,7 +980,6 @@ def makeDataset(outDir):
 
 
 if __name__ == "__main__":
-
     argParser = argparse.ArgumentParser()
 
     argParser.add_argument(
@@ -993,4 +992,4 @@ if __name__ == "__main__":
 
     args = argParser.parse_args()
 
-    makeDataset(outDir = args.out_dir)
+    makeDataset(outDir=args.out_dir)

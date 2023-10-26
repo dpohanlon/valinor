@@ -55,8 +55,7 @@ def dkoLikelihoodFinal(
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
         jnp.exp(
-            cell_line_growth
-            + (gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
+            cell_line_growth + (gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
         )
         - 1.0
     )
@@ -95,9 +94,9 @@ def dkoLikelihoodFullFinal(
         A Negative Binomial distribution object.
     """
 
-    p_1 = guide_eff_1 * (1. - guide_eff_2)
-    p_2 = guide_eff_2 * (1. - guide_eff_1)
-    p_12 = jnp.clip(1. - p_1 * p_2, 0.0, 1.0)
+    p_1 = guide_eff_1 * (1.0 - guide_eff_2)
+    p_2 = guide_eff_2 * (1.0 - guide_eff_1)
+    p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
 
     g1 = gene_ko_growth_1 - cell_line_growth
     g2 = gene_ko_growth_2 - cell_line_growth
@@ -132,7 +131,7 @@ def skoLikelihoodFinal(
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
     mv: float,
-    alternate: bool = False
+    alternate: bool = False,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -163,6 +162,178 @@ def skoLikelihoodFinal(
     )
 
 
+def sample_guide_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
+    with numpyro.plate("guides", lengths["len_guides"]):
+        mean_l, mean_s = prior_params["guide_eff_mean"]
+        std_l, std_s = prior_params["guide_eff_std"]
+        numpyro.sample(
+            "guide_eff_mean",
+            dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+        )
+        numpyro.sample(
+            "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
+        )
+
+
+def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
+    with numpyro.plate("genes", lengths["len_genes"]):
+        growth_l, growth_s = prior_params["gene_ko_growth"]
+        numpyro.sample("gene_ko_growth", dist.Normal(growth_l, growth_s))
+
+
+def sample_cell_line_distributions(
+    lengths: Dict[str, int], prior_params: Dict[str, Any]
+):
+    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+        growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
+        numpyro.sample(
+            "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
+        )
+
+
+def sample_dko_distributions(
+    data: Dict[str, jnp.array],
+    lengths: Dict[str, int],
+    prior_params: Dict[str, Any],
+    guide_eff,
+    inv_mv_mean,
+    inv_mv_std,
+    alternate: bool = False,
+):
+    with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
+        init_l, init_s = prior_params["init_count"]
+
+        guide_init_count = numpyro.sample(
+            "guide_init_count",
+            dist.TruncatedNormal(loc=init_l, scale=init_s, low=0.0),
+        )
+
+        pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
+        pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
+
+        guide_pair_eff_mean = numpyro.sample(
+            "guide_pair_eff_mean",
+            dist.TruncatedNormal(
+                loc=pair_eff_mean_l, scale=pair_eff_mean_s, low=0.0, high=1.0
+            ),
+        )
+        guide_pair_eff_std = numpyro.sample(
+            "guide_pair_eff_std",
+            dist.TruncatedNormal(loc=pair_eff_std_l, scale=pair_eff_std_s, low=0.0),
+        )
+
+    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
+        pair_growth_l, pair_growth_s = prior_params["pair_growth"]
+
+        gene_pair_ko_growth = numpyro.sample(
+            "gene_pair_ko_growth", dist.Normal(pair_growth_l, pair_growth_s)
+        )
+
+    guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
+    guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
+
+    guide_eff_12 = numpyro.sample(
+        "guide_eff_12",
+        dist.TruncatedNormal(
+            loc=guide_pair_eff_mean[indices["guide_pair_idx"]],
+            scale=guide_pair_eff_std[indices["guide_pair_idx"]],
+            low=0.0,
+            high=1.0,
+        ),
+    )
+
+    inv_mv = numpyro.sample(
+        "inv_mv",
+        dist.TruncatedNormal(
+            loc=inv_mv_mean[indices["cell_line_idx"]],
+            scale=inv_mv_std[indices["cell_line_idx"]],
+            low=1.0,
+        ),
+    )
+
+    mv = numpyro.deterministic("mv", 1.0 / inv_mv)
+
+    gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
+    gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"]]
+    gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
+
+    cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
+
+    init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
+
+    finalLH = dkoLikelihoodFinal if alternate else dkoLikelihoodFullFinal
+
+    lh, theta = finalLH(
+        theta_init[indices["guide_pair_idx"]],
+        guide_eff_1,
+        guide_eff_2,
+        guide_eff_12,
+        cell_line_growth_v,
+        gene_ko_growth_1,
+        gene_ko_growth_2,
+        gene_ko_growth_12,
+        mv,
+    )
+
+    numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
+
+    numpyro.sample("obs", lh, obs=data["final"]["combinations"])
+
+
+def sample_sko_distributions(
+    data: Dict[str, jnp.array],
+    lengths: Dict[str, int],
+    prior_params: Dict[str, Any],
+    guide_eff,
+    inv_mv_mean,
+    inv_mv_std,
+    alternate: bool = False,
+):
+    with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
+        init_s_l, init_s_s = prior_params["init_count_s"]
+
+        guide_init_count_s = numpyro.sample(
+            "guide_init_count_s",
+            dist.TruncatedNormal(loc=init_s_l, scale=init_s_s, low=0.0),
+        )
+
+    guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
+
+    inv_mv_s = numpyro.sample(
+        "inv_mv_s",
+        dist.TruncatedNormal(
+            loc=inv_mv_mean[indices["cell_line_s_idx"]],
+            scale=inv_mv_std[indices["cell_line_s_idx"]],
+            low=1.0,
+        ),
+    )
+
+    mv_s = numpyro.deterministic("mv_s", 1.0 / inv_mv_s)
+
+    gene_ko_growth_s = gene_ko_growth[indices["gene_s_idx"]]
+
+    cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
+
+    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
+
+    lh_s, theta_s = skoLikelihoodFinal(
+        init_theta_s[indices["guide_pair_s_idx"]],
+        guide_eff_s,
+        cell_line_growth_s,
+        gene_ko_growth_s,
+        mv_s,
+        alternate,
+    )
+
+    numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
+
+    numpyro.sample(
+        "obs_s",
+        lh_s,
+        obs=data["final"]["singletons"],
+    )
+
+
 def valinorHierarchy(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
@@ -173,181 +344,15 @@ def valinorHierarchy(
     no_controls: bool = True,
     alternate: bool = False,
 ) -> None:
-    """
-    Defines a hierarchy of distributions based on the provided data and parameters.
-
-    Args:
-        data (Dict[str, jnp.array]): Dictionary containing data arrays.
-        lengths (Dict[str, int]): Dictionary containing length values.
-        indices (Dict[str, jnp.array]): Dictionary containing index arrays.
-        prior_params (Dict[str, Any]): Dictionary containing prior parameters.
-        no_singletons (bool, optional): If true, singletons are not included. Defaults to False.
-        only_singletons (bool, optional): If true, only singletons are included. Defaults to False.
-        no_controls (bool, optional): If true, controls are not included. Defaults to True.
-    """
-
-    with numpyro.plate("guides", lengths["len_guides"]):
-        mean_l, mean_s = prior_params["guide_eff_mean"]
-        std_l, std_s = prior_params["guide_eff_std"]
-
-        guide_eff_mean = numpyro.sample(
-            "guide_eff_mean",
-            dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
-        )
-        guide_eff_std = numpyro.sample(
-            "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
-        )
-
-    with numpyro.plate("genes", lengths["len_genes"]):
-        growth_l, growth_s = prior_params["gene_ko_growth"]
-
-        gene_ko_growth = numpyro.sample(
-            "gene_ko_growth", dist.Normal(growth_l, growth_s)
-        )
-
-    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-        growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
-
-        cell_line_growth = numpyro.sample(
-            "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
-        )
-
-        guide_eff = numpyro.sample('guide_eff', dist.TruncatedNormal(loc = guide_eff_mean.reshape(-1, 1), scale = guide_eff_std.reshape(-1, 1), low = 0.0, high = 1.0))
-
-        od_means = prior_params["od_means"]
-        od_stds = prior_params["od_stds"]
-
-        mv_mean_s = prior_params["mv_mean_scale"]
-        mv_std_s = prior_params["mv_std_scale"]
-
-        inv_mv_mean = numpyro.sample(
-            "inv_mv_mean", dist.TruncatedNormal(loc=od_means, scale=mv_mean_s, low=1.0)
-        )
-        inv_mv_std = numpyro.sample(
-            "inv_mv_std", dist.TruncatedNormal(loc=od_stds, scale=mv_std_s, low=0.0)
-        )
+    sample_guide_distributions(lengths, prior_params)
+    sample_gene_distributions(lengths, prior_params)
+    sample_cell_line_distributions(lengths, prior_params)
 
     if not only_singletons:
-        with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
-            init_l, init_s = prior_params["init_count"]
-
-            guide_init_count = numpyro.sample(
-                "guide_init_count",
-                dist.TruncatedNormal(loc=init_l, scale=init_s, low=0.0),
-            )
-
-            pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
-            pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
-
-            guide_pair_eff_mean = numpyro.sample(
-                "guide_pair_eff_mean",
-                dist.TruncatedNormal(
-                    loc=pair_eff_mean_l, scale=pair_eff_mean_s, low=0.0, high=1.0
-                ),
-            )
-            guide_pair_eff_std = numpyro.sample(
-                "guide_pair_eff_std",
-                dist.TruncatedNormal(loc=pair_eff_std_l, scale=pair_eff_std_s, low=0.0),
-            )
-
-        with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
-            pair_growth_l, pair_growth_s = prior_params["pair_growth"]
-
-            gene_pair_ko_growth = numpyro.sample(
-                "gene_pair_ko_growth", dist.Normal(pair_growth_l, pair_growth_s)
-            )
-
-        guide_eff_1 = guide_eff[indices['guide_1_idx'], indices['cell_line_idx']]
-        guide_eff_2 = guide_eff[indices['guide_2_idx'], indices['cell_line_idx']]
-
-        guide_eff_12 = numpyro.sample(
-            "guide_eff_12",
-            dist.TruncatedNormal(
-                loc=guide_pair_eff_mean[indices["guide_pair_idx"]],
-                scale=guide_pair_eff_std[indices["guide_pair_idx"]],
-                low=0.0,
-                high=1.0,
-            ),
+        sample_dko_distributions(
+            data, lengths, prior_params, guide_eff, inv_mv_mean, inv_mv_std, alternate
         )
-
-        inv_mv = numpyro.sample(
-            "inv_mv",
-            dist.TruncatedNormal(
-                loc=inv_mv_mean[indices["cell_line_idx"]],
-                scale=inv_mv_std[indices["cell_line_idx"]],
-                low=1.0,
-            ),
-        )
-
-        mv = numpyro.deterministic("mv", 1.0 / inv_mv)
-
-        gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
-        gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"]]
-        gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
-
-        cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
-
-        init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
-
-        finalLH = dkoLikelihoodFinal if alternate else dkoLikelihoodFullFinal
-
-        lh, theta = finalLH(
-            theta_init[indices["guide_pair_idx"]],
-            guide_eff_1,
-            guide_eff_2,
-            guide_eff_12,
-            cell_line_growth_v,
-            gene_ko_growth_1,
-            gene_ko_growth_2,
-            gene_ko_growth_12,
-            mv,
-        )
-
-        numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
-
-        numpyro.sample("obs", lh, obs=data["final"]["combinations"])
-
     if not no_singletons:
-        with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
-            init_s_l, init_s_s = prior_params["init_count_s"]
-
-            guide_init_count_s = numpyro.sample(
-                "guide_init_count_s",
-                dist.TruncatedNormal(loc=init_s_l, scale=init_s_s, low=0.0),
-            )
-
-        guide_eff_s = guide_eff[indices['guide_s_idx'], indices['cell_line_s_idx']]
-
-        inv_mv_s = numpyro.sample(
-            "inv_mv_s",
-            dist.TruncatedNormal(
-                loc=inv_mv_mean[indices["cell_line_s_idx"]],
-                scale=inv_mv_std[indices["cell_line_s_idx"]],
-                low=1.0,
-            ),
-        )
-
-        mv_s = numpyro.deterministic("mv_s", 1.0 / inv_mv_s)
-
-        gene_ko_growth_s = gene_ko_growth[indices["gene_s_idx"]]
-
-        cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
-
-        init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
-
-        lh_s, theta_s = skoLikelihoodFinal(
-            init_theta_s[indices["guide_pair_s_idx"]],
-            guide_eff_s,
-            cell_line_growth_s,
-            gene_ko_growth_s,
-            mv_s,
-            alternate
-        )
-
-        numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
-
-        numpyro.sample(
-            "obs_s",
-            lh_s,
-            obs=data["final"]["singletons"],
+        sample_sko_distributions(
+            data, lengths, prior_params, guide_eff, inv_mv_mean, inv_mv_std, alternate
         )

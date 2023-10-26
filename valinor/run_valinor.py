@@ -60,11 +60,11 @@ def runValinor(
         no_singletons=config["no_singletons"],
         only_singletons=config["only_singletons"],
         no_controls=config["no_controls"],
-        alternate=config['alternateLH'],
+        alternate=config["alternateLH"],
         stable_update=config["stable_update"],
     )
 
-    plotDiagPlots(svi_result, name = config['name'])
+    plotDiagPlots(svi_result, name=config["name"])
 
     params = svi_result.params
 
@@ -86,15 +86,21 @@ def runValinor(
         no_controls=config["no_controls"],
     )
 
-    sampledParams = sampleParams(samples, indices, config['alternateLH'])
+    sampledParams = sampleParams(samples, indices, config["alternateLH"])
 
     combsDF = createDataFrame(sampledParams["combs"])
-    combsDF.to_parquet("combsModel.pq" if config['name'] is None else f"combsModel_{config['name']}.pq")
+    combsDF.to_parquet(
+        "combsModel.pq" if config["name"] is None else f"combsModel_{config['name']}.pq"
+    )
 
-    if config['no_singletons'] == False:
-
+    if config["no_singletons"] == False:
         singlesDF = createDataFrame(sampledParams["singles"])
-        singlesDF.to_parquet("singlesModel.pq" if config['name'] is None else f"singlesModel_{config['name']}.pq")
+        singlesDF.to_parquet(
+            "singlesModel.pq"
+            if config["name"] is None
+            else f"singlesModel_{config['name']}.pq"
+        )
+
 
 def makeArgs():
     # I'd like an argument, please
@@ -140,7 +146,9 @@ def makeArgs():
         help="Whether to use the alternate approximate likelihood.",
     )
 
-    argParser.add_argument("-n", type=str, dest="name", default=None, help="Output name.")
+    argParser.add_argument(
+        "-n", type=str, dest="name", default=None, help="Output name."
+    )
 
     argParser.add_argument(
         "--paramsFileName",

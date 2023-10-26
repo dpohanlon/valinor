@@ -16,7 +16,6 @@ def loadData(data_files: Dict[str, str]):
     outFiles = {}
 
     for n, f in data_files.items():
-
         if f is None:
             d = None
         elif "pq" in f:
@@ -35,7 +34,9 @@ def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
     counts = {}
 
     for n, d in datasets.items():
-        counts[n] = jnp.array(d["value"].values.reshape(-1)) if not (d is None) else None
+        counts[n] = (
+            jnp.array(d["value"].values.reshape(-1)) if not (d is None) else None
+        )
 
     return counts
 
