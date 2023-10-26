@@ -44,11 +44,11 @@ def prepareData(
     prior_params["od_means"] = meanOD
     prior_params["od_stds"] = stdOD
 
-    prior_params["init_count"] = (np.mean(datasets["combinations"]['pDNA']), np.std(datasets["combinations"]['pDNA']),)
+    prior_params["init_count"] = (np.mean(datasets["combinations"]['plasmid']), np.std(datasets["combinations"]['plasmid']),)
 
     if not (datasets["singletons"] is None):
 
-        prior_params["init_count_s"] = (np.mean(datasets["singletons"]['pDNA']), np.std(datasets["singletons"]['pDNA']),)
+        prior_params["init_count_s"] = (np.mean(datasets["singletons"]['plasmid']), np.std(datasets["singletons"]['plasmid']),)
 
     # These args can be `None`
     indices = getIndices(

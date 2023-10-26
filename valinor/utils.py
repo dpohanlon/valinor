@@ -40,7 +40,7 @@ def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
     return counts
 
 
-def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "pDNA"):
+def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
     counts = {}
 
     for n, d in datasets.items():
