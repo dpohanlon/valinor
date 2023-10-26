@@ -94,11 +94,11 @@ def sampleParams(
 
         # TO DO: Add a switch here
 
-        # singlesParams["guide_eff_s"] = samples["guide_eff_s"][
-        #     :, indices["guide_s_idx"], indices["cell_line_s_idx"]
-        # ]
+        singlesParams["guide_eff_s"] = samples["guide_eff"][
+            :, indices["guide_s_idx"], indices["cell_line_s_idx"]
+        ]
 
-        singlesParams["guide_eff_s"] = samples["guide_eff_s"][:, indices["guide_s_idx"]]
+        # singlesParams["guide_eff_s"] = samples["guide_eff_s"][:, indices["guide_s_idx"]]
 
         singlesParams["cell_growth_s"] = samples["cell_line_growth"][
             :, indices["cell_line_s_idx"]
@@ -139,22 +139,22 @@ def sampleParams(
         :, indices["cell_line_idx"]
     ]
 
-    # combsParams["guide_eff_1"] = samples["guide_eff_1"][ # Check whether this should be specified given the hierarchy, ordering, etc
-    #     :, indices["guide_1_idx"], indices["cell_line_idx"]
-    # ]
-    # combsParams["guide_eff_2"] = samples["guide_eff_2"][ # Check whether this should be specified given the hierarchy, ordering, etc
-    #     :, indices["guide_2_idx"], indices["cell_line_idx"]
-    # ]
-    combsParams["guide_eff_1"] = samples[
-        "guide_eff_1"
-    ][  # Check whether this should be specified given the hierarchy, ordering, etc
-        :, indices["guide_1_idx"]
+    combsParams["guide_eff_1"] = samples["guide_eff"][ # Check whether this should be specified given the hierarchy, ordering, etc
+        :, indices["guide_1_idx"], indices["cell_line_idx"]
     ]
-    combsParams["guide_eff_2"] = samples[
-        "guide_eff_2"
-    ][  # Check whether this should be specified given the hierarchy, ordering, etc
-        :, indices["guide_2_idx"]
+    combsParams["guide_eff_2"] = samples["guide_eff"][ # Check whether this should be specified given the hierarchy, ordering, etc
+        :, indices["guide_2_idx"], indices["cell_line_idx"]
     ]
+    # combsParams["guide_eff_1"] = samples[
+    #     "guide_eff_1"
+    # ][  # Check whether this should be specified given the hierarchy, ordering, etc
+    #     :, indices["guide_1_idx"]
+    # ]
+    # combsParams["guide_eff_2"] = samples[
+    #     "guide_eff_2"
+    # ][  # Check whether this should be specified given the hierarchy, ordering, etc
+    #     :, indices["guide_2_idx"]
+    # ]
     combsParams["guide_eff_12"] = samples["guide_eff_12"]
 
     combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
