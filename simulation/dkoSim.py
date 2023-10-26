@@ -894,8 +894,7 @@ def makeDataset(outDir):
     dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
     dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
 
-    # dfCombs.to_hdf("dfCombs_ace.h5", "ace", complevel=9, mode="w")
-    dfCombs.to_parquet("dfCombs_ace.pq")
+    dfCombs.to_parquet(f"{outDir}/dfCombs_ace.pq")
 
     print("making singletons", time.time() - t)
     dfSgl = makeSingletonsDF(
