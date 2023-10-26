@@ -88,14 +88,13 @@ def runValinor(
 
     sampledParams = sampleParams(samples, indices, config['alternateLH'])
 
-    singlesDF = createDataFrame(sampledParams["singles"])
     combsDF = createDataFrame(sampledParams["combs"])
+    combsDF.to_parquet("combsModel.pq" if config['name'] is None else f"combsModel_{config['name']}.pq")
 
-    # Save these separately to Parquet just for now
+    if config['no_singletons'] == False:
 
-    singlesDF.to_parquet("singlesModel.pq")
-    combsDF.to_parquet("combsModel.pq")
-
+        singlesDF = createDataFrame(sampledParams["singles"])
+        singlesDF.to_parquet("singlesModel.pq" if config['name'] is None else f"singlesModel_{config['name']}.pq")
 
 def makeArgs():
     # I'd like an argument, please

@@ -212,6 +212,8 @@ def valinorHierarchy(
             "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
         )
 
+        guide_eff = numpyro.sample('guide_eff', dist.TruncatedNormal(loc = guide_eff_mean.reshape(-1, 1), scale = guide_eff_std.reshape(-1, 1), low = 0.0, high = 1.0))
+
         od_means = prior_params["od_means"]
         od_stds = prior_params["od_stds"]
 
@@ -255,24 +257,8 @@ def valinorHierarchy(
                 "gene_pair_ko_growth", dist.Normal(pair_growth_l, pair_growth_s)
             )
 
-        guide_eff_1 = numpyro.sample(
-            "guide_eff_1",
-            dist.TruncatedNormal(
-                loc=guide_eff_mean[indices["guide_1_idx"]],
-                scale=guide_eff_std[indices["guide_1_idx"]],
-                low=0.0,
-                high=1.0,
-            ),
-        )
-        guide_eff_2 = numpyro.sample(
-            "guide_eff_2",
-            dist.TruncatedNormal(
-                loc=guide_eff_mean[indices["guide_2_idx"]],
-                scale=guide_eff_std[indices["guide_2_idx"]],
-                low=0.0,
-                high=1.0,
-            ),
-        )
+        guide_eff_1 = guide_eff[indices['guide_1_idx'], indices['cell_line_idx']]
+        guide_eff_2 = guide_eff[indices['guide_2_idx'], indices['cell_line_idx']]
 
         guide_eff_12 = numpyro.sample(
             "guide_eff_12",
@@ -330,15 +316,7 @@ def valinorHierarchy(
                 dist.TruncatedNormal(loc=init_s_l, scale=init_s_s, low=0.0),
             )
 
-        guide_eff_s = numpyro.sample(
-            "guide_eff_s",
-            dist.TruncatedNormal(
-                loc=guide_eff_mean[indices["guide_s_idx"]],
-                scale=guide_eff_std[indices["guide_s_idx"]],
-                low=0.0,
-                high=1.0,
-            ),
-        )
+        guide_eff_s = guide_eff[indices['guide_s_idx'], indices['cell_line_s_idx']]
 
         inv_mv_s = numpyro.sample(
             "inv_mv_s",
