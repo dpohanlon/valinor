@@ -795,7 +795,7 @@ class DoubleKO(object):
         plt.clf()
 
 
-def makeDataset():
+def makeDataset(outDir):
     returnCounts = True
     # nCellLines = 10
     # nGenes = 100
@@ -922,8 +922,7 @@ def makeDataset():
     dfSgl = dfSgl.sort_values(
         ["guide1_index_s", "guide2_index_s", "cell_line"]
     ).reset_index()
-    # dfSgl.to_hdf("dfSgl_ace.h5", "ace", complevel=9, mode="w")
-    dfSgl.to_parquet("dfSgl_ace.pq")
+    dfSgl.to_parquet(f"{outDir}/dfSgl_ace.pq")
 
     # Offsets to test calibration
 
@@ -963,8 +962,7 @@ def makeDataset():
 
     dfCalib["cell_line_index"] = dfCalib["cell_line"]
 
-    # dfCalib.to_hdf("dfCalib_ace.h5", "ace", complevel=9, mode="w")
-    dfCalib.to_parquet("dfCalib_ace.pq")
+    dfCalib.to_parquet(f"{outDir}/dfCalib_ace.pq")
 
     offsetsCounts = np.zeros(len(offsets))
     for i, dko in enumerate(dkos):
@@ -979,9 +977,21 @@ def makeDataset():
             "offsetsCounts": offsetsCounts.ravel(),
         }
     )
-    # dfOffsets.to_hdf("dfOffsets_ace.h5", "offsets", complevel=9, mode="w")
-    dfOffsets.to_parquet("dfOffsets_ace.pq")
+    dfOffsets.to_parquet(f"{outDir}/dfOffsets_ace.pq")
 
 
 if __name__ == "__main__":
-    makeDataset()
+
+    argParser = argparse.ArgumentParser()
+
+    argParser.add_argument(
+        "--out-dir",
+        type=str,
+        dest="out_dir",
+        default=".",
+        help="Output directory for the simulated data.",
+    )
+
+    args = argParser.parse_args()
+
+    makeDataset(outDir = args.out_dir)
