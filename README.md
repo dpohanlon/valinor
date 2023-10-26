@@ -13,5 +13,3 @@ Install from the Github repository
 git clone git@github.com:dpohanlon/valinor.git
 pip install -e .
 ```
-
-```
