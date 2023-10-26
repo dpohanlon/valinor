@@ -6,9 +6,18 @@
 Welcome to Valinor's documentation!
 ===================================
 
+Valinor implements a hierarchical Bayesian model to identify genetic interactions in double knock out pooled CRISPR experiments.
+
+If you are new here, please take a look at the quick start guide or the tutorial. (These will be links once I work out how links to other pages work in this thing.)
+
+You can read more about the method, motivations, and benchmarks the accompanying `paper <http://www.papers.com/paper.html>`_.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+
+   quickstart
+   tutorial
 
    run_valinor
    models
@@ -18,12 +27,3 @@ Welcome to Valinor's documentation!
    utils
    priors
    tests
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
