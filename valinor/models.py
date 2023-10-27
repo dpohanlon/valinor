@@ -158,6 +158,15 @@ def skoLikelihoodFinal(
         mv=mv,
     )
 
+def controlLikelihoodFinal(
+    init_theta_c: float,
+    cell_line_growth_c: float,
+    mv: float,
+) -> Distribution:
+
+    theta = init_theta_c * jnp.exp(cell_line_growth_c)
+
+    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
 
 def sample_guide_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any], config="partial_pooling"
@@ -454,6 +463,38 @@ def sample_sko_distributions(
         obs=data["final"]["singletons"],
     )
 
+def sample_control_distributions(
+    data: Dict[str, jnp.array],
+    lengths: Dict[str, int],
+    indices,
+    prior_params: Dict[str, Any],
+    cell_line_growth,
+    inv_mv_mean,
+    inv_mv_std,
+):
+
+    init_c_l, init_c_s = prior_params["init_count_c"]
+
+    with numpyro.plate('guides_counts_c', lengths['len_guide_pairs_c']):
+
+        guide_init_count_c = numpyro.sample('guide_init_count_c', dist.TruncatedNormal(loc = init_c_l, scale = init_c_s, low = 0.0))
+
+    inv_mv_c = numpyro.sample('inv_mv_c', dist.TruncatedNormal(loc = inv_mv_mean[indices['cell_line_c_idx']], scale = inv_mv_std[indices['cell_line_c_idx']], low = 1.0))
+    mv_c = numpyro.deterministic('mv_c', 1. / inv_mv_c)
+
+    cell_line_growth_c = cell_line_growth[indices['cell_line_c_idx']]
+
+    init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
+
+    lh_c, theta_c = controlLikelihoodFinal(guide_init_count_c, cell_line_growth_c, mv_c)
+
+    numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
+
+    numpyro.sample(
+        "obs_c",
+        lh_c,
+        obs=data["final"]["controls"],
+    )
 
 def valinorHierarchy(
     data: Dict[str, jnp.array],
@@ -497,4 +538,14 @@ def valinorHierarchy(
             inv_mv_mean,
             inv_mv_std,
             alternate,
+        )
+    if not no_controls:
+        sample_control_distributions(
+            data,
+            lengths,
+            indices,
+            prior_params,
+            cell_line_growth,
+            inv_mv_mean,
+            inv_mv_std,
         )
