@@ -81,7 +81,7 @@ def negativeBinomial(mean, variance=None, size=None):
     if variance is None:
         variance = 1.25 * mean
 
-    n_nb = -(mean**2 / (mean - variance))
+    n_nb = -(mean ** 2 / (mean - variance))
     p_nb = 1.0 - (mean / (variance + 1e-8))
 
     p_nb = np.clip(p_nb, 0, 1)
