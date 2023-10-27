@@ -198,7 +198,7 @@ def sample_guide_distributions(
 
     elif config == "partial_pooling_low":
 
-        with numpyro.plate("guides", lengths["len_guides"]):
+        with numpyro.plate("guides", lengths["len_guides"], dim = -2):
 
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
@@ -208,7 +208,7 @@ def sample_guide_distributions(
                 "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
             )
 
-        with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+        with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim = -1):
 
             guide_eff = numpyro.sample(
                 "guide_eff",
@@ -340,18 +340,58 @@ def sample_dko_distributions(
 
     init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
 
-    finalLH = dkoLikelihoodFinal if alternate else dkoLikelihoodFullFinal
+    if alternate:
 
-    lh, theta = finalLH(
-        theta_init[indices["guide_pair_idx"]],
-        guide_eff_1,
-        guide_eff_2,
-        cell_line_growth_v,
-        gene_ko_growth_1,
-        gene_ko_growth_2,
-        gene_ko_growth_12,
-        mv,
-    )
+        with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
+
+            pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
+            pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
+
+            guide_pair_eff_mean = numpyro.sample(
+                "guide_pair_eff_mean",
+                dist.TruncatedNormal(
+                    loc=pair_eff_mean_l, scale=pair_eff_mean_s, low=0.0, high=1.0
+                ),
+            )
+            guide_pair_eff_std = numpyro.sample(
+                "guide_pair_eff_std",
+                dist.TruncatedNormal(loc=pair_eff_std_l, scale=pair_eff_std_s, low=0.0),
+            )
+
+        guide_eff_12 = numpyro.sample(
+            "guide_eff_12",
+            dist.TruncatedNormal(
+                loc=guide_pair_eff_mean[indices["guide_pair_idx"]],
+                scale=guide_pair_eff_std[indices["guide_pair_idx"]],
+                low=0.0,
+                high=1.0,
+            ),
+        )
+
+        lh, theta = dkoLikelihoodFinal(
+            theta_init[indices["guide_pair_idx"]],
+            guide_eff_1,
+            guide_eff_2,
+            guide_eff_12,
+            cell_line_growth_v,
+            gene_ko_growth_1,
+            gene_ko_growth_2,
+            gene_ko_growth_12,
+            mv,
+        )
+
+    else:
+
+        lh, theta = dkoLikelihoodFullFinal(
+            theta_init[indices["guide_pair_idx"]],
+            guide_eff_1,
+            guide_eff_2,
+            cell_line_growth_v,
+            gene_ko_growth_1,
+            gene_ko_growth_2,
+            gene_ko_growth_12,
+            mv,
+        )
 
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
 

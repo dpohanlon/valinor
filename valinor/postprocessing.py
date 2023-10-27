@@ -181,17 +181,35 @@ def sampleParams(
 
     finalLH = models.dkoLikelihoodFinal if alternate else models.dkoLikelihoodFullFinal
 
-    combsParams["samples"] = finalLH(
-        combsParams["init_count"],
-        combsParams["guide_eff_1"],
-        combsParams["guide_eff_2"],
-        # combsParams["guide_eff_12"],
-        combsParams["cell_line_growth"],
-        combsParams["gene_ko_growth_1"],
-        combsParams["gene_ko_growth_2"],
-        combsParams["gene_ko_growth_12"],
-        combsParams["mv"],
-    )[0].sample(random.PRNGKey(42))
+    if alternate:
+
+        combsParams["guide_eff_12"] = samples["guide_eff_12"]
+
+        combsParams["samples"] = models.dkoLikelihoodFinal(
+            combsParams["init_count"],
+            combsParams["guide_eff_1"],
+            combsParams["guide_eff_2"],
+            combsParams["guide_eff_12"],
+            combsParams["cell_line_growth"],
+            combsParams["gene_ko_growth_1"],
+            combsParams["gene_ko_growth_2"],
+            combsParams["gene_ko_growth_12"],
+            combsParams["mv"],
+        )[0].sample(random.PRNGKey(42))
+
+    else:
+
+        combsParams["samples"] = models.dkoLikelihoodFullFinal(
+            combsParams["init_count"],
+            combsParams["guide_eff_1"],
+            combsParams["guide_eff_2"],
+            # combsParams["guide_eff_12"],
+            combsParams["cell_line_growth"],
+            combsParams["gene_ko_growth_1"],
+            combsParams["gene_ko_growth_2"],
+            combsParams["gene_ko_growth_12"],
+            combsParams["mv"],
+        )[0].sample(random.PRNGKey(42))
 
     params["combs"] = combsParams
 
