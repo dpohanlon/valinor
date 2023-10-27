@@ -73,6 +73,100 @@ def getContextMatrix(
 
     return mat
 
+def getGIContextMatrix(num_genes, num_contexts, total_cell_lines, fraction_gene_pairs_in_context):
+    """
+    Generate context matrices for gene interactions.
+
+    Parameters:
+    - num_genes: Number of genes.
+    - num_contexts: Number of context-specific groups of cell lines.
+    - total_cell_lines: Total number of cell lines.
+    - fraction_gene_pairs_in_context: Fraction of gene pairs that are present in a context.
+
+    Returns:
+    - A list of context matrices for each context.
+    """
+
+    # Calculate the number of gene pairs that should be present in a context
+    num_gene_pairs_to_modify = int(num_genes * (num_genes - 1) * fraction_gene_pairs_in_context / 2)
+
+    context_matrices = []
+
+    for _ in range(num_contexts):
+        # Start with a matrix of ones (indicating no change)
+        context_matrix = np.ones((num_genes, num_genes))
+
+        # Randomly select gene pairs to modify
+        gene_pairs_to_modify = np.random.choice(num_genes, size=(num_gene_pairs_to_modify, 2), replace=True)
+
+        for pair in gene_pairs_to_modify:
+            # Generate a random multiplier between 0 and 2 for the interaction (this range can be adjusted)
+            multiplier = np.random.uniform(0, 2)
+            context_matrix[pair[0], pair[1]] = multiplier
+            context_matrix[pair[1], pair[0]] = multiplier  # Assuming the matrix is symmetric
+
+        context_matrices.append(context_matrix)
+
+    return context_matrices
+
+def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context):
+    """
+    Generate context matrices for gene interactions.
+
+    Parameters:
+    - num_genes: Number of genes.
+    - num_contexts: Number of context-specific groups of cell lines.
+    - fraction_gene_pairs_in_context: Fraction of gene pairs that are present in a context.
+
+    Returns:
+    - A list of context matrices for each context.
+    """
+
+    # Calculate the number of gene pairs that should be present in a context
+    num_gene_pairs_to_modify = int(num_genes * (num_genes - 1) * fraction_gene_pairs_in_context / 2)
+
+    context_matrices = []
+
+    for _ in range(num_contexts):
+        # Start with a matrix of ones (indicating no change)
+        context_matrix = np.ones((num_genes, num_genes))
+
+        # Randomly select gene pairs to modify, ensuring we don't select diagonal pairs
+        gene_pairs_to_modify = []
+        while len(gene_pairs_to_modify) < num_gene_pairs_to_modify:
+            pair = np.random.choice(num_genes, size=2, replace=False)
+            if pair[0] != pair[1]:
+                gene_pairs_to_modify.append(pair)
+
+        for pair in gene_pairs_to_modify:
+            # Generate a random multiplier between 0 and 2 for the interaction
+            multiplier = np.random.uniform(0, 2)
+            context_matrix[pair[0], pair[1]] = multiplier
+            context_matrix[pair[1], pair[0]] = multiplier
+
+        context_matrices.append(context_matrix)
+
+    return context_matrices
+
+def assign_contexts_to_cell_lines(total_cell_lines, num_contexts):
+    """
+    Assign contexts to cell lines. Each cell line can have multiple contexts.
+
+    Parameters:
+    - total_cell_lines: Total number of cell lines.
+    - num_contexts: Number of context-specific groups of cell lines.
+
+    Returns:
+    - A dictionary mapping each cell line to its associated context indices.
+    """
+
+    cell_line_to_contexts = {}
+    for i in range(total_cell_lines):
+        # Randomly assign one or more contexts to each cell line
+        assigned_contexts = np.random.choice(num_contexts, size=np.random.randint(1, num_contexts+1), replace=False)
+        cell_line_to_contexts[i] = assigned_contexts
+
+    return cell_line_to_contexts
 
 def negativeBinomial(mean, variance=None, size=None):
     # Minimum observable
@@ -89,7 +183,7 @@ def negativeBinomial(mean, variance=None, size=None):
     return np.random.negative_binomial(np.maximum(1e-4, n_nb), 1.0 - p_nb, size=size)
 
 
-def genCellLine(prototypeDKO, resampleFrac=0.2, fluctuateStd=0.05, context=None):
+def genCellLine(prototypeDKO, resampleFrac=0.2, fluctuateStd=0.05, context=None, gi_contexts = None, gi_context_lists = None):
     # Simplest: Fluctuate a fraction of essentialities, re-generate the rest to simulate context differences
     # Fluctuate efficiencies
 
@@ -153,6 +247,8 @@ def genCellLine(prototypeDKO, resampleFrac=0.2, fluctuateStd=0.05, context=None)
         synergies=newSyn,
         sgRNAEfficiencies=newRNAEfficiencies,
         pairEfficiency=newPairEfficiency,
+        gi_contexts = gi_contexts,
+        gi_context_lists = gi_context_lists
     )
 
     return newDKO
@@ -163,6 +259,8 @@ def addCellLines(
     dfDKO,
     nCellLines,
     contexts=None,
+    gi_contexts = None,
+    gi_context_lists = None,
     resampleFrac=0.2,
     fluctuateStd=0.05,
     offsets=None,
@@ -178,7 +276,9 @@ def addCellLines(
             prototypeDKO,
             resampleFrac,
             fluctuateStd,
-            context=contexts[i] if not contexts is None else None,
+            context= contexts[i] if not contexts is None else None,
+            gi_contexts = gi_contexts,
+            gi_context_lists = gi_context_lists[i]
         )
         df = populateCombinationDF(dko, returnCounts=returnCounts)
 
@@ -474,6 +574,8 @@ class DoubleKO(object):
         splitEfficiencies=True,
         seed=42,
         context=None,
+        gi_contexts = None,
+        gi_context_lists = None,
         geneEssentiality=None,
         synergies=None,
         sgRNAEfficiencies=None,
@@ -501,6 +603,18 @@ class DoubleKO(object):
         else:
             self.synergies = synergies
 
+        # sns.heatmap(self.synergies, cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.5, vmax = 0.5)
+        # plt.savefig('syn_before.pdf')
+        # plt.clf()
+
+        if not (gi_contexts is None):
+            for i in gi_context_lists:
+                self.synergies *= gi_contexts[i]
+
+        # sns.heatmap(self.synergies, cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.5, vmax = 0.5)
+        # plt.savefig('syn_after.pdf')
+        # plt.clf()
+
         if geneEssentiality is None:
             # We could even populate this with real data from the essentiality scores
             self.geneEssentiality = np.random.normal(0.1, 0.02, size=self.nGenes)
@@ -510,7 +624,7 @@ class DoubleKO(object):
 
         if not context is None:
             self.context = context
-            # self.geneEssentiality += self.context
+            self.geneEssentiality += self.context
 
         self.essentialities = self.combinedEssentiality(
             self.geneEssentiality, self.synergies
@@ -808,6 +922,39 @@ def makeDataset(outDir):
 
     t = time.time()
 
+    # ms = getGIContextMatrix(num_genes = nGenes, num_contexts = nContexts, total_cell_lines = nCellLines, fraction_gene_pairs_in_context = 0.01)
+    #
+    # print(ms[0])
+    # print(len(ms))
+    # print(ms[0].shape)
+    #
+    # sns.heatmap(ms[0], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig("contexts0.pdf")
+    # plt.clf()
+    #
+    # sns.heatmap(ms[1], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig("contexts1.pdf")
+    # plt.clf()
+
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01)
+    cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts)
+
+    # sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig("contexts0.pdf")
+    # plt.clf()
+    #
+    # sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig("contexts1.pdf")
+    # plt.clf()
+
     contexts = getContextMatrix(
         nCellLines, nGenes, nContexts, nVariantFrac, variance=0.1
     )
@@ -819,15 +966,13 @@ def makeDataset(outDir):
     # otherwise?
 
     # Make a symmetric range about 0
-    # maxVal = np.max(np.abs(contextsPlot.ravel()))
+    maxVal = np.max(np.abs(contextsPlot.ravel()))
 
     # sns.heatmap(contextsPlot, cmap=sns.color_palette("vlag", as_cmap=True), vmin = -maxVal, vmax = maxVal)
     # plt.ylabel("Cell line")
     # plt.xlabel("Gene")
     # plt.savefig("contexts.pdf")
     # plt.clf()
-    #
-    # exit(0)
 
     sgRNAEfficiencies1 = np.clip(
         np.random.normal(0.65, 0.02, size=nGenes * 1),
@@ -849,7 +994,7 @@ def makeDataset(outDir):
     )
 
     dko = DoubleKO(
-        nGenes=nGenes, context=contexts[0], sgRNAEfficiencies=sgRNAEfficiencies
+        nGenes=nGenes, context=contexts[0], gi_contexts = context_matrices, gi_context_lists = cell_line_to_contexts[0], sgRNAEfficiencies=sgRNAEfficiencies
     )
 
     # sns.heatmap(dko.synergies[:10, :10], cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.17, vmax = 0.17)
@@ -874,6 +1019,8 @@ def makeDataset(outDir):
         dfCombs,
         nCellLines,
         contexts=contexts,
+        gi_contexts = context_matrices,
+        gi_context_lists = cell_line_to_contexts,
         # offsets=offsets,
         returnCounts=returnCounts,
     )
