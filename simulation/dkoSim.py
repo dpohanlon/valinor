@@ -73,41 +73,6 @@ def getContextMatrix(
 
     return mat
 
-def getGIContextMatrix(num_genes, num_contexts, total_cell_lines, fraction_gene_pairs_in_context):
-    """
-    Generate context matrices for gene interactions.
-
-    Parameters:
-    - num_genes: Number of genes.
-    - num_contexts: Number of context-specific groups of cell lines.
-    - total_cell_lines: Total number of cell lines.
-    - fraction_gene_pairs_in_context: Fraction of gene pairs that are present in a context.
-
-    Returns:
-    - A list of context matrices for each context.
-    """
-
-    # Calculate the number of gene pairs that should be present in a context
-    num_gene_pairs_to_modify = int(num_genes * (num_genes - 1) * fraction_gene_pairs_in_context / 2)
-
-    context_matrices = []
-
-    for _ in range(num_contexts):
-        # Start with a matrix of ones (indicating no change)
-        context_matrix = np.ones((num_genes, num_genes))
-
-        # Randomly select gene pairs to modify
-        gene_pairs_to_modify = np.random.choice(num_genes, size=(num_gene_pairs_to_modify, 2), replace=True)
-
-        for pair in gene_pairs_to_modify:
-            # Generate a random multiplier between 0 and 2 for the interaction (this range can be adjusted)
-            multiplier = np.random.uniform(0, 2)
-            context_matrix[pair[0], pair[1]] = multiplier
-            context_matrix[pair[1], pair[0]] = multiplier  # Assuming the matrix is symmetric
-
-        context_matrices.append(context_matrix)
-
-    return context_matrices
 
 def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context):
     """
@@ -123,7 +88,9 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
     """
 
     # Calculate the number of gene pairs that should be present in a context
-    num_gene_pairs_to_modify = int(num_genes * (num_genes - 1) * fraction_gene_pairs_in_context / 2)
+    num_gene_pairs_to_modify = int(
+        num_genes * (num_genes - 1) * fraction_gene_pairs_in_context / 2
+    )
 
     context_matrices = []
 
@@ -148,6 +115,7 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
 
     return context_matrices
 
+
 def assign_contexts_to_cell_lines(total_cell_lines, num_contexts):
     """
     Assign contexts to cell lines. Each cell line can have multiple contexts.
@@ -163,10 +131,13 @@ def assign_contexts_to_cell_lines(total_cell_lines, num_contexts):
     cell_line_to_contexts = {}
     for i in range(total_cell_lines):
         # Randomly assign one or more contexts to each cell line
-        assigned_contexts = np.random.choice(num_contexts, size=np.random.randint(1, num_contexts+1), replace=False)
+        assigned_contexts = np.random.choice(
+            num_contexts, size=np.random.randint(1, num_contexts + 1), replace=False
+        )
         cell_line_to_contexts[i] = assigned_contexts
 
     return cell_line_to_contexts
+
 
 def negativeBinomial(mean, variance=None, size=None):
     # Minimum observable
@@ -175,7 +146,7 @@ def negativeBinomial(mean, variance=None, size=None):
     if variance is None:
         variance = 1.25 * mean
 
-    n_nb = -(mean**2 / (mean - variance))
+    n_nb = -(mean ** 2 / (mean - variance))
     p_nb = 1.0 - (mean / (variance + 1e-8))
 
     p_nb = np.clip(p_nb, 0, 1)
@@ -183,7 +154,14 @@ def negativeBinomial(mean, variance=None, size=None):
     return np.random.negative_binomial(np.maximum(1e-4, n_nb), 1.0 - p_nb, size=size)
 
 
-def genCellLine(prototypeDKO, resampleFrac=0.2, fluctuateStd=0.05, context=None, gi_contexts = None, gi_context_lists = None):
+def genCellLine(
+    prototypeDKO,
+    resampleFrac=0.2,
+    fluctuateStd=0.05,
+    context=None,
+    gi_contexts=None,
+    gi_context_lists=None,
+):
     # Simplest: Fluctuate a fraction of essentialities, re-generate the rest to simulate context differences
     # Fluctuate efficiencies
 
@@ -247,8 +225,8 @@ def genCellLine(prototypeDKO, resampleFrac=0.2, fluctuateStd=0.05, context=None,
         synergies=newSyn,
         sgRNAEfficiencies=newRNAEfficiencies,
         pairEfficiency=newPairEfficiency,
-        gi_contexts = gi_contexts,
-        gi_context_lists = gi_context_lists
+        gi_contexts=gi_contexts,
+        gi_context_lists=gi_context_lists,
     )
 
     return newDKO
@@ -259,8 +237,8 @@ def addCellLines(
     dfDKO,
     nCellLines,
     contexts=None,
-    gi_contexts = None,
-    gi_context_lists = None,
+    gi_contexts=None,
+    gi_context_lists=None,
     resampleFrac=0.2,
     fluctuateStd=0.05,
     offsets=None,
@@ -276,9 +254,9 @@ def addCellLines(
             prototypeDKO,
             resampleFrac,
             fluctuateStd,
-            context= contexts[i] if not contexts is None else None,
-            gi_contexts = gi_contexts,
-            gi_context_lists = gi_context_lists[i]
+            context=contexts[i] if not contexts is None else None,
+            gi_contexts=gi_contexts,
+            gi_context_lists=gi_context_lists[i],
         )
         df = populateCombinationDF(dko, returnCounts=returnCounts)
 
@@ -574,8 +552,8 @@ class DoubleKO(object):
         splitEfficiencies=True,
         seed=42,
         context=None,
-        gi_contexts = None,
-        gi_context_lists = None,
+        gi_contexts=None,
+        gi_context_lists=None,
         geneEssentiality=None,
         synergies=None,
         sgRNAEfficiencies=None,
@@ -994,7 +972,11 @@ def makeDataset(outDir):
     )
 
     dko = DoubleKO(
-        nGenes=nGenes, context=contexts[0], gi_contexts = context_matrices, gi_context_lists = cell_line_to_contexts[0], sgRNAEfficiencies=sgRNAEfficiencies
+        nGenes=nGenes,
+        context=contexts[0],
+        gi_contexts=context_matrices,
+        gi_context_lists=cell_line_to_contexts[0],
+        sgRNAEfficiencies=sgRNAEfficiencies,
     )
 
     # sns.heatmap(dko.synergies[:10, :10], cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.17, vmax = 0.17)
@@ -1019,8 +1001,8 @@ def makeDataset(outDir):
         dfCombs,
         nCellLines,
         contexts=contexts,
-        gi_contexts = context_matrices,
-        gi_context_lists = cell_line_to_contexts,
+        gi_contexts=context_matrices,
+        gi_context_lists=cell_line_to_contexts,
         # offsets=offsets,
         returnCounts=returnCounts,
     )
@@ -1140,4 +1122,4 @@ if __name__ == "__main__":
 
     args = argParser.parse_args()
 
-    makeDataset(outDir = args.out_dir)
+    makeDataset(outDir=args.out_dir)
