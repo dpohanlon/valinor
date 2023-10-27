@@ -424,8 +424,9 @@ def valinorHierarchy(
     only_singletons: bool = False,
     no_controls: bool = True,
     alternate: bool = False,
+    guide_config: str = "partial_pooling",
 ) -> None:
-    guide_eff = sample_guide_distributions(lengths, prior_params, config="full_pooling")
+    guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
     cell_line_growth, inv_mv_mean, inv_mv_std = sample_cell_line_distributions(
         lengths, prior_params

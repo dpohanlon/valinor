@@ -40,10 +40,6 @@ def runValinor(
         prior_params (Dict[str, Any]): Dictionary containing prior parameters.
         data (Dict[str, Any]): Dictionary containing data arrays.
         config (Namespace): Configuration options for the run.
-        name (str, optional): Name for the run. Defaults to "".
-        no_singletons (bool, optional): If True, singletons are not included. Defaults to False.
-        only_singletons (bool, optional): If True, only singletons are included. Defaults to False.
-        no_controls (bool, optional): If True, controls are not included. Defaults to False.
     """
 
     guide = AutoNormal(models.valinorHierarchy)
@@ -69,6 +65,7 @@ def runValinor(
         no_controls=config["no_controls"],
         alternate=config["alternateLH"],
         stable_update=config["stable_update"],
+        guide_config=config["guide_config"],
     )
 
     plotDiagPlots(svi_result, name=config["name"])
@@ -89,6 +86,7 @@ def runValinor(
         config["only_singletons"],
         config["no_controls"],
         config["alternateLH"],
+        config["guide_config"],
     )
 
     predictive = Predictive(
@@ -108,6 +106,7 @@ def runValinor(
         no_singletons=config["no_singletons"],
         only_singletons=config["only_singletons"],
         no_controls=config["no_controls"],
+        guide_config=config["guide_config"],
     )
 
     sampledParams = sampleParams(samples, indices, config["alternateLH"])
@@ -241,6 +240,14 @@ def makeArgs():
         dest="controlsFile",
         default=None,
         help="Data controls file.",
+    )
+
+    argParser.add_argument(
+        "--guide-config",
+        type=str,
+        dest="guide_config",
+        default="partial_pooling",
+        help="Guide pooling type, one of 'no_pooling', 'full pooling', or 'partial_pooling'.",
     )
 
     return argParser
