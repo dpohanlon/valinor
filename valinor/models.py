@@ -155,7 +155,7 @@ def skoLikelihoodFinal(
             cell_line_growth = cell_line_growth_s,
             gene_ko_growth_1 = gene_ko_growth_s,
             gene_ko_growth_2 = 0.0,
-            gene_ko_growth_12 = 0.0
+            gene_ko_growth_12 = 0.0,
             mv = mv
 
     else:
