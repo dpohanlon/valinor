@@ -148,7 +148,7 @@ def skoLikelihoodFinal(
     if alternate:
 
         return dkoLikelihoodFinal(
-            init_theta: init_theta_s,
+            init_theta = init_theta_s,
             guide_eff_1 = guide_eff_s,
             guide_eff_2 = 0.0,
             guide_eff_12  = 0.0
