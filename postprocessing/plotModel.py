@@ -44,7 +44,6 @@ class ModelPlotter(object):
         cutoff=False,
         calibrationFile=None,
         singletonFile=None,
-        chronos=False,
     ):
 
         if not os.path.exists(location):
@@ -53,65 +52,39 @@ class ModelPlotter(object):
         if location[:-1] != "/":
             location = location + "/"
 
-        # Remove the cases with the same gene targetted twice (there shouldn't be any)
-        data = data.query("g1_idx != g2_idx")
-
         self.data = data
         self.modelOutput = modelOutput
         self.location = location
         self.singletons = singletons
         self.cutoff = cutoff
 
-        self.geneTermName = "g1"
-        self.genePairTermName = "gpair"
+        self.valueName = 'value'
 
-        # Not true for anchors...
-        self.guideTermName = "guide1"
-        self.guidePairTermName = "guidepair"
+        self.geneTermName = "gene_ko_growth_1_mean"
+        self.genePairTermName = "gene_ko_growth_12_mean"
 
-        self.chronos = chronos
+        self.guideTermName = "guide_eff_1_mean"
 
-        self.valueName = "lfc"
-
-        if self.chronos:
-            self.valueName = 'value'
-
-            self.geneTermName = "ko_growth_1"
-            self.genePairTermName = "ko_growth_12"
-
-            self.guideTermName = "guide_eff_1"
-            self.guidePairTermName = "guide_eff_12"
-
-            self.cell_growth = "cell_growth"
-            self.cell_eff = "cell_eff"
+        self.cell_growth = "cell_line_growth_mean"
 
         if calibrationFile != None:
-            self.calibrationData = pd.read_hdf(calibrationFile, "ace")
-            self.calibrationGenValues = pd.read_hdf(calibrationFile, "offsets")[
+            self.calibrationData = pd.read_parquet(calibrationFile)
+            self.calibrationGenValues = pd.read_parquet(calibrationFile)[
                 "offsets"
             ].values
 
         if singletonFile:
-            self.singletonData = pd.read_hdf(singletonFile, "ace")
+            self.singletonData = pd.read_parquet(singletonFile)
 
     def plotDataModelComparison(self, data, modelOutput, plot=plt):
 
-        # offset = np.array([ 0., 0.29399431, 0.18996913, 0.47189779, -0.21669924, -0.28156997])
+        dataCounts = data[self.valueName]
 
-        # Discard (3) replicate association
-        lfcs = data[self.valueName].values#.reshape(-1, 3)[:, 0]
+        minBinCut = np.quantile(dataCounts, 0.001)
+        maxBinCut = np.quantile(dataCounts, 0.999)
 
-        # cell_line_idx = np.array(data['cell_line'].values.reshape(-1, 3)[:,:1]).reshape(-1)
-        # lfcs = lfcs - offset[cell_line_idx]
-
-        # combinedData = np.concatenate((data[self.valueName].values.reshape(-1, 3)[:, 0], lfcs))
-        combinedData = np.concatenate((data[self.valueName].values, lfcs))
-
-        minBinCut = np.quantile(combinedData, 0.01)
-        maxBinCut = np.quantile(combinedData, 0.999)
-
-        minBinAll = min(np.min(lfcs), np.min(modelOutput["samples"]))
-        maxBinAll = max(np.max(lfcs), np.max(modelOutput["samples"]))
+        minBinAll = min(np.min(dataCounts), np.min(modelOutput["samples"]))
+        maxBinAll = max(np.max(dataCounts), np.max(modelOutput["samples"]))
 
         bins = np.linspace(
             minBinCut if self.cutoff else minBinAll,
@@ -119,20 +92,19 @@ class ModelPlotter(object):
             100,
         )
 
-        # bins = np.linspace(-5, 2, 75)
-
-        plot.hist(lfcs, bins, histtype="step", label="Data")
+        plot.hist(dataCounts, bins, histtype="step", label="Data", lw = 2.0)
         plot.hist(
             modelOutput["samples"],
             bins,
             histtype="step",
             label="Model",
             color=colours[2],
+            lw = 2.0
         )
 
         binsChi2 = np.linspace(minBinAll, maxBinAll, 100)
 
-        y1, _ = np.histogram(lfcs, binsChi2)
+        y1, _ = np.histogram(dataCounts, binsChi2)
         y2, _ = np.histogram(modelOutput["samples"], binsChi2)
 
         try:
@@ -141,11 +113,11 @@ class ModelPlotter(object):
             print(e)
             chi2 = [0.0, 0.0]
 
-        plot.set_xlim(minBinCut if self.cutoff else minBinAll, maxBinCut if self.cutoff else maxBinAll)
-
         if plot is plt:
-            plot.legend(loc=6, fontsize=12)
-            plot.xlabel(self.valueName, fontsize=12)
+            plot.legend(loc=6, fontsize=18)
+            plot.xlabel('Counts', fontsize=18)
+
+            plot.xlim(minBinCut if self.cutoff else minBinAll, maxBinCut if self.cutoff else maxBinAll)
 
             plot.savefig(f"{self.location}dataModelHist.pdf")
             plot.savefig(f"{self.location}dataModelHist.png", dpi=300)
@@ -154,16 +126,18 @@ class ModelPlotter(object):
 
             plot.annotate(
                 r"$\chi^2_r=$%.2f" % (chi2[0]),
-                (0.05, 0.05),
+                (0.90, 0.05),
                 xycoords="axes fraction",
-                fontsize=16,
+                fontsize=21,
             )
+
+            plot.set_xlim(minBinCut if self.cutoff else minBinAll, maxBinCut if self.cutoff else maxBinAll)
 
             # plot.set_yscale('log')
 
-            plot.tick_params(axis="both", labelsize=12)
-            plot.legend(loc=6, fontsize=16)
-            plot.set_xlabel(self.valueName, fontsize=16)
+            plot.tick_params(axis="both", labelsize=18)
+            plot.legend(loc=6, fontsize=21)
+            plot.set_xlabel('Counts', fontsize=21)
 
     def plotLFCs(self, lfcs, dataType="", plot=plt):
 
@@ -178,63 +152,6 @@ class ModelPlotter(object):
             plot.tick_params(axis="both", labelsize=12)
 
             plot.set_xlabel(self.valueName, fontsize=16)
-
-    def plotStrongSynergy(self, data, modelOutput, plot=plt):
-
-        if self.cutoff:
-            minStrong = np.quantile(modelOutput["STRONG"], 0.01)
-            maxStrong = np.quantile(modelOutput["STRONG"], 0.99)
-
-        plot.plot(
-            modelOutput["STRONG"],
-            data["syn"].values.reshape(-1, 3)[:, 0],
-            ".",
-            markersize=1.0,
-            alpha=0.5,
-        )
-
-        subsample = np.random.randint(0, len(modelOutput), len(modelOutput) // 10)
-
-        sns.kdeplot(
-            x=modelOutput["STRONG"].values[subsample],
-            y=data["syn"].values.reshape(-1, 3)[:, 0][subsample],
-            alpha=0.8,
-            ax=plot,
-            color=colours[1],
-            zorder=10,
-        )
-
-        corr = np.round(
-            np.corrcoef(modelOutput["STRONG"], data["syn"].values.reshape(-1, 3)[:, 0]),
-            2,
-        )
-
-        if plot is plt:
-            plot.xlabel('GEMINI "strong" score', fontsize=12)
-            plot.ylabel("Synergy", fontsize=12)
-
-            if self.cutoff:
-                plot.xlim(minStrong, maxStrong)
-
-            plot.savefig(f"{self.location}strongSynergy.pdf")
-            plot.savefig(f"{self.location}strongSynergy.png", dpi=300)
-            plot.clf()
-
-        else:
-            plot.tick_params(axis="both", labelsize=12)
-
-            if self.cutoff:
-                plot.set_xlim(minStrong, maxStrong)
-
-            plot.annotate(
-                r"$\rho=$%.2f" % (corr[0][1]),
-                (0.05, 0.05),
-                xycoords="axes fraction",
-                fontsize=16,
-            )
-
-            plot.set_xlabel('GEMINI "strong" score', fontsize=16)
-            plot.set_ylabel("Synergy", fontsize=16)
 
     def plotGeneTerm(self, data, modelOutput, plot=plt):
 
@@ -498,10 +415,7 @@ class ModelPlotter(object):
 
     def makeMultiPlots(self):
 
-        if not self.chronos:
-            fig, axs = plt.subplots(2, 3, figsize = (18, 9))
-        else:
-            fig, axs = plt.subplots(2, 2, figsize = (16, 12))
+        fig, axs = plt.subplots(2, 2, figsize = (16, 12))
 
         if not self.singletons:
 
@@ -515,10 +429,6 @@ class ModelPlotter(object):
         if self.guidePairTermName in self.data.columns:
 
             self.plotGuidePairTerm(self.data, self.modelOutput, plot=axs[0][2])
-
-        if not self.chronos:
-
-            self.plotStrongSynergy(self.data, self.modelOutput, plot=axs[1][2])
 
         axs[0][0].annotate(
             self.location.split("/")[-2],
@@ -572,18 +482,11 @@ if __name__ == "__main__":
         default=False,
         help="Cutoff plot outliers.",
     )
-    argParser.add_argument(
-        "--chronos",
-        action="store_true",
-        dest="chronos",
-        default=False,
-        help="Assume Chronos likelihood.",
-    )
 
     args = argParser.parse_args()
 
-    data = pd.read_hdf(args.dataFile)
-    modelOutput = [pd.read_hdf(f) for f in args.modelOutputFile]
+    data = pd.read_parquet(args.dataFile)
+    modelOutput = [pd.read_parquet(f) for f in args.modelOutputFile]
     if len(modelOutput) == 1:
         modelOutput = modelOutput[0]
 
@@ -595,11 +498,16 @@ if __name__ == "__main__":
         cutoff=args.cutoff,
         singletonFile=args.sglFile,
         calibrationFile=args.calibFile,
-        chronos = args.chronos,
     )
 
+    # fig, axs = plt.subplots(1, 1, figsize = (18, 9))
+
+    plotter.plotDataModelComparison(data, modelOutput)
+
+    plt.savefig('test.pdf')
+
     # plotter.makePlots()
-    plotter.makeMultiPlots()
+    # plotter.makeMultiPlots()
 
     # TODO: make this a a command-line option
 
