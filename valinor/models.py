@@ -157,7 +157,8 @@ def skoLikelihoodFinal(
             gene_ko_growth_2 = 0.0,
             gene_ko_growth_12 = 0.0,
             mv = mv
-
+        )
+        
     else:
 
         return dkoLikelihoodFullFinal(
