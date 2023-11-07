@@ -192,7 +192,7 @@ class ModelPlotter(object):
     def plotGenePairTerm(self, data, modelOutput, plot=plt):
 
         # Plot by cell line! Different gene terms!
-        # plt.plot(model['gpair'].values[df['cell_line'].values.reshape(-1, 3)[:,0] == 0], df.query('cell_line == 0')['syn'].values.reshape(-1, 3)[:,0], '.')
+        # plt.plot(model['gpair'].values[df['cell_line'].values.reshape(-1, 3)[:,0] == 0], df.query('cell_line == 0')['self.genePairTermName'].values.reshape(-1, 3)[:,0], '.')
 
         cell_lines = np.unique(data["cell_line"])
 
@@ -202,7 +202,7 @@ class ModelPlotter(object):
 
         plot.plot(
             modelOutput[self.genePairTermName],
-            data["syn"].values,#.reshape(-1, 3)[:, 0],
+            data[self.genePairTermName].values,#.reshape(-1, 3)[:, 0],
             ".",
             markersize=1.0,
             alpha=0.5,
@@ -212,7 +212,7 @@ class ModelPlotter(object):
 
         sns.kdeplot(
             x=modelOutput[self.genePairTermName].values[subsample],
-            y=data["syn"].values[subsample],#.reshape(-1, 3)[:, 0][subsample],
+            y=data[self.genePairTermName].values[subsample],#.reshape(-1, 3)[:, 0][subsample],
             alpha=0.8,
             ax=plot,
             color=colours[1],
@@ -221,7 +221,7 @@ class ModelPlotter(object):
 
         # for cell_line in cell_lines:
         #
-        #     d = data["syn"].values.reshape(-1, 3)[:, 0]
+        #     d = data[self.genePairTermName].values.reshape(-1, 3)[:, 0]
         #     c = data["cell_line"].values.reshape(-1, 3)[:, 0]
         #
         #     plot.plot(
@@ -233,8 +233,8 @@ class ModelPlotter(object):
         #     )
 
         corr = np.round(
-            # np.corrcoef(modelOutput[self.genePairTermName], data["syn"].values.reshape(-1, 3)[:, 0]),
-            np.corrcoef(modelOutput[self.genePairTermName], data["syn"].values),
+            # np.corrcoef(modelOutput[self.genePairTermName], data[self.genePairTermName].values.reshape(-1, 3)[:, 0]),
+            np.corrcoef(modelOutput[self.genePairTermName], data[self.genePairTermName].values),
             2,
         )
 
@@ -306,7 +306,7 @@ class ModelPlotter(object):
 
         plot.plot(
             modelOutput[self.guidePairTermName],
-            data["syn"].values,#.reshape(-1, 3)[:, 0],
+            data[self.genePairTermName].values,#.reshape(-1, 3)[:, 0],
             ".",
             markersize=1.0,
             alpha=0.5,
@@ -316,7 +316,7 @@ class ModelPlotter(object):
 
         sns.kdeplot(
             x=modelOutput[self.guidePairTermName].values[subsample],
-            y=data["syn"].values[subsample],#.reshape(-1, 3)[:, 0][subsample],
+            y=data[self.genePairTermName].values[subsample],#.reshape(-1, 3)[:, 0][subsample],
             alpha=0.8,
             ax=plot,
             color=colours[1],
@@ -325,7 +325,7 @@ class ModelPlotter(object):
 
         corr = np.round(
             np.corrcoef(
-                modelOutput[self.guidePairTermName], data["syn"].values,#.reshape(-1, 3)[:, 0]
+                modelOutput[self.guidePairTermName], data[self.genePairTermName].values,#.reshape(-1, 3)[:, 0]
             ),
             2,
         )
@@ -333,7 +333,7 @@ class ModelPlotter(object):
         if plot is plt:
 
             plot.xlabel("Guide pair term", fontsize=12)
-            plot.ylabel("Gene synergy", fontsize=12)
+            plot.ylabel("Gene self.genePairTermNameergy", fontsize=12)
 
             plot.savefig(f"{self.location}guidePairSynergy.pdf")
             plot.savefig(f"{self.location}guidePairSynergy.png", dpi=300)
@@ -349,7 +349,7 @@ class ModelPlotter(object):
 
             plot.tick_params(axis="both", labelsize=12)
             plot.set_xlabel("Guide pair term", fontsize=16)
-            plot.set_ylabel("Gene synergy", fontsize=16)
+            plot.set_ylabel("Gene self.genePairTermNameergy", fontsize=16)
 
     def plotTermError(self, modelOutputs):
 
@@ -447,23 +447,34 @@ if __name__ == "__main__":
     argParser = argparse.ArgumentParser()
 
     argParser.add_argument(
-        "-d", type=str, dest="dataFile", help="Pandas HDF5 data input file."
+        "-d",
+        "--combsData",
+        type=str, dest="dataFile", help="Pandas Parquet combination data input file."
     )
     argParser.add_argument(
-        "-sd", type=str, dest="sglFile", help="Pandas HDF5 singleton data input file."
+        "-sd",
+        "--singlesData",
+        type=str, dest="sglFile", help="Pandas Parquet singleton data input file."
     )
     argParser.add_argument(
         "-cd",
+        "--controlsData",
         type=str,
         dest="calibFile",
-        help="Pandas HDF5 calibration data input file.",
+        help="Pandas Parquet control data input file.",
+    )
+    argParser.add_argument(
+        "--simulationGen",
+        type=str,
+        dest="simulationData",
+        help="Pandas Parquet simulation true generated values.",
     )
     argParser.add_argument(
         "-m",
         nargs="+",
         type=str,
         dest="modelOutputFile",
-        help="Pandas HDF5 model output file.",
+        help="Pandas Parquet model output file (multiple).",
     )
     argParser.add_argument(
         "-l", type=str, dest="location", default=".", help="Plot output location."
@@ -481,6 +492,13 @@ if __name__ == "__main__":
         dest="cutoff",
         default=False,
         help="Cutoff plot outliers.",
+    )
+    argParser.add_argument(
+        "--simulation",
+        action="store_true",
+        dest="simulation",
+        default=False,
+        help="Whether the inputs are simulation, to compare with truth values.",
     )
 
     args = argParser.parse_args()
