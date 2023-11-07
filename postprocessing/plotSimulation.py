@@ -143,6 +143,12 @@ class SimPlotter(object):
 
     # Separate code to postprocess model output? Merging, LFC, etc
 
+    def calculateLFC(self, data):
+
+        data['lfc'] = np.log2(np.maximum(data['value'], 1) / np.maximum(data['plasmid'], 1))
+
+        return data
+
     def populateContexts(self, data, contextsFile):
 
         cell_contexts, context_matrices = pickle.load(open(contextsFile, 'rb'))
@@ -167,11 +173,20 @@ class SimPlotter(object):
         gi_data = data.merge(gi_df, on = ['gene1', 'gene2', 'cell_line'])
         gi_data['context_gi'] = gi_data['gi'] > 1.0
 
+        self.data = gi_data
+
         return gi_data
 
-    def plotContextGI(self, data, modelOutput, contextsFile):
+    def plotContextGI(self, data, modelOutput):
 
-        pass
+        clipMin = np.quantile(data['lfc'], 0.0001)
+        clipMax = np.quantile(data['lfc'], 0.9999)
+
+        sns.kdeplot(data = data, x = 'lfc', hue = 'context_gi', common_norm = False, clip = (clipMin, clipMax))
+
+        plt.xlim(clipMin, clipMax)
+
+        plt.savefig('context_gi.pdf')
 
     def makePlots(self):
 
@@ -304,6 +319,9 @@ if __name__ == "__main__":
         calibrationFile=args.calibFile,
     )
 
-    plotter.populateContexts(data, args.contextsFile)
+    data = plotter.populateContexts(data, args.contextsFile)
+    data = plotter.calculateLFC(data)
+
+    plotter.plotContextGI(data, modelOutput)
 
     plotter.plotDataModelComparison(data, modelOutput)
