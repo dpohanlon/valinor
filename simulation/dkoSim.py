@@ -34,6 +34,8 @@ import functools
 
 import time
 
+import pickle
+
 # Extend the ACE parameterisation to double KO
 
 # Mutation matrix -> (mutation, essentiality factor)
@@ -921,17 +923,19 @@ def makeDataset(outDir):
     context_matrices = generate_context_matrices(nGenes, nContexts, 0.01)
     cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts)
 
-    # sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
-    # plt.ylabel("Gene")
-    # plt.xlabel("Gene")
-    # plt.savefig("contexts0.pdf")
-    # plt.clf()
-    #
-    # sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
-    # plt.ylabel("Gene")
-    # plt.xlabel("Gene")
-    # plt.savefig("contexts1.pdf")
-    # plt.clf()
+    sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
+    plt.ylabel("Gene")
+    plt.xlabel("Gene")
+    plt.savefig("contexts0.pdf")
+    plt.clf()
+
+    sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
+    plt.ylabel("Gene")
+    plt.xlabel("Gene")
+    plt.savefig("contexts1.pdf")
+    plt.clf()
+
+    pickle.dump((cell_line_to_contexts, context_matrices), open('gi_contexts.pkl', 'wb'))
 
     contexts = getContextMatrix(
         nCellLines, nGenes, nContexts, nVariantFrac, variance=0.1
