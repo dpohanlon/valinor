@@ -8,11 +8,20 @@ import numpyro
 from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
 from numpyro.infer.autoguide import AutoNormal
 
+from numpyro.handlers import seed, trace
+
 from valinor import models
 from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
 from valinor.preprocessing import prepareData
+from valinor.postprocessing import sampleParams, createDataFrame
+from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
+
+
+def get_model_sites(model, *args):
+    model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args)
+    return list(model_trace.keys())
 
 
 def runValinor(
@@ -21,10 +30,6 @@ def runValinor(
     prior_params: Dict[str, Any],
     data: Dict[str, Any],
     config: Dict[str, Any],
-    name: str = "",
-    no_singletons: bool = False,
-    only_singletons: bool = False,
-    no_controls: bool = False,
 ) -> None:
     """
     Runs the Valinor model on the provided data.
@@ -35,10 +40,6 @@ def runValinor(
         prior_params (Dict[str, Any]): Dictionary containing prior parameters.
         data (Dict[str, Any]): Dictionary containing data arrays.
         config (Namespace): Configuration options for the run.
-        name (str, optional): Name for the run. Defaults to "".
-        no_singletons (bool, optional): If True, singletons are not included. Defaults to False.
-        only_singletons (bool, optional): If True, only singletons are included. Defaults to False.
-        no_controls (bool, optional): If True, controls are not included. Defaults to False.
     """
 
     guide = AutoNormal(models.valinorHierarchy)
@@ -62,8 +63,12 @@ def runValinor(
         no_singletons=config["no_singletons"],
         only_singletons=config["only_singletons"],
         no_controls=config["no_controls"],
+        alternate=config["alternateLH"],
         stable_update=config["stable_update"],
+        guide_config=config["guide_config"],
     )
+
+    plotDiagPlots(svi_result, name=config["name"])
 
     params = svi_result.params
 
@@ -71,7 +76,25 @@ def runValinor(
 
     # Run selected post-processing, save samples, make plots, etc
 
-    predictive = Predictive(guide, params=params, num_samples=config["nSamples"])
+    sites_from_model = get_model_sites(
+        models.valinorHierarchy,
+        data,
+        lengths,
+        indices,
+        prior_params,
+        config["no_singletons"],
+        config["only_singletons"],
+        config["no_controls"],
+        config["alternateLH"],
+        config["guide_config"],
+    )
+
+    predictive = Predictive(
+        guide,
+        params=params,
+        num_samples=config["nSamples"],
+        return_sites=sites_from_model,
+    )
 
     # Sample from posterior
     samples = predictive(
@@ -83,7 +106,23 @@ def runValinor(
         no_singletons=config["no_singletons"],
         only_singletons=config["only_singletons"],
         no_controls=config["no_controls"],
+        guide_config=config["guide_config"],
     )
+
+    sampledParams = sampleParams(samples, indices, config["alternateLH"])
+
+    combsDF = createDataFrame(sampledParams["combs"])
+    combsDF.to_parquet(
+        "combsModel.pq" if config["name"] is None else f"combsModel_{config['name']}.pq"
+    )
+
+    if config["no_singletons"] == False:
+        singlesDF = createDataFrame(sampledParams["singles"])
+        singlesDF.to_parquet(
+            "singlesModel.pq"
+            if config["name"] is None
+            else f"singlesModel_{config['name']}.pq"
+        )
 
 
 def makeArgs():
@@ -122,7 +161,17 @@ def makeArgs():
         help="Stable update.",
     )
 
-    argParser.add_argument("-n", type=str, dest="name", default="", help="Output name.")
+    argParser.add_argument(
+        "--alternateLH",
+        action="store_true",
+        dest="alternateLH",
+        default=False,
+        help="Whether to use the alternate approximate likelihood.",
+    )
+
+    argParser.add_argument(
+        "-n", type=str, dest="name", default=None, help="Output name."
+    )
 
     argParser.add_argument(
         "--paramsFileName",
@@ -193,6 +242,14 @@ def makeArgs():
         help="Data controls file.",
     )
 
+    argParser.add_argument(
+        "--guide-config",
+        type=str,
+        dest="guide_config",
+        default="partial_pooling",
+        help="Guide pooling type, one of 'no_pooling', 'full pooling', or 'partial_pooling'.",
+    )
+
     return argParser
 
 
@@ -213,8 +270,8 @@ def run():
     lengths, indices, prior_params, data = prepareData(
         data_files,
         config["only_singletons"],
-        ~config["no_singletons"],
-        ~config["no_controls"],
+        not config["no_singletons"],
+        not config["no_controls"],
     )
 
     runValinor(lengths, indices, prior_params, data, config)

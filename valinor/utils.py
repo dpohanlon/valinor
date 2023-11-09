@@ -16,7 +16,9 @@ def loadData(data_files: Dict[str, str]):
     outFiles = {}
 
     for n, f in data_files.items():
-        if "pq" in f:
+        if f is None:
+            d = None
+        elif "pq" in f:
             d = pd.read_parquet(f)
         elif "h5" in f:
             d = pd.read_hdf(f)
@@ -32,7 +34,9 @@ def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
     counts = {}
 
     for n, d in datasets.items():
-        counts[n] = jnp.array(d["value"].values.reshape(-1))
+        counts[n] = (
+            jnp.array(d["value"].values.reshape(-1)) if not (d is None) else None
+        )
 
     return counts
 
@@ -41,7 +45,7 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
     counts = {}
 
     for n, d in datasets.items():
-        counts[n] = getInitialCountsDF(d, initCountVar)
+        counts[n] = getInitialCountsDF(d, initCountVar) if not (d is None) else None
 
     return counts
 
@@ -188,6 +192,8 @@ def calculateLengths(
 def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
     """
     Save model parameters to a file.
+
+    TODO: Save the transformed and untransformed params
 
     Args:
         params (Dict[str, np.ndarray]): Dictionary of model parameters.
