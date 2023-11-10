@@ -58,7 +58,7 @@ col_mapping = {
             "guide2_o": "guide2_o",
             "guide_pair_index": "guide_pair_index",
             "lfc": "lfc",
-            "pDNA": "plasmid",
+            "plasmid": "plasmid",
             "plasmid_norm": None,
             "replicate": "replicate",
             "sum_counts": "sum_counts",
@@ -67,7 +67,7 @@ col_mapping = {
         },
         "data_s": {
             "GuidePair": "GuidePair",
-            "pDNA": "plasmid",
+            "plasmid": "plasmid",
             "Aureus_gene": "gene2",
             "Pyogenes_gene": "gene1",
             "variable": "variable",
