@@ -162,6 +162,19 @@ def sampleParams(
     #     :, indices["guide_2_idx"]
     # ]
     # combsParams["guide_eff_12"] = samples["guide_eff_12"]
+    combsParams["guide_eff_mean_1"] = samples["guide_eff_mean"][
+        :, indices["guide_1_idx"]
+    ]
+    combsParams["guide_eff_mean_2"] = samples["guide_eff_mean"][
+        :, indices["guide_2_idx"]
+    ]
+
+    combsParams["guide_eff_std_1"] = samples["guide_eff_std"][
+        :, indices["guide_1_idx"]
+    ]
+    combsParams["guide_eff_std_2"] = samples["guide_eff_std"][
+        :, indices["guide_2_idx"]
+    ]
 
     combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
         :, indices["gene_1_idx"]

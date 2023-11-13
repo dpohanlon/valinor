@@ -21,6 +21,7 @@ def plotLossCurve(loss, log=True, name=None):
     plt.ylabel("ELBO")
     plt.xlabel("Steps")
     plt.savefig("valinor_loss.pdf" if name == None else f"valinor_loss_{name}.pdf")
+    plt.savefig("valinor_loss.svg" if name == None else f"valinor_loss_{name}.svg")
     plt.clf()
 
 

@@ -6,29 +6,16 @@ import jinja2
 from datetime import date
 import h5py
 import altair as alt
-import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import glob
+import shutil
+import os
 import re
 import argparse
 from utilsreport import *
 
 alt.data_transformers.disable_max_rows()
-
-# I'll take the HT29 as the reference for now
-# missing data: 'CSID', 'Note1', 'Note2', 'cell_line_real', 'gene1_o', 'gene2_o', 'gene1_unq_ori_index', 'gene2_unq_ori_index', 'gene_unq_pair_ori_index'
-# 'guide1_index_s', 'guide2_index_s', 'lfc_norm', 'lfc_norm_scaled', 'lfc_scaled', 'library', 'negMedian', 'posMedian', 'prediction_score', 'repeats', 'sgRNA',
-# 'sorted_gene_pair', 'total_value', 'value_norm'
-
-# missing data_s: 'CSID', 'GuidePairUnoriented', 'Note1', 'Note2', 'SingletonGuide_o_s', 'cell_line_real', 'guide1_index_s', 'lfc_norm', 'lfc_norm_scaled', 'lfc_scaled',
-# 'library', 'negMedian', 'posMedian', 'repeats', 'sgRNA', 'total_value', 'value_norm'
-
-# missing score: 'guide_1_eff_mean', 'guide_1_eff_mean_std', 'guide_1_eff_std', 'guide_1_eff_std_std', 'guide_2_eff_mean', 'guide_2_eff_mean_std', 'guide_2_eff_std', 'guide_2_eff_std_std',
-# 'guide_eff_12', 'guide_eff_12_std', 'guide_pair_eff_mean', 'guide_pair_eff_mean_std', 'guide_pair_eff_std', 'guide_pair_eff_std_std',
-
-# missing score_s: 'guide_s_eff_mean', 'guide_s_eff_mean_std', 'guide_s_eff_std', 'guide_s_eff_std_std',
-# 'theta_s', 'theta_s_std'
-
 
 # TO DO: remove once part of Valinor package
 col_mapping = {
@@ -95,35 +82,43 @@ col_mapping = {
             "gene1_unq_index": "gene1_unq_index",
         },
         "score": {
-            "cell_line_growth_mean": "cell_growth",
-            "cell_line_growth_std": "cell_growth_std",
-            "gene_ko_growth_12_mean": "ko_growth_12",
-            "gene_ko_growth_12_std": "ko_growth_12_std",
-            "gene_ko_growth_1_mean": "ko_growth_1",
-            "gene_ko_growth_1_std": "ko_growth_1_std",
-            "gene_ko_growth_2_mean": "ko_growth_2",
-            "gene_ko_growth_2_std": "ko_growth_2_std",
-            "guide_eff_1_mean": "guide_eff_1",
+            "cell_line_growth_mean": "cell_line_growth_mean",
+            "cell_line_growth_std": "cell_line_growth_std",
+            "gene_ko_growth_12_mean": "gene_ko_growth_12_mean",
+            "gene_ko_growth_12_std": "gene_ko_growth_12_std",
+            "gene_ko_growth_1_mean": "gene_ko_growth_1_mean",
+            "gene_ko_growth_1_std": "gene_ko_growth_1_std",
+            "gene_ko_growth_2_mean": "gene_ko_growth_2_mean",
+            "gene_ko_growth_2_std": "gene_ko_growth_2_std",
+            "guide_eff_1_mean": "guide_eff_1_mean",
             "guide_eff_1_std": "guide_eff_1_std",
-            "guide_eff_2_mean": "guide_eff_2",
+            "guide_eff_2_mean": "guide_eff_2_mean",
             "guide_eff_2_std": "guide_eff_2_std",
-            "init_count_mean": "init_count",
+            "guide_eff_mean_1_mean": "guide_eff_mean_1_mean",
+            "guide_eff_std_1_mean": "guide_eff_std_1_mean",
+            "guide_eff_mean_2_mean": "guide_eff_mean_2_mean",
+            "guide_eff_std_2_mean": "guide_eff_std_2_mean",
+            "guide_eff_mean_1_std": "guide_eff_mean_1_std",
+            "guide_eff_std_1_std": "guide_eff_std_1_std",
+            "guide_eff_mean_2_std": "guide_eff_mean_2_std",
+            "guide_eff_std_2_std": "guide_eff_std_2_std",
+            "init_count_mean": "init_count_mean",
             "init_count_std": "init_count_std",
-            "mv_mean": "mv",
+            "mv_mean": "mv_mean",
             "mv_std": "mv_std",
             "samples": "samples",
-            "samples_init": None,
+            "samples_init": "samples_init"
         },
         "score_s": {
-            "cell_growth_s_mean": "cell_growth_s",
-            "cell_growth_s_std": None,
-            "guide_eff_s_mean": "guide_eff_s",
+            "cell_growth_s_mean": "cell_growth_s_mean",
+            "cell_growth_s_std": "cell_growth_s_std",
+            "guide_eff_s_mean": "guide_eff_s_mean",
             "guide_eff_s_std": "guide_eff_s_std",
-            "init_count_s_mean": "init_count_s",
+            "init_count_s_mean": "init_count_s_mean",
             "init_count_s_std": "init_count_s_std",
-            "ko_growth_s_mean": "ko_growth_s",
+            "ko_growth_s_mean": "ko_growth_s_mean",
             "ko_growth_s_std": "ko_growth_s_std",
-            "mv_s_mean": "mv_s",
+            "mv_s_mean": "mv_s_mean",
             "mv_s_std": "mv_s_std",
             "samples_s": "samples_s",
             "samples_s_init": "samples_s_init",
@@ -133,24 +128,24 @@ col_mapping = {
 
 combination_cols = [
     "samples",
-    "init_count",
-    "guide_eff_1",
-    "guide_eff_2",
-    "guide_1_eff_mean",
-    "guide_1_eff_std",
-    "guide_2_eff_mean",
-    "guide_2_eff_std",
-    "guide_1_eff_mean_std",
-    "guide_1_eff_std_std",
-    "guide_2_eff_mean_std",
-    "guide_2_eff_std_std",
-    "ko_growth_1",
-    "ko_growth_2",
-    "ko_growth_12",
-    "mv",
-    "ko_growth_1_std",
-    "ko_growth_2_std",
-    "ko_growth_12_std",
+    "init_count_mean",
+    "guide_eff_1_mean",
+    "guide_eff_2_mean",
+    "guide_eff_mean_1_mean",
+    "guide_eff_std_1_mean",
+    "guide_eff_mean_2_mean",
+    "guide_eff_std_2_mean",
+    "guide_eff_mean_1_std",
+    "guide_eff_std_1_std",
+    "guide_eff_mean_2_std",
+    "guide_eff_std_2_std",
+    "gene_ko_growth_1_mean",
+    "gene_ko_growth_2_mean",
+    "gene_ko_growth_12_mean",
+    "mv_mean",
+    "gene_ko_growth_1_std",
+    "gene_ko_growth_2_std",
+    "gene_ko_growth_12_std",
     "mv_std",
     "guide1",
     "guide2",
@@ -174,7 +169,7 @@ singleton_cols = [
     "replicate_s_1",
     "lfc_s_1",
     "SingletonGene_s_1",
-    "ko_growth_s_s_1",
+    "ko_growth_s_mean_s_1",
     "ko_growth_s_std_s_1",
     "valinor_score_s_s_1",
     "rank_valinor_score_s_s_1",
@@ -182,7 +177,7 @@ singleton_cols = [
     "replicate_s_2",
     "lfc_s_2",
     "SingletonGene_s_2",
-    "ko_growth_s_s_2",
+    "ko_growth_s_mean_s_2",
     "ko_growth_s_std_s_2",
     "valinor_score_s_s_2",
     "rank_valinor_score_s_s_2",
@@ -199,31 +194,31 @@ naming_cols = {
     "SingletonGuide_s_2": "Singleton guide 2",
     "cell_line": "Cell line",
     "deltaLFC": "dLFC",
-    "dev_prior_guide_eff_1": "Deviation from hyper distribution of guide 1",
-    "dev_prior_guide_eff_2": "Deviation from hyper distribution of guide 2",
+    "dev_prior_guide_eff_1_mean": "Deviation from hyper distribution of guide 1",
+    "dev_prior_guide_eff_2_mean": "Deviation from hyper distribution of guide 2",
     "gene1": "Gene 1",
     "gene2": "Gene 2",
     "genePair": "Gene pair",
     "guide1": "Guide 1",
     "guide2": "Guide 2",
-    "guide_eff_1": "Efficiency guide 1",
-    "guide_eff_2": "Efficiency guide 2",
-    "guide_1_eff_mean": "Mean of hyper distribution",
-    "guide_1_eff_std": "Standard deviation of hyper distribution",
-    "ko_growth_1": "Estimated gene 1 effect",
-    "ko_growth_12": "Estimated combination effect",
-    "ko_growth_12_std": "Uncertainty",
-    "ko_growth_1_std": "Uncertainty",
-    "ko_growth_2": "Estimated gene 2 effect",
-    "ko_growth_2_std": "Uncertainty",
-    "ko_growth_s_s_1": "Estimated singleton effect",
-    "ko_growth_s_s_2": "Estimated singleton effect",
+    "guide_eff_1_mean": "Efficiency guide 1",
+    "guide_eff_2_mean": "Efficiency guide 2",
+    "guide_eff_mean_1_mean": "Mean of hyper distribution",
+    "guide_eff_std_1_mean": "Standard deviation of hyper distribution",
+    "gene_ko_growth_1_mean": "Estimated gene 1 effect",
+    "gene_ko_growth_12_mean": "Estimated combination effect",
+    "gene_ko_growth_12_std": "Uncertainty",
+    "gene_ko_growth_1_std": "Uncertainty",
+    "gene_ko_growth_2_mean": "Estimated gene 2 effect",
+    "gene_ko_growth_2_std": "Uncertainty",
+    "ko_growth_s_mean_s_1": "Estimated singleton effect",
+    "ko_growth_s_mean_s_2": "Estimated singleton effect",
     "ko_growth_s_std_s_1": "Uncertainty",
     "ko_growth_s_std_s_2": "Uncertainty",
     "lfc": "Combination LFC",
     "lfc_s_1": "Singleton LFC - gene 1",
     "lfc_s_2": "Singleton LFC - gene 2",
-    "mv": "Estimated overdispersion",
+    "mv_mean": "Estimated overdispersion",
     "mv_std": "Uncertainty",
     "overdispersion": "Overdispersion",
     "overdispersion_s_1": "Overdispersion",
@@ -326,10 +321,10 @@ def load_datasets(dataset, data_combo, data_single, val_combo, val_single):
 
 def calc_valinor_score(scoreData_combo, scoreData_single):
     scoreData_combo["valinor_score"] = (
-        scoreData_combo["ko_growth_12"] / scoreData_combo["ko_growth_12_std"]
+        scoreData_combo["gene_ko_growth_12_mean"] / scoreData_combo["gene_ko_growth_12_std"]
     )
     scoreData_single["valinor_score_s"] = (
-        scoreData_single["ko_growth_s"] / scoreData_single["ko_growth_s_std"]
+        scoreData_single["ko_growth_s_mean"] / scoreData_single["ko_growth_s_std"]
     )
 
     scoreData_combo["rank_" + "valinor_score"] = scoreData_combo.groupby("cell_line")[
@@ -387,7 +382,7 @@ def average_NE_singletons(scoreData_single):
             {
                 "lfc": "mean",
                 "SingletonGene": "first",
-                "ko_growth_s": "mean",
+                "ko_growth_s_mean": "mean",
                 "ko_growth_s_std": "mean",
                 "valinor_score_s": "mean",
                 "rank_valinor_score_s": "mean",
@@ -449,15 +444,15 @@ def sample_genepairs(scoreData_combined):
 def produce_dummy_hier(source):
     guide1s = source["guide1"].unique()
     samples = truncated_normal_samples(0.90, 0.05, 0, 1, len(guide1s))
-    guide1_eff_mean = pd.DataFrame({"guide1": guide1s, "guide_1_eff_mean": samples})
+    guide1_eff_mean = pd.DataFrame({"guide1": guide1s, "guide_eff_mean_1_mean": samples})
     samples = truncated_normal_samples(0.1, 0.01, 0.01, 1000000, len(guide1s))
-    guide1_eff_std = pd.DataFrame({"guide1": guide1s, "guide_1_eff_std": samples})
+    guide1_eff_std = pd.DataFrame({"guide1": guide1s, "guide_eff_std_1_mean": samples})
 
     guide2s = source["guide2"].unique()
     samples = truncated_normal_samples(0.95, 0.05, 0, 1, len(guide2s))
-    guide2_eff_mean = pd.DataFrame({"guide2": guide2s, "guide_2_eff_mean": samples})
+    guide2_eff_mean = pd.DataFrame({"guide2": guide2s, "guide_eff_mean_2_mean": samples})
     samples = truncated_normal_samples(0.1, 0.01, 0.01, 1000000, len(guide2s))
-    guide2_eff_std = pd.DataFrame({"guide2": guide2s, "guide_2_eff_std": samples})
+    guide2_eff_std = pd.DataFrame({"guide2": guide2s, "guide_eff_std_2_mean": samples})
 
     return (
         source.merge(guide1_eff_mean, on="guide1")
@@ -580,17 +575,20 @@ def produce_lossfunc_examples():
     plt.close(fig)
 
 
-def produce_lossfunc_fake():
-    x = np.arange(0, 1000)
-    y = np.exp(-1 * x * 0.05)
+def copy_loss_plot():
+    files = glob.glob('../valinor_loss*.svg')
+    target_file = None
 
-    fig, ax = plt.subplots(1, 1, figsize=(8, 5))
-    ax.plot(x, y)
-    ax.set_xlabel("Steps", fontsize=fontsizes[1])
-    ax.set_ylabel("Loss", fontsize=fontsizes[1])
-    ax.tick_params(axis="both", labelsize=fontsizes[2])
-    fig.tight_layout()
-    fig.savefig("valinorreport/plots/lossfunction.svg", bbox_inches="tight")
+    for file in files:
+        if file == '../valinor_loss.svg' or file.startswith('../valinor_loss_'):
+            target_file = file
+            break
+
+    if target_file and file.startswith('../valinor_loss_'):
+        new_path = os.path.join('valinorreport/plots/', 'valinor_loss.svg')
+        shutil.copy(target_file, new_path)
+    else:
+        shutil.copy(target_file, 'valinorreport/plots/' + target_file)
 
 
 def plot_hist(
@@ -649,12 +647,12 @@ def produce_modelfit_plot(scoreData_combo, scoreData_single):
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
     fig.savefig("valinorreport/plots/modelperformance_single.svg", bbox_inches="tight")
 
-    model_val = scoreData_combo["init_count"].values
+    model_val = scoreData_combo["init_count_mean"].values
     data_val = scoreData_combo["plasmid"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
     fig.savefig("valinorreport/plots/modelperformance_combo_plasmid.svg", bbox_inches="tight")
 
-    model_val = scoreData_single["init_count_s"].values
+    model_val = scoreData_single["init_count_s_mean"].values
     data_val = scoreData_single["plasmid"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
     fig.savefig("valinorreport/plots/modelperformance_single_plasmid.svg", bbox_inches="tight")
@@ -670,18 +668,18 @@ def get_prior_val(variable, param="loc"):
 
 
 def produce_paramfit_guideff_hyper(source, priors):
-    if "guide_1_eff_mean" in source.columns:
+    if "guide_eff_mean_1_mean" in source.columns:
         fig, ax = plt.subplots(1, 2, figsize=(16, 6))
         dev = (
             (
-                source["guide_1_eff_mean"]
+                source["guide_eff_mean_1_mean"]
                 - get_prior_val(priors["guide_eff_mean"], "loc")
             )
             / get_prior_val(priors["guide_eff_mean"], "scale")
         ).unique()
         dev2 = (
             (
-                source["guide_2_eff_mean"]
+                source["guide_eff_mean_2_mean"]
                 - get_prior_val(priors["guide_eff_mean"], "loc")
             )
             / get_prior_val(priors["guide_eff_mean"], "scale")
@@ -694,7 +692,7 @@ def produce_paramfit_guideff_hyper(source, priors):
         ax[0].set_ylabel("Number of guides", fontsize=fontsizes[1])
         ax[0].set_xlabel("Deviation from prior", fontsize=fontsizes[1])
         ax[0].tick_params(axis="both", which="major", labelsize=fontsizes[2])
-        ax[0].set_title(naming_cols["guide_1_eff_mean"], fontsize=fontsizes[0])
+        ax[0].set_title(naming_cols["guide_eff_mean_1_mean"], fontsize=fontsizes[0])
         # Create custom legend
         grey_patch = mpatches.Patch(
             color="grey", alpha=0.5, label="Within 68% of the prior\ndistribution"
@@ -702,11 +700,11 @@ def produce_paramfit_guideff_hyper(source, priors):
         # ax[0].legend(handles=[grey_patch], fontsize=12)
 
         dev = (
-            (source["guide_1_eff_std"] - get_prior_val(priors["guide_eff_std"], "loc"))
+            (source["guide_eff_std_1_mean"] - get_prior_val(priors["guide_eff_std"], "loc"))
             / get_prior_val(priors["guide_eff_std"], "scale")
         ).unique()
         dev2 = (
-            (source["guide_2_eff_std"] - get_prior_val(priors["guide_eff_std"], "loc"))
+            (source["guide_eff_std_2_mean"] - get_prior_val(priors["guide_eff_std"], "loc"))
             / get_prior_val(priors["guide_eff_std"], "scale")
         ).unique()
         dev = np.unique(np.concatenate([dev, dev2]))
@@ -717,7 +715,7 @@ def produce_paramfit_guideff_hyper(source, priors):
         ax[1].set_ylabel("Number of guides", fontsize=fontsizes[1])
         ax[1].set_xlabel("Deviation from prior", fontsize=fontsizes[1])
         ax[1].tick_params(axis="both", which="major", labelsize=fontsizes[2])
-        ax[1].set_title(naming_cols["guide_1_eff_std"], fontsize=fontsizes[0])
+        ax[1].set_title(naming_cols["guide_eff_std_1_mean"], fontsize=fontsizes[0])
         # Create custom legend
         grey_patch = mpatches.Patch(
             color="grey", alpha=0.5, label="Within 68% of the prior\ndistribution"
@@ -731,7 +729,7 @@ def produce_paramfit_guideff_hyper(source, priors):
         ax.set_ylim(0, 1)
 
         # Add the text in the middle
-        text = "Could not be displayed because\ncolumns such as 'guide_1_eff_mean' were missing"
+        text = "Could not be displayed because\ncolumns such as 'guide_eff_mean_1_mean' were missing"
         ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12)
 
         # Remove axis labels and ticks
@@ -752,20 +750,20 @@ def produce_paramfit_guideff(source_json):
     base_line = (
         alt.Chart(source_json)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
-            unique_dev_prior_guide_eff_1="mean(dev_prior_guide_eff_1)",
+            unique_dev_prior_guide_eff_1_mean="mean(dev_prior_guide_eff_1_mean)",
             groupby=["guide1", "cell_line"],
         )
         .transform_density(
-            density="unique_dev_prior_guide_eff_1",
+            density="unique_dev_prior_guide_eff_1_mean",
             groupby=["cell_line"],
             counts=True,
-            as_=["unique_dev_prior_guide_eff_1", "density"],
+            as_=["unique_dev_prior_guide_eff_1_mean", "density"],
         )
         .mark_line()
         .encode(
             x=alt.X(
-                "unique_dev_prior_guide_eff_1:Q",
-                title=naming_cols["dev_prior_guide_eff_1"],
+                "unique_dev_prior_guide_eff_1_mean:Q",
+                title=naming_cols["dev_prior_guide_eff_1_mean"],
             ),
             y="density:Q",
             color=alt.Color("cell_line:O", scale=alt.Scale(scheme="viridis")),
@@ -778,18 +776,18 @@ def produce_paramfit_guideff(source_json):
     base_area = (
         alt.Chart(source_json)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
-            unique_dev_prior_guide_eff_1="mean(dev_prior_guide_eff_1)",
+            unique_dev_prior_guide_eff_1_mean="mean(dev_prior_guide_eff_1_mean)",
             groupby=["guide1", "cell_line"],
         )
         .transform_density(
-            density="unique_dev_prior_guide_eff_1",
+            density="unique_dev_prior_guide_eff_1_mean",
             groupby=["cell_line"],
             counts=True,
-            as_=["unique_dev_prior_guide_eff_1", "density"],
+            as_=["unique_dev_prior_guide_eff_1_mean", "density"],
         )
         .mark_area()
         .encode(
-            x="unique_dev_prior_guide_eff_1:Q",
+            x="unique_dev_prior_guide_eff_1_mean:Q",
             y="density:Q",
             color=alt.Color(
                 "cell_line:O",
@@ -805,20 +803,20 @@ def produce_paramfit_guideff(source_json):
     base_line2 = (
         alt.Chart(source_json)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
-            unique_dev_prior_guide_eff_2="mean(dev_prior_guide_eff_2)",
+            unique_dev_prior_guide_eff_2_mean="mean(dev_prior_guide_eff_2_mean)",
             groupby=["guide1", "cell_line"],
         )
         .transform_density(
-            density="unique_dev_prior_guide_eff_2",
+            density="unique_dev_prior_guide_eff_2_mean",
             groupby=["cell_line"],
             counts=True,
-            as_=["unique_dev_prior_guide_eff_2", "density"],
+            as_=["unique_dev_prior_guide_eff_2_mean", "density"],
         )
         .mark_line()
         .encode(
             x=alt.X(
-                "unique_dev_prior_guide_eff_2:Q",
-                title=naming_cols["dev_prior_guide_eff_2"],
+                "unique_dev_prior_guide_eff_2_mean:Q",
+                title=naming_cols["dev_prior_guide_eff_2_mean"],
             ),
             y="density:Q",
             color=alt.Color(
@@ -835,18 +833,18 @@ def produce_paramfit_guideff(source_json):
     base_area2 = (
         alt.Chart(source_json)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
-            unique_dev_prior_guide_eff_2="mean(dev_prior_guide_eff_2)",
+            unique_dev_prior_guide_eff_2_mean="mean(dev_prior_guide_eff_2_mean)",
             groupby=["guide1", "cell_line"],
         )
         .transform_density(
-            density="unique_dev_prior_guide_eff_2",
+            density="unique_dev_prior_guide_eff_2_mean",
             groupby=["cell_line"],
             counts=True,
-            as_=["unique_dev_prior_guide_eff_2", "density"],
+            as_=["unique_dev_prior_guide_eff_2_mean", "density"],
         )
         .mark_area()
         .encode(
-            x="unique_dev_prior_guide_eff_2:Q",
+            x="unique_dev_prior_guide_eff_2_mean:Q",
             y="density:Q",
             color=alt.Color(
                 "cell_line:O",
@@ -1046,8 +1044,8 @@ def produce_diagnplots_kogrowths(source_json):
     tooltip = [
         "genePair:O",
         "cell_line:O",
-        "ko_growth_12:Q",
-        "ko_growth_12_std:Q",
+        "gene_ko_growth_12_mean:Q",
+        "gene_ko_growth_12_std:Q",
         "valinor_score:Q",
         "rank_valinor_score:Q",
         "deltaLFC:Q",
@@ -1064,7 +1062,7 @@ def produce_diagnplots_kogrowths(source_json):
         .mark_circle(size=100)
         .transform_aggregate(
             ko_growth_12="mean(ko_growth_12)",
-            ko_growth_12_std="mean(ko_growth_12_std)",
+            gene_ko_growth_12_std="mean(gene_ko_growth_12_std)",
             valinor_score="mean(valinor_score)",
             deltaLFC="mean(deltaLFC)",
             rank_valinor_score="mean(rank_valinor_score)",
@@ -1074,8 +1072,8 @@ def produce_diagnplots_kogrowths(source_json):
             groupby=["genePair", "cell_line"],
         )
         .encode(
-            x=alt.X("ko_growth_12:Q", title=naming_cols["ko_growth_12"]),
-            y=alt.Y("ko_growth_12_std:Q", title=naming_cols["ko_growth_12_std"]),
+            x=alt.X("gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]),
+            y=alt.Y("gene_ko_growth_12_std:Q", title=naming_cols["gene_ko_growth_12_std"]),
             color=alt.Color(
                 "cell_line:O",
                 scale=alt.Scale(scheme="viridis"),
@@ -1105,8 +1103,8 @@ def produce_diagnplots_singletons(source_json):
         "cell_line:O",
         "valinor_score_s_s_1:Q",
         "lfc_s_1:Q",
-        "ko_growth_1:Q",
-        "ko_growth_1_std:Q",
+        "gene_ko_growth_1_mean:Q",
+        "gene_ko_growth_1_std:Q",
     ]
     # Map original field names to custom labels for display
     tooltip_display = [
@@ -1122,9 +1120,9 @@ def produce_diagnplots_singletons(source_json):
             x=alt.X("valinor_score_s_s_1:Q", title=naming_cols["valinor_score_s_s_1"]),
             y=alt.Y("lfc_s_1:Q", title=naming_cols["lfc_s_1"]),
             color=alt.Color(
-                "ko_growth_1_std:Q",
+                "gene_ko_growth_1_std:Q",
                 scale=alt.Scale(scheme="blues", reverse=True),
-                legend=alt.Legend(title=naming_cols["ko_growth_1_std"]),
+                legend=alt.Legend(title=naming_cols["gene_ko_growth_1_std"]),
             ),
             tooltip=tooltip_display,
         )
@@ -1142,8 +1140,8 @@ def produce_diagnplots_singletons(source_json):
         "cell_line:O",
         "valinor_score_s_s_2:Q",
         "lfc_s_2:Q",
-        "ko_growth_2:Q",
-        "ko_growth_2_std:Q",
+        "gene_ko_growth_2_mean:Q",
+        "gene_ko_growth_2_std:Q",
     ]
     # Map original field names to custom labels for display
     tooltip_display = [
@@ -1159,9 +1157,9 @@ def produce_diagnplots_singletons(source_json):
             x=alt.X("valinor_score_s_s_2:Q", title=naming_cols["valinor_score_s_s_2"]),
             y=alt.Y("lfc_s_2:Q", title=naming_cols["lfc_s_2"]),
             color=alt.Color(
-                "ko_growth_2_std:Q",
+                "gene_ko_growth_2_std:Q",
                 scale=alt.Scale(scheme="blues", reverse=True),
-                legend=alt.Legend(title=naming_cols["ko_growth_1_std"]),
+                legend=alt.Legend(title=naming_cols["gene_ko_growth_1_std"]),
             ),
             tooltip=tooltip_display,
         )
@@ -1217,11 +1215,11 @@ def produce_diagnplots_guideeff_vslfc(source_json):
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_1:Q", title=naming_cols["lfc_s_1"]),
-            y=alt.Y("guide_eff_1:Q", title=naming_cols["guide_eff_1"]),
+            y=alt.Y("guide_eff_1:Q", title=naming_cols["guide_eff_1_mean"]),
             color=alt.Color(
                 "guide_eff_1:Q",
                 scale=alt.Scale(scheme="blues", reverse=False),
-                legend=alt.Legend(title=naming_cols["guide_eff_1"]),
+                legend=alt.Legend(title=naming_cols["guide_eff_1_mean"]),
             ),
             tooltip=tooltip_display,
         )
@@ -1238,7 +1236,7 @@ def produce_diagnplots_guideeff_vslfc(source_json):
         "SingletonGene_s_2:O",
         "cell_line:O",
         "lfc_s_2:Q",
-        "guide_eff_2:Q",
+        "guide_eff_2_mean:Q",
         "valinor_score_s_s_2:Q",
     ]
     # Map original field names to custom labels for display
@@ -1252,17 +1250,17 @@ def produce_diagnplots_guideeff_vslfc(source_json):
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_2:Q", title=naming_cols["lfc_s_2"]),
-            y=alt.Y("guide_eff_2:Q", title=naming_cols["guide_eff_2"]),
+            y=alt.Y("guide_eff_2_mean:Q", title=naming_cols["guide_eff_2_mean"]),
             color=alt.Color(
-                "guide_eff_2:Q",
+                "guide_eff_2_mean:Q",
                 scale=alt.Scale(scheme="blues", reverse=False),
-                legend=alt.Legend(title=naming_cols["guide_eff_2"]),
+                legend=alt.Legend(title=naming_cols["guide_eff_2_mean"]),
             ),
             tooltip=tooltip_display,
         )
         .transform_aggregate(
             lfc_s_2="mean(lfc_s_2)",
-            guide_eff_2="mean(guide_eff_2)",
+            guide_eff_2_mean="mean(guide_eff_2_mean)",
             valinor_score_s_s_2="mean(valinor_score_s_s_2)",
             groupby=["SingletonGuide_s_2", "SingletonGene_s_2", "cell_line"],
         )
@@ -1304,8 +1302,8 @@ def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
         "rank_valinor_score:Q",
         "valinor_score:Q",
         "lfc:Q",
-        "ko_growth_12:Q",
-        "ko_growth_12_std:Q",
+        "gene_ko_growth_12_mean:Q",
+        "gene_ko_growth_12_std:Q",
     ]
     # Map original field names to custom labels for display
     tooltip_display = [
@@ -1333,7 +1331,7 @@ def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
             valinor_score="mean(valinor_score)",
             lfc="mean(lfc)",
             ko_growth_12="mean(ko_growth_12)",
-            ko_growth_12_std="mean(ko_growth_12_std)",
+            gene_ko_growth_12_std="mean(gene_ko_growth_12_std)",
             rank_valinor_score="mean(rank_valinor_score)",
             groupby=["genePair"],
         )
@@ -1415,8 +1413,8 @@ def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
         "cell_line:O",
         "valinor_score:Q",
         "lfc:Q",
-        "ko_growth_12:Q",
-        "ko_growth_12_std:Q",
+        "gene_ko_growth_12_mean:Q",
+        "gene_ko_growth_12_std:Q",
         "rank_valinor_score:Q",
     ]
 
@@ -1447,7 +1445,7 @@ def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
             valinor_score="mean(valinor_score)",
             lfc="mean(lfc)",
             ko_growth_12="mean(ko_growth_12)",
-            ko_growth_12_std="mean(ko_growth_12_std)",
+            gene_ko_growth_12_std="mean(gene_ko_growth_12_std)",
             rank_valinor_score="mean(rank_valinor_score)",
             groupby=["genePair", "cell_line"],
         )
@@ -1539,9 +1537,9 @@ def produce_hitprior_kogrowths(source_json):
         "cell_line:O",
         "valinor_score:Q",
         "lfc:Q",
-        "ko_growth_12:Q",
-        "ko_growth_1:Q",
-        "ko_growth_2:Q",
+        "gene_ko_growth_12_mean:Q",
+        "gene_ko_growth_1_mean:Q",
+        "gene_ko_growth_2_mean:Q",
         "rank_valinor_score:Q",
     ]
     # Map original field names to custom labels for display
@@ -1555,8 +1553,8 @@ def produce_hitprior_kogrowths(source_json):
         alt.Chart(source_json)
         .mark_circle(size=60, color="black")
         .encode(
-            x=alt.X("ko_growth_12:Q", title=naming_cols["ko_growth_12"]),
-            y=alt.Y("ko_growth_1:Q", title=naming_cols["ko_growth_1"]),
+            x=alt.X("gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]),
+            y=alt.Y("gene_ko_growth_1_mean:Q", title=naming_cols["gene_ko_growth_1_mean"]),
             color=alt.condition(
                 brush,
                 alt.Color("genePair:O", scale=alt.Scale(scheme="sinebow"), legend=None),
@@ -1581,9 +1579,9 @@ def produce_hitprior_kogrowths(source_json):
         "cell_line:O",
         "valinor_score:Q",
         "lfc:Q",
-        "ko_growth_12:Q",
-        "ko_growth_1:Q",
-        "ko_growth_2:Q",
+        "gene_ko_growth_12_mean:Q",
+        "gene_ko_growth_1_mean:Q",
+        "gene_ko_growth_2_mean:Q",
         "rank_valinor_score:Q",
     ]
     # Map original field names to custom labels for display
@@ -1596,8 +1594,8 @@ def produce_hitprior_kogrowths(source_json):
         alt.Chart(source_json)
         .mark_circle(size=60, color="black")
         .encode(
-            x=alt.X("ko_growth_12:Q", title=naming_cols["ko_growth_12"]),
-            y=alt.Y("ko_growth_2:Q", title=naming_cols["ko_growth_2"]),
+            x=alt.X("gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]),
+            y=alt.Y("gene_ko_growth_2_mean:Q", title=naming_cols["gene_ko_growth_2_mean"]),
             color=alt.condition(
                 brush,
                 alt.Color("genePair:O", scale=alt.Scale(scheme="sinebow"), legend=None),
@@ -1642,8 +1640,8 @@ def produce_geneview_valscore_rank(source, source_json):
         "cell_line:O",
         "valinor_score:Q",
         "rank_valinor_score:Q",
-        "ko_growth_12:Q",
-        "ko_growth_12_std:Q",
+        "gene_ko_growth_12_mean:Q",
+        "gene_ko_growth_12_std:Q",
     ]
     # Map original field names to custom labels for display
     tooltip_display = [
@@ -2215,17 +2213,17 @@ def main():
 
     # produce some dummy guide eff hierarchy data if not exported yet, this is just for visualisation purposes
     # TO DO: remove once part of Valinor package
-    if "guide_1_eff_mean" not in source.columns:
+    if "guide_eff_mean_1_mean" not in source.columns:
         source = produce_dummy_hier(source)
 
     # calculate the deviations from priors for hierarchical parameters
-    if "guide_1_eff_mean" in source.columns:
-        source["dev_prior_guide_eff_1"] = (
-            source["guide_eff_1"] - source["guide_1_eff_mean"]
-        ) / source["guide_1_eff_std"]
-        source["dev_prior_guide_eff_2"] = (
-            source["guide_eff_2"] - source["guide_2_eff_mean"]
-        ) / source["guide_2_eff_std"]
+    if "guide_eff_mean_1_mean" in source.columns:
+        source["dev_prior_guide_eff_1_mean"] = (
+            source["guide_eff_1_mean"] - source["guide_eff_mean_1_mean"]
+        ) / source["guide_eff_std_1_mean"]
+        source["dev_prior_guide_eff_2_mean"] = (
+            source["guide_eff_2_mean"] - source["guide_eff_mean_2_mean"]
+        ) / source["guide_eff_std_2_mean"]
 
     selected_cols = naming_cols.keys()
     selected_cols = list(set(selected_cols).intersection(source.columns))
@@ -2240,8 +2238,7 @@ def main():
 
     # Loss Function
     produce_lossfunc_examples()
-    # TO DO: needs to be exported from running valinor, for now produce my own loss trajectory
-    produce_lossfunc_fake()
+    copy_loss_plot()
 
     # Model Fit
     produce_modelfit_examples()
@@ -2249,8 +2246,8 @@ def main():
 
     # TO DO: export priors from valinor, and load them in here to avoid hard coding them
     priors = {
-        "guide_eff_mean": "dist.TruncatedNormal(loc = 0.90, scale = 0.05, low = 0.0, high = 1.0)",
-        "guide_eff_std": "dist.TruncatedNormal(loc = 0.1, scale = 0.05, low = 0.0)",
+        "guide_eff_mean": "dist.TruncatedNormal(loc = 0.90, scale = 0.1, low = 0.0, high = 1.0)",
+        "guide_eff_std": "dist.TruncatedNormal(loc = 0.1, scale = 0.1, low = 0.0)",
     }
 
     ## PARAMETER FITS
@@ -2277,7 +2274,7 @@ def main():
     ## DIAGNOSTIC PLOTS
     # dLFC vs. Valinor Score
     produce_diagnplots_dlfc_valscore(source_json)
-    # ko_growth_12 vs. ko_growth_12_std
+    # ko_growth_12 vs. gene_ko_growth_12_std
     produce_diagnplots_kogrowths(source_json)
     # singleton LFC vs. singleton gene effect
     produce_diagnplots_singletons(source_json)
