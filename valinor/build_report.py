@@ -107,7 +107,7 @@ col_mapping = {
             "mv_mean": "mv_mean",
             "mv_std": "mv_std",
             "samples": "samples",
-            "samples_init": "samples_init"
+            "samples_init": "samples_init",
         },
         "score_s": {
             "cell_growth_s_mean": "cell_growth_s_mean",
@@ -321,7 +321,8 @@ def load_datasets(dataset, data_combo, data_single, val_combo, val_single):
 
 def calc_valinor_score(scoreData_combo, scoreData_single):
     scoreData_combo["valinor_score"] = (
-        scoreData_combo["gene_ko_growth_12_mean"] / scoreData_combo["gene_ko_growth_12_std"]
+        scoreData_combo["gene_ko_growth_12_mean"]
+        / scoreData_combo["gene_ko_growth_12_std"]
     )
     scoreData_single["valinor_score_s"] = (
         scoreData_single["ko_growth_s_mean"] / scoreData_single["ko_growth_s_std"]
@@ -444,13 +445,17 @@ def sample_genepairs(scoreData_combined):
 def produce_dummy_hier(source):
     guide1s = source["guide1"].unique()
     samples = truncated_normal_samples(0.90, 0.05, 0, 1, len(guide1s))
-    guide1_eff_mean = pd.DataFrame({"guide1": guide1s, "guide_eff_mean_1_mean": samples})
+    guide1_eff_mean = pd.DataFrame(
+        {"guide1": guide1s, "guide_eff_mean_1_mean": samples}
+    )
     samples = truncated_normal_samples(0.1, 0.01, 0.01, 1000000, len(guide1s))
     guide1_eff_std = pd.DataFrame({"guide1": guide1s, "guide_eff_std_1_mean": samples})
 
     guide2s = source["guide2"].unique()
     samples = truncated_normal_samples(0.95, 0.05, 0, 1, len(guide2s))
-    guide2_eff_mean = pd.DataFrame({"guide2": guide2s, "guide_eff_mean_2_mean": samples})
+    guide2_eff_mean = pd.DataFrame(
+        {"guide2": guide2s, "guide_eff_mean_2_mean": samples}
+    )
     samples = truncated_normal_samples(0.1, 0.01, 0.01, 1000000, len(guide2s))
     guide2_eff_std = pd.DataFrame({"guide2": guide2s, "guide_eff_std_2_mean": samples})
 
@@ -576,19 +581,19 @@ def produce_lossfunc_examples():
 
 
 def copy_loss_plot():
-    files = glob.glob('../valinor_loss*.svg')
+    files = glob.glob("../valinor_loss*.svg")
     target_file = None
 
     for file in files:
-        if file == '../valinor_loss.svg' or file.startswith('../valinor_loss_'):
+        if file == "../valinor_loss.svg" or file.startswith("../valinor_loss_"):
             target_file = file
             break
 
-    if target_file and file.startswith('../valinor_loss_'):
-        new_path = os.path.join('valinorreport/plots/', 'valinor_loss.svg')
+    if target_file and file.startswith("../valinor_loss_"):
+        new_path = os.path.join("valinorreport/plots/", "valinor_loss.svg")
         shutil.copy(target_file, new_path)
     else:
-        shutil.copy(target_file, 'valinorreport/plots/' + target_file)
+        shutil.copy(target_file, "valinorreport/plots/" + target_file)
 
 
 def plot_hist(
@@ -650,12 +655,16 @@ def produce_modelfit_plot(scoreData_combo, scoreData_single):
     model_val = scoreData_combo["init_count_mean"].values
     data_val = scoreData_combo["plasmid"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig("valinorreport/plots/modelperformance_combo_plasmid.svg", bbox_inches="tight")
+    fig.savefig(
+        "valinorreport/plots/modelperformance_combo_plasmid.svg", bbox_inches="tight"
+    )
 
     model_val = scoreData_single["init_count_s_mean"].values
     data_val = scoreData_single["plasmid"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig("valinorreport/plots/modelperformance_single_plasmid.svg", bbox_inches="tight")
+    fig.savefig(
+        "valinorreport/plots/modelperformance_single_plasmid.svg", bbox_inches="tight"
+    )
 
 
 def get_prior_val(variable, param="loc"):
@@ -700,11 +709,17 @@ def produce_paramfit_guideff_hyper(source, priors):
         # ax[0].legend(handles=[grey_patch], fontsize=12)
 
         dev = (
-            (source["guide_eff_std_1_mean"] - get_prior_val(priors["guide_eff_std"], "loc"))
+            (
+                source["guide_eff_std_1_mean"]
+                - get_prior_val(priors["guide_eff_std"], "loc")
+            )
             / get_prior_val(priors["guide_eff_std"], "scale")
         ).unique()
         dev2 = (
-            (source["guide_eff_std_2_mean"] - get_prior_val(priors["guide_eff_std"], "loc"))
+            (
+                source["guide_eff_std_2_mean"]
+                - get_prior_val(priors["guide_eff_std"], "loc")
+            )
             / get_prior_val(priors["guide_eff_std"], "scale")
         ).unique()
         dev = np.unique(np.concatenate([dev, dev2]))
@@ -1035,7 +1050,9 @@ def produce_diagnplots_dlfc_valscore(source_json):
     # Combine the charts for Gene 2 and make them interactive
     combined_chart = (chart + hline + vline).interactive()
 
-    combined_chart.save("valinorreport/altair_snippets/diagnostic_plots_dLFCvsValinor.html")
+    combined_chart.save(
+        "valinorreport/altair_snippets/diagnostic_plots_dLFCvsValinor.html"
+    )
 
 
 def produce_diagnplots_kogrowths(source_json):
@@ -1072,8 +1089,12 @@ def produce_diagnplots_kogrowths(source_json):
             groupby=["genePair", "cell_line"],
         )
         .encode(
-            x=alt.X("gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]),
-            y=alt.Y("gene_ko_growth_12_std:Q", title=naming_cols["gene_ko_growth_12_std"]),
+            x=alt.X(
+                "gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]
+            ),
+            y=alt.Y(
+                "gene_ko_growth_12_std:Q", title=naming_cols["gene_ko_growth_12_std"]
+            ),
             color=alt.Color(
                 "cell_line:O",
                 scale=alt.Scale(scheme="viridis"),
@@ -1281,17 +1302,14 @@ def produce_diagnplots_guideeff_vslfc(source_json, source):
 
 
 def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
-    tmp = source.groupby(["genePair"])[['valinor_score', 'lfc']].mean()
-    x_diff = (tmp["valinor_score"].max()-tmp["valinor_score"].min())/10
+    tmp = source.groupby(["genePair"])[["valinor_score", "lfc"]].mean()
+    x_diff = (tmp["valinor_score"].max() - tmp["valinor_score"].min()) / 10
     xrange = (
         tmp["valinor_score"].values.min() - x_diff,
         tmp["valinor_score"].values.max() + x_diff,
     )
-    y_diff = (tmp["lfc"].max()-tmp["lfc"].min())/10
-    yrange = (
-        tmp["lfc"].min() - y_diff,
-        tmp["lfc"].max() + y_diff
-    )
+    y_diff = (tmp["lfc"].max() - tmp["lfc"].min()) / 10
+    yrange = (tmp["lfc"].min() - y_diff, tmp["lfc"].max() + y_diff)
 
     tooltip = [
         "genePair:O",
@@ -1393,21 +1411,22 @@ def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
 
 
 def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
-    tmp = source.groupby(["genePair", "cell_line"])[['valinor_score', 'lfc']].mean()
-    x_diff = (tmp["valinor_score"].max()-tmp["valinor_score"].min())/10
+    tmp = source.groupby(["genePair", "cell_line"])[["valinor_score", "lfc"]].mean()
+    x_diff = (tmp["valinor_score"].max() - tmp["valinor_score"].min()) / 10
     xrange = (
         tmp["valinor_score"].values.min() - x_diff,
         tmp["valinor_score"].values.max() + x_diff,
     )
-    y_diff = (tmp["lfc"].max()-tmp["lfc"].min())/10
-    yrange = (
-        tmp["lfc"].min() - y_diff,
-        tmp["lfc"].max() + y_diff
-    )
+    y_diff = (tmp["lfc"].max() - tmp["lfc"].min()) / 10
+    yrange = (tmp["lfc"].min() - y_diff, tmp["lfc"].max() + y_diff)
 
     # Create a selection_interval for selecting rectangular area in scatterplot
     brush = alt.selection_interval(
-        empty="none", init={"x": [xrange[0], tmp["valinor_score"].min()+3*x_diff], "y": [yrange[0], tmp["lfc"].min()+3*y_diff]}
+        empty="none",
+        init={
+            "x": [xrange[0], tmp["valinor_score"].min() + 3 * x_diff],
+            "y": [yrange[0], tmp["lfc"].min() + 3 * y_diff],
+        },
     )
 
     tooltip = [
@@ -1555,8 +1574,12 @@ def produce_hitprior_kogrowths(source_json):
         alt.Chart(source_json)
         .mark_circle(size=60, color="black")
         .encode(
-            x=alt.X("gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]),
-            y=alt.Y("gene_ko_growth_1_mean:Q", title=naming_cols["gene_ko_growth_1_mean"]),
+            x=alt.X(
+                "gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]
+            ),
+            y=alt.Y(
+                "gene_ko_growth_1_mean:Q", title=naming_cols["gene_ko_growth_1_mean"]
+            ),
             color=alt.condition(
                 brush,
                 alt.Color("genePair:O", scale=alt.Scale(scheme="sinebow"), legend=None),
@@ -1596,8 +1619,12 @@ def produce_hitprior_kogrowths(source_json):
         alt.Chart(source_json)
         .mark_circle(size=60, color="black")
         .encode(
-            x=alt.X("gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]),
-            y=alt.Y("gene_ko_growth_2_mean:Q", title=naming_cols["gene_ko_growth_2_mean"]),
+            x=alt.X(
+                "gene_ko_growth_12_mean:Q", title=naming_cols["gene_ko_growth_12_mean"]
+            ),
+            y=alt.Y(
+                "gene_ko_growth_2_mean:Q", title=naming_cols["gene_ko_growth_2_mean"]
+            ),
             color=alt.condition(
                 brush,
                 alt.Color("genePair:O", scale=alt.Scale(scheme="sinebow"), legend=None),
@@ -1628,7 +1655,9 @@ def produce_hitprior_kogrowths(source_json):
     )
 
     chart = (scatter1 + hline + vline) | (scatter2 + hline + vline)
-    chart.save("valinorreport/altair_snippets/hit_prioritisation_growthdefecscatter.html")
+    chart.save(
+        "valinorreport/altair_snippets/hit_prioritisation_growthdefecscatter.html"
+    )
 
 
 def produce_geneview_valscore_rank(source, source_json):
@@ -1672,7 +1701,7 @@ def produce_geneview_valscore_rank(source, source_json):
         )
         .interactive()
         .configure_view(  # Removes the border around the plot
-            fill='grey'      # Replace 'your_color' with your desired color, e.g., '#f0f0f0'
+            fill="grey"  # Replace 'your_color' with your desired color, e.g., '#f0f0f0'
         )
     )
 
@@ -2153,7 +2182,11 @@ def main():
 
     args = parser.parse_args()
 
-    folders = ["valinorreport/json", "valinorreport/plots", "valinorreport/altair_snippets"]
+    folders = [
+        "valinorreport/json",
+        "valinorreport/plots",
+        "valinorreport/altair_snippets",
+    ]
     create_necessary_folders(folders)
 
     data, data_s, score, score_s = load_datasets(
