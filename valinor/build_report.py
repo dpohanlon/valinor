@@ -166,17 +166,17 @@ combination_cols = [
 
 singleton_cols = [
     "SingletonGuide_s_1",
-    "replicate_s_1",
-    "lfc_s_1",
+    "SingletonGuide_s_2",
     "SingletonGene_s_1",
+    "SingletonGene_s_2",
+    "replicate_s_1",
+    "replicate_s_2",
+    "lfc_s_1",
+    "lfc_s_2",
     "ko_growth_s_mean_s_1",
     "ko_growth_s_std_s_1",
     "valinor_score_s_s_1",
     "rank_valinor_score_s_s_1",
-    "SingletonGuide_s_2",
-    "replicate_s_2",
-    "lfc_s_2",
-    "SingletonGene_s_2",
     "ko_growth_s_mean_s_2",
     "ko_growth_s_std_s_2",
     "valinor_score_s_s_2",
@@ -1061,7 +1061,7 @@ def produce_diagnplots_kogrowths(source_json):
         alt.Chart(source_json)
         .mark_circle(size=100)
         .transform_aggregate(
-            ko_growth_12="mean(ko_growth_12)",
+            gene_ko_growth_12_mean="mean(gene_ko_growth_12_mean)",
             gene_ko_growth_12_std="mean(gene_ko_growth_12_std)",
             valinor_score="mean(valinor_score)",
             deltaLFC="mean(deltaLFC)",
@@ -1129,8 +1129,8 @@ def produce_diagnplots_singletons(source_json):
         .transform_aggregate(
             valinor_score_s_s_1="mean(valinor_score_s_s_1)",
             lfc_s_1="mean(lfc_s_1)",
-            ko_growth_1_std="mean(ko_growth_1_std)",
-            ko_growth_1="mean(ko_growth_1)",
+            gene_ko_growth_1_std="mean(gene_ko_growth_1_std)",
+            gene_ko_growth_1_mean="mean(gene_ko_growth_1_mean)",
             groupby=["SingletonGene_s_1", "cell_line"],
         )
     )
@@ -1159,15 +1159,15 @@ def produce_diagnplots_singletons(source_json):
             color=alt.Color(
                 "gene_ko_growth_2_std:Q",
                 scale=alt.Scale(scheme="blues", reverse=True),
-                legend=alt.Legend(title=naming_cols["gene_ko_growth_1_std"]),
+                legend=alt.Legend(title=naming_cols["gene_ko_growth_2_std"]),
             ),
             tooltip=tooltip_display,
         )
         .transform_aggregate(
             valinor_score_s_s_2="mean(valinor_score_s_s_2)",
             lfc_s_2="mean(lfc_s_2)",
-            ko_growth_2_std="mean(ko_growth_2_std)",
-            ko_growth_2="mean(ko_growth_2)",
+            gene_ko_growth_2_std="mean(gene_ko_growth_2_std)",
+            gene_ko_growth_2_mean="mean(gene_ko_growth_2_mean)",
             groupby=["SingletonGene_s_2", "cell_line"],
         )
     )
@@ -1195,13 +1195,13 @@ def produce_diagnplots_singletons(source_json):
     )
 
 
-def produce_diagnplots_guideeff_vslfc(source_json):
+def produce_diagnplots_guideeff_vslfc(source_json, source):
     tooltip = [
         "SingletonGuide_s_1:O",
         "SingletonGene_s_1:O",
         "cell_line:O",
         "lfc_s_1:Q",
-        "guide_eff_1:Q",
+        "guide_eff_1_mean:Q",
         "valinor_score_s_s_1:Q",
     ]
     # Map original field names to custom labels for display
@@ -1209,15 +1209,14 @@ def produce_diagnplots_guideeff_vslfc(source_json):
         alt.Tooltip(field, title=naming_cols.get(field.split(":")[0]))
         for field in tooltip
     ]
-
     chart1 = (
         alt.Chart(source_json)
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_1:Q", title=naming_cols["lfc_s_1"]),
-            y=alt.Y("guide_eff_1:Q", title=naming_cols["guide_eff_1_mean"]),
+            y=alt.Y("guide_eff_1_mean:Q", title=naming_cols["guide_eff_1_mean"]),
             color=alt.Color(
-                "guide_eff_1:Q",
+                "guide_eff_1_mean:Q",
                 scale=alt.Scale(scheme="blues", reverse=False),
                 legend=alt.Legend(title=naming_cols["guide_eff_1_mean"]),
             ),
@@ -1225,7 +1224,7 @@ def produce_diagnplots_guideeff_vslfc(source_json):
         )
         .transform_aggregate(
             lfc_s_1="mean(lfc_s_1)",
-            guide_eff_1="mean(guide_eff_1)",
+            guide_eff_1_mean="mean(guide_eff_1_mean)",
             valinor_score_s_s_1="mean(valinor_score_s_s_1)",
             groupby=["SingletonGuide_s_1", "SingletonGene_s_1", "cell_line"],
         )
@@ -1282,19 +1281,16 @@ def produce_diagnplots_guideeff_vslfc(source_json):
 
 
 def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
+    tmp = source.groupby(["genePair"])[['valinor_score', 'lfc']].mean()
+    x_diff = (tmp["valinor_score"].max()-tmp["valinor_score"].min())/10
     xrange = (
-        np.min(
-            source.groupby("genePair").mean(numeric_only=True)["valinor_score"].values
-        )
-        - 1,
-        np.max(
-            source.groupby("genePair").mean(numeric_only=True)["valinor_score"].values
-        )
-        + 1,
+        tmp["valinor_score"].values.min() - x_diff,
+        tmp["valinor_score"].values.max() + x_diff,
     )
+    y_diff = (tmp["lfc"].max()-tmp["lfc"].min())/10
     yrange = (
-        np.min(source.groupby("genePair").mean(numeric_only=True)["lfc"].values) - 1,
-        np.max(source.groupby("genePair").mean(numeric_only=True)["lfc"].values) + 1,
+        tmp["lfc"].min() - y_diff,
+        tmp["lfc"].max() + y_diff
     )
 
     tooltip = [
@@ -1330,7 +1326,7 @@ def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
         .transform_aggregate(
             valinor_score="mean(valinor_score)",
             lfc="mean(lfc)",
-            ko_growth_12="mean(ko_growth_12)",
+            gene_ko_growth_12_mean="mean(gene_ko_growth_12_mean)",
             gene_ko_growth_12_std="mean(gene_ko_growth_12_std)",
             rank_valinor_score="mean(rank_valinor_score)",
             groupby=["genePair"],
@@ -1397,15 +1393,21 @@ def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
 
 
 def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
+    tmp = source.groupby(["genePair", "cell_line"])[['valinor_score', 'lfc']].mean()
+    x_diff = (tmp["valinor_score"].max()-tmp["valinor_score"].min())/10
     xrange = (
-        np.round(np.min(source["valinor_score"].values), 2) - 1,
-        np.round(np.max(source["valinor_score"].values), 2) + 1,
+        tmp["valinor_score"].values.min() - x_diff,
+        tmp["valinor_score"].values.max() + x_diff,
     )
-    yrange = (np.min(source["lfc"].values) - 1, np.max(source["lfc"].values) + 1)
+    y_diff = (tmp["lfc"].max()-tmp["lfc"].min())/10
+    yrange = (
+        tmp["lfc"].min() - y_diff,
+        tmp["lfc"].max() + y_diff
+    )
 
     # Create a selection_interval for selecting rectangular area in scatterplot
     brush = alt.selection_interval(
-        empty="none", init={"x": [xrange[0], -2], "y": [yrange[0], -2]}
+        empty="none", init={"x": [xrange[0], tmp["valinor_score"].min()+3*x_diff], "y": [yrange[0], tmp["lfc"].min()+3*y_diff]}
     )
 
     tooltip = [
@@ -1444,7 +1446,7 @@ def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
         .transform_aggregate(
             valinor_score="mean(valinor_score)",
             lfc="mean(lfc)",
-            ko_growth_12="mean(ko_growth_12)",
+            gene_ko_growth_12_mean="mean(gene_ko_growth_12_mean)",
             gene_ko_growth_12_std="mean(gene_ko_growth_12_std)",
             rank_valinor_score="mean(rank_valinor_score)",
             groupby=["genePair", "cell_line"],
@@ -1565,9 +1567,9 @@ def produce_hitprior_kogrowths(source_json):
         .transform_aggregate(
             valinor_score="mean(valinor_score)",
             lfc="mean(lfc)",
-            ko_growth_1="mean(ko_growth_1)",
-            ko_growth_2="mean(ko_growth_2)",
-            ko_growth_12="mean(ko_growth_12)",
+            gene_ko_growth_1_mean="mean(gene_ko_growth_1_mean)",
+            gene_ko_growth_2_mean="mean(gene_ko_growth_2_mean)",
+            gene_ko_growth_12_mean="mean(gene_ko_growth_12_mean)",
             rank_valinor_score="mean(rank_valinor_score)",
             groupby=["genePair", "cell_line"],
         )
@@ -1606,9 +1608,9 @@ def produce_hitprior_kogrowths(source_json):
         .transform_aggregate(
             valinor_score="mean(valinor_score)",
             lfc="mean(lfc)",
-            ko_growth_1="mean(ko_growth_1)",
-            ko_growth_2="mean(ko_growth_2)",
-            ko_growth_12="mean(ko_growth_12)",
+            gene_ko_growth_1_mean="mean(gene_ko_growth_1_mean)",
+            gene_ko_growth_2_mean="mean(gene_ko_growth_2_mean)",
+            gene_ko_growth_12_mean="mean(gene_ko_growth_12_mean)",
             rank_valinor_score="mean(rank_valinor_score)",
             groupby=["genePair", "cell_line"],
         )
@@ -1656,7 +1658,7 @@ def produce_geneview_valscore_rank(source, source_json):
             x=alt.X(
                 "rank_valinor_score:Q",
                 title=naming_cols["rank_valinor_score"],
-                scale=alt.Scale(domain=[0, max_rank]),
+                scale=alt.Scale(domain=[-1, max_rank]),
             ),
             y=alt.Y("cell_line:O", title=naming_cols["cell_line"]),
             color=alt.Color(
@@ -1669,6 +1671,9 @@ def produce_geneview_valscore_rank(source, source_json):
             tooltip=tooltip_display,
         )
         .interactive()
+        .configure_view(  # Removes the border around the plot
+            fill='grey'      # Replace 'your_color' with your desired color, e.g., '#f0f0f0'
+        )
     )
 
     base.save("valinorreport/altair_snippets/gene_pair_valscore_percln.html")
@@ -2279,7 +2284,7 @@ def main():
     # singleton LFC vs. singleton gene effect
     produce_diagnplots_singletons(source_json)
     # guide eff vs. guide lfc Singletons
-    produce_diagnplots_guideeff_vslfc(source_json)
+    produce_diagnplots_guideeff_vslfc(source_json, source)
 
     ## HIT PRIORITISATION
     # LFC vs. Valinor Score - genePair averaged

@@ -63,14 +63,12 @@
               <li><a href="#diagnosticplots" data-toggle="tab">Diagnostic Plots</a></li>
               <li><a href="#hitprioritisation" data-toggle="tab">Hit Prioritisation</a></li>
               <li><a href="#genepairview" data-toggle="tab">Gene Pair View</a></li>
-              <li><a href="#warnings" data-toggle="tab">Warnings</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
       </nav>
       </div>
     </div>
-
     <div class="tab-content">
         <div class="tab-pane active" id="home">
           <div class="container-fluid">
@@ -291,7 +289,7 @@
                 </div>
                 <div class='row-fluid' id="overdisp">
                   <h2>Overdispersion of Replicates</h2>
-                  The overdispersion captures the variance of counts for the same guide pair in the same cell line across replicates. Ideally the overdispersion is very small, which would indicate that the measurements are very consistent across replicates. A larger overdispersion indicates larger variability in replicate measurements. The overdispersion is used to inform the overdispersion parameter of the negative binomial distribution in Valinor, when Valinor fits the count data. Ideally overdispersion is small and consistent across cell lines. If guide pairs in replicates of one cell line are much more overdispersed compared to other cell lines, this could point towards issues with that cell line experiment.
+                  <p>The overdispersion captures the variance of counts for the same guide pair in the same cell line across replicates. Ideally the overdispersion is very small, which would indicate that the measurements are very consistent across replicates. A larger overdispersion indicates larger variability in replicate measurements. The overdispersion is used to inform the overdispersion parameter of the negative binomial distribution in Valinor, when Valinor fits the count data. Ideally overdispersion is small and consistent across cell lines. If guide pairs in replicates of one cell line are much more overdispersed compared to other cell lines, this could point towards issues with that cell line experiment.</p>
                   <div id="datastats_disp_plot"></div>
                   <script>
                     form.addEventListener('submit', function(event) {handleSubmit(event, DatastatsDispPlot);});
@@ -330,7 +328,7 @@
                   <h1>Diagnostic Plots</h1>
                   <p>This tab serves to compare the Valinor fit to expectations solely based on the data. Discrepancies can point to either inconsistencies in the data that Valinor is able to bridge or to a non-optimal fit of Valinor.</p>
 
-                  <p>The <b><i>Valinor Score</i></b> is calculated as the estimated combination effect divided by the uncertainty in this value. A very negative <b><i>Valinor Score</i></b> means that Valinor detected strong synthetic lethality with high certainity. A positive <b><i>Valinor Score</i></b> points towards a rescue relationship.</p>
+                  <p>The <b><i>Valinor Score</i></b> is calculated as the estimated combination effect divided by the uncertainty in this value. A very negative <i>Valinor Score</i> means that Valinor detected strong synthetic lethality with high certainity. A positive <i>Valinor Score</i> points towards a rescue relationship.</p>
                   <div class="row-fluid" id="diagnplotDlfcVal">
                     <h2>dLFC vs. Valinor Score</h2>
                     <p> In literature, <b><i>dLFC</i></b> is often used as a simple first measure of synthetic lethality. It simply adds the single-gene effects and subtracts them from the measured effect of a combination. If the effect of the combination is stronger than the sum of the two single effects, the relationship between two genes is considered synthetic lethal. In terms of CRISPR knockout screens, the log fold change (LFC) is frequently used to quantify the "effect" of knocking out either a gene pair or the respective singletons.</p>
@@ -339,7 +337,7 @@
                     
                     <p>The cell line names can be clicked to highlight points of a specific cell line. The plot can be zoomed in and moved around.</p>
 
-                    <p>Note: It is normal for the scales, i.e. absolute values, of <i>dLFC</i> and <i>Valinor Scores</i> to be quite different. This plot just serves to explore the correlation between these two synthetic lethality measures.</p>
+                    <p><b>Note</b>: It is normal for the scales, i.e. absolute values, of <i>dLFC</i> and <i>Valinor Scores</i> to be quite different. This plot just serves to explore the correlation between these two synthetic lethality measures.</p>
                     <div id="diagnplots_dlfcval_plot"></div>
                     <script>
                       form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsDlfcVal);});
@@ -348,7 +346,7 @@
                   <div class="row-fluid" id="diagnplotKoGrowthStd">
                     <div class="span8">
                       <h2>Uncertainty of Estimated Combination Effect</h2>
-                      As described above, the <i>Valinor Score</i> is composed of the estimated combination effect and the uncertainty on the exact magnitude of this effect. This plot shows the relationship between the uncertainty and the magnitude of the estimated combination effect, i.e. effect size. Large estimated combination effects with low uncertainty point towards measurements for which Valinor was more confident to estimate the genetic interaction effect between the gene pair.
+                      <p>As described above, the <i>Valinor Score</i> is composed of the estimated combination effect and the uncertainty on the exact magnitude of this effect. This plot shows the relationship between the uncertainty and the magnitude of the estimated combination effect, i.e. effect size. Large estimated combination effects with low uncertainty point towards measurements for which Valinor was more confident to estimate the genetic interaction effect between the gene pair.</p>
                       <div id="diagnplots_kogrowthstd_plot"></div>
                       <script>
                         form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsKoGrowthStd);});
@@ -358,7 +356,7 @@
                   <div class="row-fluid" id="diagnplotSingleLfcVal">
                     <div class="span8">
                       <h2>Singleton Gene LFC vs. Estimated Single Gene Effect</h2>
-                      These plots compare the measured LFC of Singleton constructs, i.e. measuring the effect of knocking out a single gene, with the singleton gene effect estimated by Valinor. If data and data fit agree well, Singleton LFC and gene effect should correlate well. If there is no strong correlation this indicates that by also using combination data, Valinor inferred different single gene effects than implied by the Singleton measurements. This could point to discrepancies in the Singelton versus Combination data or issues with Valinor's assumptions and configurations.
+                      <p>These plots compare the measured LFC of Singleton constructs, i.e. measuring the effect of knocking out a single gene, with the singleton gene effect estimated by Valinor. If data and data fit agree well, Singleton LFC and gene effect should correlate well. If there is no strong correlation this indicates that by also using combination data, Valinor inferred different single gene effects than implied by the Singleton measurements. This could point to discrepancies in the Singelton versus Combination data or issues with Valinor's assumptions and configurations.</p>
                       <div id="diagnplots_singlelfcval_plot"></div>
                       <script>
                         form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsSingleLfcVal);});
@@ -368,7 +366,7 @@
                   <div class="row-fluid" id="diagnplotSingleLfcEffic">
                     <div class="span8">
                       <h2>Singleton Guide LFC vs. Estimated Efficiency</h2>
-                      These plots compare the measured LFC of each guide construct with guide efficiency estimated by Valinor. This can be instructive of which guides performed particularly well or worse. Guides that have a very negative or positive LFC in a given cell line but are estimated to have a very low efficiency could point to issues with the consistencies of measurements between guides targeting the same gene.
+                      <p>These plots compare the measured LFC of each guide construct with guide efficiency estimated by Valinor. This can be instructive of which guides performed particularly well or worse. Guides that have a very negative or positive LFC in a given cell line but are estimated to have a very low efficiency could point to issues with the consistencies of measurements between guides targeting the same gene.</p>
                       <div id="diagnplots_singleLFCeffic_plot"></div>
                       <script>
                         form.addEventListener('submit', function(event) {handleSubmit(event, DiagnPlotsSingleLfcEffic);});
@@ -395,11 +393,11 @@
             <div class="span8">
               <div class='row-fluid'>
                 <h1>Hit Prioritisation</h1>
-                This tab provides some plots to aid the prioritisation of synergistic gene pairs for further experiments.
+                <p>This tab provides some plots to aid the prioritisation of synergistic gene pairs for further experiments.</p>
               </div>
               <div class='row-fluid' id="hitpriorlfcvalavg">
                 <h2>LFC vs. Valinor Score - Average across Cell Lines</h2>
-                This plot shows the <i>Valinor Scores</i> of all gene pairs averaged across the cell lines versus their measured LFCs. Gene pairs that are found in the lower left quadrant (green) present targets that show evidence of synthetic lethality and where the double KO produces a clear fitness deficit across cell lines. These gene pairs are likely synthetic lethal irrespective of the specific cell line.
+                <p>This plot shows the <i>Valinor Scores</i> of all gene pairs averaged across the cell lines versus their measured LFCs. Gene pairs that are found in the lower left quadrant (green) present targets that show evidence of synthetic lethality and where the double KO produces a clear fitness deficit across cell lines. These gene pairs are likely synthetic lethal irrespective of the specific cell line.</p>
               </div> 
               <div class='row-fluid'>
                 <div id="hit_prioritisation_cell_avg_plot"></div>
@@ -408,8 +406,8 @@
                 </script>
               </div> 
               <div class='row-fluid' id="hitpriorgrowthdefects">
-                <h2>Estimated single gene vs. combination effect</h2>
-                These plots help to find gene pairs where the two individual genes are estimated to have no effect on fitness (around 0) while the combination has a strong effect on fitness. For some applications it might also be relevant to select gene pairs where one individual gene already shows a fitness effect which is increased by the combination. 
+                <h2>Estimated Single Gene vs. Combination Effect</h2>
+                <p>These plots help to find gene pairs where the two individual genes are estimated to have no effect on fitness (around 0) while the combination has a strong effect on fitness. For some applications it might also be relevant to select gene pairs where one individual gene already shows a fitness effect which is increased by the combination.</p>
                 <div id="hit_prioritisation_growthdefecscatter"></div>
                 <script>
                   form.addEventListener('submit', function(event) {handleSubmit(event, HitPrioritisationKoGrowthPlot);});
@@ -417,7 +415,7 @@
               </div> 
               <div class='row-fluid' id="hitpriorlfcvalselect">
                 <h2>LFC vs. Valinor Score - Select Region</h2>
-                This plot is a more detailed version of <a href="#hitpriorlfcvalavg">the plot above</a>. Each dot shows the measured LFC and <i>Valinor Score</i> in a given cell line. By drawing a window over a region of interest, the selected gene pairs are shown in the histogram below along with the number of cell line in which they fall in the selected window. This can help discriminate context-specific from general synthetic lethal gene pairs.
+                <p>This plot is a more detailed version of <a href="#hitpriorlfcvalavg">the plot above</a>. Instead of averaging over cell lines, each dot shows the measured LFC and <i>Valinor Score</i> of a gene pair in a given cell line. By drawing a window over a region of interest, the selected gene pairs are shown in the histogram below along with the number of cell line in which they fall in the selected window. This can help discriminate context-specific from general synthetic lethal gene pairs.</p>
                 <div id="hit_prioritisation_lfcvsval_histo"></div>
                 <script>
                   form.addEventListener('submit', function(event) {handleSubmit(event, HitPrioritisationLfcValHistPlot);});
@@ -442,7 +440,7 @@
               <div class="span9">
                 <div class='row-fluid'>
                   <h1>Gene Pair View</h1>
-                  Here you can select a gene pair from the list and plots specific to the selected gene pair will be displayed.
+                  <p>Here you can select a gene pair from the list and plots specific to the selected gene pair will be displayed.</p>
                   <div class="span9">
                     <label for="gene-pair-selection">Select a value and press enter:</label>
                     <input type="text"
@@ -461,7 +459,7 @@
                 <div class='row-fluid' id="genepairvalscore">
                   <div class="span8">
                     <h2>Valinor Score across Cell Lines</h2>
-                    This plot shows the rank of the <i>Valinor Score</i> across all cell lines with measurements for the selected gene pair. The rank is calculated by taking the <i>Valinor Scores</i> of all gene pairs in a cell line and ranking them from most negative (rank 1) to most positive (highest rank). Gene pairs with very low ranks, e.g. 1-10 are among the top synthetic lethal hits in a cell line.
+                    <p>This plot shows the rank of the <i>Valinor Score</i> across all cell lines with measurements for the selected gene pair. The rank is calculated by taking the <i>Valinor Scores</i> of all gene pairs in a cell line and ranking them from most negative (rank 1) to most positive (highest rank). Gene pairs with very low ranks, e.g. 1-10 are among the top synthetic lethal hits in a cell line.</p>
                     <div class='row-fluid'>
                       <div id="genepair_valinorscore_plot"></div>
                       <script>
@@ -473,7 +471,7 @@
                 <div class='row-fluid' id="genepairvalsingle">
                   <div class="span8">
                     <h2>Valinor Score vs. Single Gene Effects</h2>
-                    These plots compare the estimated single gene effects with the <i>Valinor Score</i> of the combination. This can help to identify in which cell lines the single genes have an effect and if in those cell lines the gene pair is synthetic lethal.  
+                    <p>These plots compare the estimated single gene effects with the <i>Valinor Score</i> of the combination. This can help to identify in which cell lines the single genes have an effect and if in those cell lines the gene pair is synthetic lethal.</p>
                     <div id="genepair_valscorescombovssingle_plot"></div>
                     <script>
                       form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScoreCombvsSinglePlot);});
@@ -483,7 +481,7 @@
                 <div class='row-fluid' id="genepairsinglelfc">
                   <div class="span8">
                     <h2>Single Gene Effects vs. Singleton LFC</h2>
-                    These plots compare the Singleton LFC to the estimated single gene effect. If the data of Singleton and Combination measurements is consistent with Valinor's expectations then Singleton LFC and estimated single gene effect should correlate well.
+                    <p>These plots compare the Singleton LFC to the estimated single gene effect. If the data of Singleton and Combination measurements is consistent with Valinor's expectations then Singleton LFC and estimated single gene effect should correlate well.</p>
                     <div id="genepair_valscoresinglevslfc_plot"></div>
                     <script>
                       form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScoreSinglevsLFCPlot);});
@@ -493,7 +491,7 @@
                 <div class='row-fluid' id="genepairvallfc">
                   <div class="span8">
                     <h2>Valinor Score vs. LFC</h2>
-                    These plots help to compare the estimated <i>Valinor Score</i> to the measured LFC of the Singletons and the Combination in different cell lines.
+                    <p>These plots help to compare the estimated <i>Valinor Score</i> to the measured LFC of the Singletons and the Combination in different cell lines.</p>
                     <div id="genepair_valinorscorevslfc_plot"></div>
                     <script>
                       form.addEventListener('submit', function(event) {handleSubmit(event, GenePairValinorScorevsLFCPlot);});
@@ -503,9 +501,6 @@
               </div>
             </div>
           </div>
-        </div>
-        <div class="tab-pane" id="warnings">
-          <h>warnings</h>
         </div>
       </div>
     </div>
