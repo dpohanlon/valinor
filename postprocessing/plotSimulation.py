@@ -30,6 +30,7 @@ from tqdm import tqdm
 import pandas as pd
 
 from scipy.stats import chisquare
+from sklearn.feature_selection import mutual_info_classif
 
 import h5py
 
@@ -177,16 +178,43 @@ class SimPlotter(object):
 
         return gi_data
 
+    def findContextGI(self, data, threshold = 0.2, n = 1):
+
+        # Get gene pairs that have GI and also only appear in one cell line
+
+        n_cl = len(data['cell_line'].unique())
+
+        data['gene_pair'] = data['gene1'].astype(str) + '_' + data['gene2'].astype(str)
+        data['cell_line'] = data['cell_line'].astype(str)
+
+        gi_data_syn = data[np.abs(data['syn']) > threshold]
+
+        gi_data_n = gi_data_syn.groupby('gene_pair')['cell_line'].nunique().reset_index()
+        gi_data_n = gi_data_n[gi_data_n['cell_line'] <= n].rename(columns = {'cell_line' : 'n_cl'})
+
+        return gi_data_n.merge(gi_data_syn[['gene_pair', 'cell_line']], on = 'gene_pair').drop_duplicates()
+
     def plotContextGI(self, data, modelOutput):
+
+        sns.kdeplot(data, x = 'syn')
+        plt.savefig('syn.pdf')
+        plt.clf()
+
+        sns.kdeplot(data = data[data['context_gi']], x = 'gi')
+
+        plt.savefig('gi.pdf')
+        plt.clf()
 
         clipMin = np.quantile(data['lfc'], 0.0001)
         clipMax = np.quantile(data['lfc'], 0.9999)
 
-        sns.kdeplot(data = data, x = 'lfc', hue = 'context_gi', common_norm = False, clip = (clipMin, clipMax))
+        sns.kdeplot(data = data[data['gi'] > 1.7], x = 'lfc', common_norm = False, clip = (clipMin, clipMax), color = 'blue')
+        sns.kdeplot(data = data[~data['context_gi']], x = 'lfc', common_norm = False, clip = (clipMin, clipMax), color = 'red')
 
         plt.xlim(clipMin, clipMax)
 
         plt.savefig('context_gi.pdf')
+        plt.clf()
 
     def makePlots(self):
 
@@ -318,6 +346,10 @@ if __name__ == "__main__":
         singletonFile=args.sglFile,
         calibrationFile=args.calibFile,
     )
+
+    print(plotter.findContextGI(data))
+
+    exit(0)
 
     data = plotter.populateContexts(data, args.contextsFile)
     data = plotter.calculateLFC(data)
