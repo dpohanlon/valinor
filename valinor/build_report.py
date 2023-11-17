@@ -13,7 +13,7 @@ import shutil
 import os
 import re
 import argparse
-from utilsreport import *
+from plotting import *
 
 alt.data_transformers.disable_max_rows()
 
@@ -165,10 +165,10 @@ combination_cols = [
 ]
 
 singleton_cols = [
-    "SingletonGuide_s_1",
-    "SingletonGuide_s_2",
-    "SingletonGene_s_1",
-    "SingletonGene_s_2",
+    "guide1",
+    "guide2",
+    "gene1",
+    "gene2",
     "replicate_s_1",
     "replicate_s_2",
     "lfc_s_1",
@@ -188,10 +188,10 @@ singleton_cols = [
 # rename the columns to more meaningful names that will be used in the plots
 naming_cols = {
     "GuidePair": "Guide pair",
-    "SingletonGene_s_1": "Singleton gene 1",
-    "SingletonGene_s_2": "Singleton gene 2",
-    "SingletonGuide_s_1": "Singleton guide 1",
-    "SingletonGuide_s_2": "Singleton guide 2",
+    "gene1": "Singleton gene 1",
+    "gene2": "Singleton gene 2",
+    "guide1": "Singleton guide 1",
+    "guide2": "Singleton guide 2",
     "cell_line": "Cell line",
     "deltaLFC": "dLFC",
     "dev_prior_guide_eff_1_mean": "Deviation from hyper distribution of guide 1",
@@ -263,7 +263,25 @@ def truncated_normal_samples(mean, std_dev, lower_bound, upper_bound, sample_siz
 
 def load_datasets(dataset, data_combo, data_single, val_combo, val_single):
     # DUSP dataset, seems here pq files contain the model results and h5 files contain the data (so opposite to the HT29 data)
-    if dataset == "DUSP":
+    if dataset == "HT29":
+        # HT29 datasets from ENCORE
+        data = pd.read_parquet(data_combo)
+        data_s = pd.read_parquet(data_single)
+
+        with h5py.File(val_combo, "r+") as file:
+            combi_attr = {i: file.attrs[i] for i in file.attrs.keys()}
+            # Access a dataset
+            dataset_name = "score"
+            if dataset_name in file.keys():
+                score = pd.read_hdf(val_combo, dataset_name)
+
+        with h5py.File(val_single, "r+") as file:
+            single_attr = {i: file.attrs[i] for i in file.attrs.keys()}
+            # Access a dataset
+            dataset_name = "score"
+            if dataset_name in file.keys():
+                score_s = pd.read_hdf(val_single, dataset_name)
+    else:
         score = pd.read_parquet(val_combo)
         score.columns = [
             col_mapping[dataset]["score"][i]
@@ -297,25 +315,6 @@ def load_datasets(dataset, data_combo, data_single, val_combo, val_single):
             else i
             for i in data_s.columns
         ]
-
-    else:
-        # HT29 datasets from ENCORE
-        data = pd.read_parquet(data_combo)
-        data_s = pd.read_parquet(data_single)
-
-        with h5py.File(val_combo, "r+") as file:
-            combi_attr = {i: file.attrs[i] for i in file.attrs.keys()}
-            # Access a dataset
-            dataset_name = "score"
-            if dataset_name in file.keys():
-                score = pd.read_hdf(val_combo, dataset_name)
-
-        with h5py.File(val_single, "r+") as file:
-            single_attr = {i: file.attrs[i] for i in file.attrs.keys()}
-            # Access a dataset
-            dataset_name = "score"
-            if dataset_name in file.keys():
-                score_s = pd.read_hdf(val_single, dataset_name)
     return (data, data_s, score, score_s)
 
 
@@ -467,54 +466,18 @@ def produce_dummy_hier(source):
     )
 
 
-def create_overview_stats(data, data_s, dataset, combo_scores_file, single_scores_file):
-    # TO DO: make this consistent based on the valior package, remove dataset dependence after
-    av_replic_percln = (
-        len(data["replicate"].unique()) / data["cell_line"].unique().shape[0]
-        if dataset == "HT29"
-        else len(data["replicate"].unique())
-    )
-    av_replic_percln_s = (
-        len(data_s["replicate"].unique()) / data_s["cell_line"].unique().shape[0]
-        if dataset == "HT29"
-        else len(data["replicate"].unique())
-    )
+def create_overview_stats(combs_attr_df_f, combs_attr_s_df_f):
+    combs_attr_df = pd.read_csv(combs_attr_df_f)
+    combs_attr_s_df = pd.read_csv(combs_attr_s_df_f)
 
-    combs_attr = {
-        "n_cell_lines": data["cell_line"].unique().shape[0],
-        "cell_lines": data["cell_line"].unique(),
-        "n_replicates": av_replic_percln,
-        "n_gene_pairs": len(data["genePair"].unique()),
-        "n_genes": len(set(data["gene1"]).union(data_s["gene2"])),
-        "n_guide_pairs": len(data["GuidePair"].unique()),
-        "n_guides": len(set(data["guide1"]).union(data_s["guide2"])),
-        "file_name": combo_scores_file,
-        "creation_date": "20.10.2022",  # <- this should be stored as meta data with the valinor output
-        "input_path": "a/cool/looking/file/path/yeah.csv",  # <- this points to the data file that was used as valinor input
-        "normalised_replicates": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-        "normalised_total": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-    }
-
-    combs_attr_s = {
-        "n_cell_lines": data_s["cell_line"].unique().shape[0],
-        "cell_lines": data_s["cell_line"].unique(),
-        "n_replicates": av_replic_percln_s,
-        "n_genes": len(set(data_s["gene1"]).union(data_s["gene2"])),
-        "n_guides": len(set(data_s["guide1"]).union(data_s["guide2"])),
-        "file_name": single_scores_file,
-        "creation_date": "20.10.2022",  # <- this should be stored as meta data with the valinor output
-        "input_path": "a/cool/looking/file/path/yeah.csv",  # <- this points to the data file that was used as valinor input
-        "normalised_replicates": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-        "normalised_total": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-    }
+    combs_attr = combs_attr_df.set_index("Attribute")["Value"].to_dict()
+    combs_attr_s = combs_attr_s_df.set_index("Attribute")["Value"].to_dict()
 
     overview_stats = [
         "{} cell lines: {}".format(
-            combs_attr["n_cell_lines"], ", ".join(combs_attr["cell_lines"])
+            combs_attr["n_cell_lines"], combs_attr["cell_lines"]
         ),
-        "{:.2f} replicates per cell line (on average)".format(
-            combs_attr["n_replicates"]
-        ),
+        "{} replicates per cell line (on average)".format(combs_attr["n_replicates"]),
     ]
     overview_stats = "<br>".join(overview_stats)
 
@@ -525,26 +488,26 @@ def create_overview_stats(data, data_s, dataset, combo_scores_file, single_score
         "{} guide pairs (orientation aware) out of {} guides".format(
             combs_attr["n_guide_pairs"], combs_attr["n_guides"]
         ),
-        "<b>Valinor settings:</b>",
-        "input path: {}".format(combs_attr["input_path"]),
-        "normalised_replicates: {}".format(combs_attr["normalised_replicates"]),
-        "normalised_total: {}".format(combs_attr["normalised_total"]),
+        # "<b>Valinor settings:</b>",
+        "intput data: {}".format(combs_attr["input_path"]),
+        # "normalised_replicates: {}".format(combs_attr["normalised_replicates"]),
+        # "normalised_total: {}".format(combs_attr["normalised_total"]),
         "<b>Output file:</b>",
         "{}".format(combs_attr["file_name"]),
-        "created on: {}".format(combs_attr["creation_date"]),
+        # "created on: {}".format(combs_attr["creation_date"]),
     ]
     overview_stats_combs = "<br>".join(overview_stats_combs)
 
     overview_stats_s = [
         "{} genes".format(combs_attr_s["n_genes"]),
         "{} guides".format(combs_attr_s["n_guides"]),
-        "<b>Valinor settings:</b>",
-        "input path: {}".format(combs_attr_s["input_path"]),
-        "normalised_replicates: {}".format(combs_attr_s["normalised_replicates"]),
-        "normalised_total: {}".format(combs_attr_s["normalised_total"]),
+        # "<b>Valinor settings:</b>",
+        "input data: {}".format(combs_attr_s["input_path"]),
+        # "normalised_replicates: {}".format(combs_attr_s["normalised_replicates"]),
+        # "normalised_total: {}".format(combs_attr_s["normalised_total"]),
         "<b>Output file:</b>",
         "{}".format(combs_attr_s["file_name"]),
-        "created on: {}".format(combs_attr_s["creation_date"]),
+        # "created on: {}".format(combs_attr_s["creation_date"]),
     ]
 
     overview_stats_s = "<br>".join(overview_stats_s)
@@ -596,28 +559,6 @@ def copy_loss_plot():
         shutil.copy(target_file, "valinorreport/plots/" + target_file)
 
 
-def plot_hist(
-    data_dict, xlabel, figsize=(6, 6), nbins=50, figure=None, loc="upper right"
-):
-    if figure is None:
-        fig, ax = plt.subplots(1, 1, figsize=figsize)
-    else:
-        fig = figure[0]
-        ax = figure[1]
-    data_min = min([i.min() for i in data_dict.values()])
-    data_max = max([np.quantile(i, 0.999) for i in data_dict.values()])
-    bins = np.linspace(data_min, data_max, nbins)
-    for label, data in data_dict.items():
-        ax.hist(data, histtype="step", bins=bins, density=True, label=label)
-    ax.set_xlabel(xlabel, fontsize=fontsizes[1])
-    ax.set_ylabel("Density", fontsize=fontsizes[1])
-    ax.tick_params(axis="both", labelsize=fontsizes[2])
-    ax.legend(loc=loc)
-    fig.tight_layout()
-
-    return (fig, ax)
-
-
 def produce_modelfit_examples():
     # create images for good and bad model performance
     k = 10  # Number of successes
@@ -639,32 +580,6 @@ def produce_modelfit_examples():
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
     fig.savefig("valinorreport/plots/bad_modelfit.svg", bbox_inches="tight")
     plt.close(fig)
-
-
-def produce_modelfit_plot(scoreData_combo, scoreData_single):
-    model_val = scoreData_combo["samples"].values
-    data_val = scoreData_combo["value"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig("valinorreport/plots/modelperformance_combo.svg", bbox_inches="tight")
-
-    model_val = scoreData_single["samples_s"].values
-    data_val = scoreData_single["value"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig("valinorreport/plots/modelperformance_single.svg", bbox_inches="tight")
-
-    model_val = scoreData_combo["init_count_mean"].values
-    data_val = scoreData_combo["plasmid"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(
-        "valinorreport/plots/modelperformance_combo_plasmid.svg", bbox_inches="tight"
-    )
-
-    model_val = scoreData_single["init_count_s_mean"].values
-    data_val = scoreData_single["plasmid"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(
-        "valinorreport/plots/modelperformance_single_plasmid.svg", bbox_inches="tight"
-    )
 
 
 def get_prior_val(variable, param="loc"):
@@ -1120,7 +1035,7 @@ def produce_diagnplots_kogrowths(source_json):
 
 def produce_diagnplots_singletons(source_json):
     tooltip = [
-        "SingletonGene_s_1:O",
+        "gene1:O",
         "cell_line:O",
         "valinor_score_s_s_1:Q",
         "lfc_s_1:Q",
@@ -1152,12 +1067,12 @@ def produce_diagnplots_singletons(source_json):
             lfc_s_1="mean(lfc_s_1)",
             gene_ko_growth_1_std="mean(gene_ko_growth_1_std)",
             gene_ko_growth_1_mean="mean(gene_ko_growth_1_mean)",
-            groupby=["SingletonGene_s_1", "cell_line"],
+            groupby=["gene1", "cell_line"],
         )
     )
 
     tooltip = [
-        "SingletonGene_s_2:O",
+        "gene2:O",
         "cell_line:O",
         "valinor_score_s_s_2:Q",
         "lfc_s_2:Q",
@@ -1189,7 +1104,7 @@ def produce_diagnplots_singletons(source_json):
             lfc_s_2="mean(lfc_s_2)",
             gene_ko_growth_2_std="mean(gene_ko_growth_2_std)",
             gene_ko_growth_2_mean="mean(gene_ko_growth_2_mean)",
-            groupby=["SingletonGene_s_2", "cell_line"],
+            groupby=["gene2", "cell_line"],
         )
     )
 
@@ -1218,8 +1133,8 @@ def produce_diagnplots_singletons(source_json):
 
 def produce_diagnplots_guideeff_vslfc(source_json, source):
     tooltip = [
-        "SingletonGuide_s_1:O",
-        "SingletonGene_s_1:O",
+        "guide1:O",
+        "gene1:O",
         "cell_line:O",
         "lfc_s_1:Q",
         "guide_eff_1_mean:Q",
@@ -1247,13 +1162,13 @@ def produce_diagnplots_guideeff_vslfc(source_json, source):
             lfc_s_1="mean(lfc_s_1)",
             guide_eff_1_mean="mean(guide_eff_1_mean)",
             valinor_score_s_s_1="mean(valinor_score_s_s_1)",
-            groupby=["SingletonGuide_s_1", "SingletonGene_s_1", "cell_line"],
+            groupby=["guide1", "gene1", "cell_line"],
         )
     )
 
     tooltip = [
-        "SingletonGuide_s_2:O",
-        "SingletonGene_s_2:O",
+        "guide2:O",
+        "gene2:O",
         "cell_line:O",
         "lfc_s_2:Q",
         "guide_eff_2_mean:Q",
@@ -1282,7 +1197,7 @@ def produce_diagnplots_guideeff_vslfc(source_json, source):
             lfc_s_2="mean(lfc_s_2)",
             guide_eff_2_mean="mean(guide_eff_2_mean)",
             valinor_score_s_s_2="mean(valinor_score_s_s_2)",
-            groupby=["SingletonGuide_s_2", "SingletonGene_s_2", "cell_line"],
+            groupby=["guide2", "gene2", "cell_line"],
         )
     )
 
@@ -2180,43 +2095,50 @@ def main():
     parser.add_argument("--valinorcombinations", help="Valinor results combinations")
     parser.add_argument("--valinorsingletons", help="Valinor results singletons")
 
+    parser.add_argument(
+        "--combfile", help="processed table combining data and Valinor output"
+    )
+
     args = parser.parse_args()
 
     folders = [
-        "valinorreport/json",
+        "valinorreport/input",
         "valinorreport/plots",
         "valinorreport/altair_snippets",
     ]
     create_necessary_folders(folders)
 
-    data, data_s, score, score_s = load_datasets(
-        args.dataset,
-        args.datacombinations,
-        args.datasingletons,
-        args.valinorcombinations,
-        args.valinorsingletons,
-    )
+    # data, data_s, score, score_s = load_datasets(
+    #     args.dataset,
+    #     args.datacombinations,
+    #     args.datasingletons,
+    #     args.valinorcombinations,
+    #     args.valinorsingletons,
+    # )
 
-    scoreData_combo = pd.concat(
-        (score.reset_index(drop=True), data.reset_index(drop=True)), axis=1
-    )
-    scoreData_single = pd.concat(
-        (score_s.reset_index(drop=True), data_s.reset_index(drop=True)), axis=1
-    )
+    # scoreData_combo = pd.concat(
+    #     (score.reset_index(drop=True), data.reset_index(drop=True)), axis=1
+    # )
+    # scoreData_single = pd.concat(
+    #     (score_s.reset_index(drop=True), data_s.reset_index(drop=True)), axis=1
+    # )
 
-    scoreData_combo, scoreData_single = calc_valinor_score(
-        scoreData_combo, scoreData_single
-    )
-    scoreData_combo, scoreData_single = calc_overdisp(scoreData_combo, scoreData_single)
+    # scoreData_combo, scoreData_single = calc_valinor_score(
+    #     scoreData_combo, scoreData_single
+    # )
+    # scoreData_combo, scoreData_single = calc_overdisp(scoreData_combo, scoreData_single)
 
-    scoreData_single_NEav = average_NE_singletons(scoreData_single)
+    # scoreData_single_NEav = average_NE_singletons(scoreData_single)
 
-    combo_cols = list(set(combination_cols).intersection(scoreData_combo.columns))
-    scoreData_combined = combine_single_combo(
-        scoreData_combo, scoreData_single_NEav, combo_cols
-    )
+    # combo_cols = list(set(combination_cols).intersection(scoreData_combo.columns))
+    # scoreData_combined = combine_single_combo(
+    #     scoreData_combo, scoreData_single_NEav, combo_cols
+    # )
 
-    scoreData_combined = calc_deltaLFC(scoreData_combined)
+    # scoreData_combined = calc_deltaLFC(scoreData_combined)
+
+    scoreData_combined = pd.read_parquet(args.combfile)
+    combo_cols = list(set(combination_cols).intersection(scoreData_combined.columns))
 
     single_cols = list(set(singleton_cols).intersection(scoreData_combined.columns))
     additional_cols = ["deltaLFC"]
@@ -2227,23 +2149,17 @@ def main():
 
     # I don't need the individual replicate measurements for my plots, aggregate over guide pair and cell line
     groupbycols = [
-        "genePair",
         "GuidePair",
+        "genePair",
         "cell_line",
         "gene2",
         "guide2",
         "gene1",
         "guide1",
-        "SingletonGuide_s_1",
-        "cell_line_s_1",
-        "SingletonGene_s_1",
-        "SingletonGuide_s_2",
-        "cell_line_s_2",
-        "SingletonGene_s_2",
     ]
     source = scoreData_combined.loc[
         scoreData_combined.genePair.isin(selectpairs)
-    ].copy()  # .sample(1000)#.round(2)
+    ].copy()
 
     numeric_columns = source.select_dtypes(include=[np.number]).columns.tolist()
     numeric_columns = numeric_columns + groupbycols
@@ -2251,8 +2167,8 @@ def main():
 
     # produce some dummy guide eff hierarchy data if not exported yet, this is just for visualisation purposes
     # TO DO: remove once part of Valinor package
-    if "guide_eff_mean_1_mean" not in source.columns:
-        source = produce_dummy_hier(source)
+    # if "guide_eff_mean_1_mean" not in source.columns:
+    #     source = produce_dummy_hier(source)
 
     # calculate the deviations from priors for hierarchical parameters
     if "guide_eff_mean_1_mean" in source.columns:
@@ -2265,13 +2181,15 @@ def main():
 
     selected_cols = naming_cols.keys()
     selected_cols = list(set(selected_cols).intersection(source.columns))
-    source[selected_cols].to_csv("valinorreport/json/report_input.csv", index=False)
-    source_json = r"valinorreport/json/report_input.csv"
+    source[selected_cols].to_csv("valinorreport/input/report_input.csv", index=False)
+    source_json = r"valinorreport/input/report_input.csv"
 
     ## HOME
     # Overview stats
+    combs_attr_df_f = "valinorreport/input/combs_attr_df.csv"
+    combs_attr_s_df_f = "valinorreport/input/combs_attr_s_df.csv"
     overview_stats, overview_stats_combs, overview_stats_s = create_overview_stats(
-        data, data_s, args.dataset, args.valinorcombinations, args.valinorsingletons
+        combs_attr_df_f, combs_attr_s_df_f
     )
 
     # Loss Function
@@ -2280,7 +2198,7 @@ def main():
 
     # Model Fit
     produce_modelfit_examples()
-    produce_modelfit_plot(scoreData_combo, scoreData_single)
+    # produce_modelfit_plot(scoreData_combo, scoreData_single)
 
     # TO DO: export priors from valinor, and load them in here to avoid hard coding them
     priors = {
