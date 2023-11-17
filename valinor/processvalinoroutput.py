@@ -9,8 +9,8 @@ from plotting import *
 
 
 cols_rename = {
-    "Pyogenes_gene": "gene1",
-    "Aureus_gene": "gene2",
+    "Pyogenes_gene": "gene2",
+    "Aureus_gene": "gene1",
 }
 
 

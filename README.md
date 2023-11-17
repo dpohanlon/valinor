@@ -28,22 +28,28 @@ valinor \
         -n duspoutput
 ```
 
-Creating the Valinor report
+Run processing script on Valinor output
 ---
-1. Create singularity image by pulling it from dockerhub
+This creates some dignostic plots that are relevant for the Valinor report (s. below) and a file that combines the data and Valinor output into one table for downstream usage.
 ```bash
-cd env
-singularity pull makevalinorreport.sif docker://phweide/valinorreport
+cd valinor
+python processvalinoroutput.py --val_combo ../combsModel_duspoutput.pq --val_single ../singlesModel_duspoutput.pq --data_combo ../duspCombs_good.h5 --data_single ../duspSingles_good.h5
 ```
-OR create it using the `Dockerfile` and `requirements.txt`:
+This will create a file called `valinoroutput_processed.pq` in `valinor`.
+
+Create the Valinor report
+---
+1. Create the report: use the `subsetSLpairs` flag if you have many genepairs and many cell lines, this will create the report showing data from only the top 100 synthetic lethal gene pairs + some randomly selected gene pairs across the range of Valinor scores.
 ```bash
-docker build -t valinorreport - < env_valreport/project.dockerfile
-singularity build makevalinorreport.sif docker-daemon://project:latest
+python build_report.py --combfile valinoroutput_processed.pq --subsetSLpairs
 ```
-2. Create the report
-Move into `valinor` directory. Run `build_report.py` with the singularity image, like so:
+2. Open the report
+Navigate into the `valinorreport` folder and open `report.html`. Then upload the prepared datafile which is stored in `valinorreport/input/report_input.csv`.
+
+Create static plots
+---
+This script creates some plots to investigate Valinor's output using static images instead of using the report. This is recommended when having a lot of gene pairs and cell lines.
 ```bash
-singularity exec --env HDF5_USE_FILE_LOCKING=FALSE ../env_valreport/makevalinorreport.sif python build_report.py --dataset DUSP --datacombinations ../duspCombs_good.h5 --datasingletons ../duspSingles_good.h5 --valinorcombinations ../combsModel_duspoutput.pq --valinorsingletons ../singlesModel_duspoutput.pq
+python produce_plots.py --combfile valinoroutput_processed.pq
 ```
-3. Open the report
-Navigate into the `valinorreport` folder and open `report.html`. Then upload the prepared datafile which is stored in `valinorreport/json/report_input.csv`.
+Plots will be found in the `plots` subfolder. Within that will also be a `topSLgenepairs` directory, that contains plots for gene pairs that were among the top 10 most synthetic lethal gene pairs in at least one cell line.

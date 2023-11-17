@@ -17,249 +17,6 @@ from plotting import *
 
 alt.data_transformers.disable_max_rows()
 
-# TO DO: remove once part of Valinor package
-col_mapping = {
-    "DUSP": {
-        "data": {
-            "Aureus_gene": "gene2",
-            "GuidePair": "GuidePair",
-            "GuidePairUnoriented": "GuidePairUnoriented",
-            "Pyogenes_gene": "gene1",
-            "cell_line": "cell_line",
-            "cell_line_index": "cell_line_index",
-            "counts_norm": "counts_norm",
-            "fc": "fc",
-            "gene1_index": "gene1_index",
-            "gene1_unq_index": "gene1_unq_index",
-            "gene2_index": "gene2_index",
-            "gene2_unq_index": "gene2_unq_index",
-            "genePair": "genePair",
-            "genePairUnoriented": "genePairUnoriented",
-            "gene_pair_index": "gene_pair_index",
-            "gene_unq_pair_index": "gene_unq_pair_index",
-            "guide1": "guide1",
-            "guide1_index": "guide1_index",
-            "guide1_o": "guide1_o",
-            "guide2": "guide2",
-            "guide2_index": "guide2_index",
-            "guide2_o": "guide2_o",
-            "guide_pair_index": "guide_pair_index",
-            "lfc": "lfc",
-            "plasmid": "plasmid",
-            "plasmid_norm": None,
-            "replicate": "replicate",
-            "sum_counts": "sum_counts",
-            "value": "value",
-            "variable": "variable",
-        },
-        "data_s": {
-            "GuidePair": "GuidePair",
-            "plasmid": "plasmid",
-            "Aureus_gene": "gene2",
-            "Pyogenes_gene": "gene1",
-            "variable": "variable",
-            "value": "value",
-            "replicate": "replicate",
-            "cell_line": "cell_line",
-            "guide1": "guide1",
-            "guide2": "guide2",
-            "genePair": "genePair",
-            "genePairUnoriented": "genePairUnoriented",
-            "GuidePairUnoriented": "GuidePairUnoriented",
-            "sum_counts": "sum_counts",
-            "counts_norm": "counts_norm",
-            "plasmid_norm": "plasmid_norm",
-            "fc": "fc",
-            "lfc": "lfc",
-            "SingletonPosition": "SingletonPosition",
-            "SingletonGene": "SingletonGene",
-            "SingletonGuide": "SingletonGuide",
-            "SingletonGuide_o": "SingletonGuide_o",
-            "guide_pair_index": "guide_pair_index",
-            "cell_line_index": "cell_line_index",
-            "gene1_index": "gene1_index",
-            "guide1_index": "guide1_index",
-            "gene1_unq_index": "gene1_unq_index",
-        },
-        "score": {
-            "cell_line_growth_mean": "cell_line_growth_mean",
-            "cell_line_growth_std": "cell_line_growth_std",
-            "gene_ko_growth_12_mean": "gene_ko_growth_12_mean",
-            "gene_ko_growth_12_std": "gene_ko_growth_12_std",
-            "gene_ko_growth_1_mean": "gene_ko_growth_1_mean",
-            "gene_ko_growth_1_std": "gene_ko_growth_1_std",
-            "gene_ko_growth_2_mean": "gene_ko_growth_2_mean",
-            "gene_ko_growth_2_std": "gene_ko_growth_2_std",
-            "guide_eff_1_mean": "guide_eff_1_mean",
-            "guide_eff_1_std": "guide_eff_1_std",
-            "guide_eff_2_mean": "guide_eff_2_mean",
-            "guide_eff_2_std": "guide_eff_2_std",
-            "guide_eff_mean_1_mean": "guide_eff_mean_1_mean",
-            "guide_eff_std_1_mean": "guide_eff_std_1_mean",
-            "guide_eff_mean_2_mean": "guide_eff_mean_2_mean",
-            "guide_eff_std_2_mean": "guide_eff_std_2_mean",
-            "guide_eff_mean_1_std": "guide_eff_mean_1_std",
-            "guide_eff_std_1_std": "guide_eff_std_1_std",
-            "guide_eff_mean_2_std": "guide_eff_mean_2_std",
-            "guide_eff_std_2_std": "guide_eff_std_2_std",
-            "init_count_mean": "init_count_mean",
-            "init_count_std": "init_count_std",
-            "mv_mean": "mv_mean",
-            "mv_std": "mv_std",
-            "samples": "samples",
-            "samples_init": "samples_init",
-        },
-        "score_s": {
-            "cell_growth_s_mean": "cell_growth_s_mean",
-            "cell_growth_s_std": "cell_growth_s_std",
-            "guide_eff_s_mean": "guide_eff_s_mean",
-            "guide_eff_s_std": "guide_eff_s_std",
-            "init_count_s_mean": "init_count_s_mean",
-            "init_count_s_std": "init_count_s_std",
-            "ko_growth_s_mean": "ko_growth_s_mean",
-            "ko_growth_s_std": "ko_growth_s_std",
-            "mv_s_mean": "mv_s_mean",
-            "mv_s_std": "mv_s_std",
-            "samples_s": "samples_s",
-            "samples_s_init": "samples_s_init",
-        },
-    }
-}
-
-combination_cols = [
-    "samples",
-    "init_count_mean",
-    "guide_eff_1_mean",
-    "guide_eff_2_mean",
-    "guide_eff_mean_1_mean",
-    "guide_eff_std_1_mean",
-    "guide_eff_mean_2_mean",
-    "guide_eff_std_2_mean",
-    "guide_eff_mean_1_std",
-    "guide_eff_std_1_std",
-    "guide_eff_mean_2_std",
-    "guide_eff_std_2_std",
-    "gene_ko_growth_1_mean",
-    "gene_ko_growth_2_mean",
-    "gene_ko_growth_12_mean",
-    "mv_mean",
-    "gene_ko_growth_1_std",
-    "gene_ko_growth_2_std",
-    "gene_ko_growth_12_std",
-    "mv_std",
-    "guide1",
-    "guide2",
-    "plasmid",
-    "gene1",
-    "gene2",
-    "variable",
-    "value",
-    "cell_line",
-    "replicate",
-    "genePair",
-    "GuidePair",
-    "lfc",
-    "valinor_score",
-    "rank_valinor_score",
-    "overdispersion",
-]
-
-singleton_cols = [
-    "guide1",
-    "guide2",
-    "gene1",
-    "gene2",
-    "replicate_s_1",
-    "replicate_s_2",
-    "lfc_s_1",
-    "lfc_s_2",
-    "ko_growth_s_mean_s_1",
-    "ko_growth_s_std_s_1",
-    "valinor_score_s_s_1",
-    "rank_valinor_score_s_s_1",
-    "ko_growth_s_mean_s_2",
-    "ko_growth_s_std_s_2",
-    "valinor_score_s_s_2",
-    "rank_valinor_score_s_s_2",
-    "overdispersion_s_1",
-    "overdispersion_s_2",
-]
-
-# rename the columns to more meaningful names that will be used in the plots
-naming_cols = {
-    "GuidePair": "Guide pair",
-    "gene1": "Singleton gene 1",
-    "gene2": "Singleton gene 2",
-    "guide1": "Singleton guide 1",
-    "guide2": "Singleton guide 2",
-    "cell_line": "Cell line",
-    "deltaLFC": "dLFC",
-    "dev_prior_guide_eff_1_mean": "Deviation from hyper distribution of guide 1",
-    "dev_prior_guide_eff_2_mean": "Deviation from hyper distribution of guide 2",
-    "gene1": "Gene 1",
-    "gene2": "Gene 2",
-    "genePair": "Gene pair",
-    "guide1": "Guide 1",
-    "guide2": "Guide 2",
-    "guide_eff_1_mean": "Efficiency guide 1",
-    "guide_eff_2_mean": "Efficiency guide 2",
-    "guide_eff_mean_1_mean": "Mean of hyper distribution",
-    "guide_eff_std_1_mean": "Standard deviation of hyper distribution",
-    "gene_ko_growth_1_mean": "Estimated gene 1 effect",
-    "gene_ko_growth_12_mean": "Estimated combination effect",
-    "gene_ko_growth_12_std": "Uncertainty",
-    "gene_ko_growth_1_std": "Uncertainty",
-    "gene_ko_growth_2_mean": "Estimated gene 2 effect",
-    "gene_ko_growth_2_std": "Uncertainty",
-    "ko_growth_s_mean_s_1": "Estimated singleton effect",
-    "ko_growth_s_mean_s_2": "Estimated singleton effect",
-    "ko_growth_s_std_s_1": "Uncertainty",
-    "ko_growth_s_std_s_2": "Uncertainty",
-    "lfc": "Combination LFC",
-    "lfc_s_1": "Singleton LFC - gene 1",
-    "lfc_s_2": "Singleton LFC - gene 2",
-    "mv_mean": "Estimated overdispersion",
-    "mv_std": "Uncertainty",
-    "overdispersion": "Overdispersion",
-    "overdispersion_s_1": "Overdispersion",
-    "overdispersion_s_2": "Overdispersion",
-    "plasmid": "Plasmid counts",
-    "rank_valinor_score": "Rank of Valinor Score",
-    "rank_valinor_score_s_s_1": "Rank of Valinor Singleton Score",
-    "rank_valinor_score_s_s_2": "Rank of Valinor Singleton Score",
-    "valinor_score": "Valinor Score",
-    "valinor_score_s_s_1": "Valinor Singleton Score - gene 1",
-    "valinor_score_s_s_2": "Valinor Singleton Score - gene 2",
-    "value": "End of experiment counts",
-}
-
-
-# TO DO: remove once part of the valinor package
-def truncated_normal_samples(mean, std_dev, lower_bound, upper_bound, sample_size):
-    rng = np.random.default_rng(42)
-    """
-    Generate samples from a truncated normal distribution.
-
-    Parameters:
-    - mean (float): Mean of the distribution.
-    - std_dev (float): Standard deviation of the distribution.
-    - lower_bound (float): Lower bound of truncation.
-    - upper_bound (float): Upper bound of truncation.
-    - sample_size (int): Number of samples to generate.
-
-    Returns:
-    - numpy.ndarray: Array of generated samples.
-    """
-    samples = []
-    while len(samples) < sample_size:
-        sample = rng.normal(mean, std_dev)
-        # add some more random noise on top to get deviations
-        sample = sample + rng.normal(0, 0.01)
-        if lower_bound <= sample <= upper_bound:
-            samples.append(sample)
-
-    return np.array(samples)
-
 
 def load_datasets(dataset, data_combo, data_single, val_combo, val_single):
     # DUSP dataset, seems here pq files contain the model results and h5 files contain the data (so opposite to the HT29 data)
@@ -432,38 +189,13 @@ def sample_genepairs(scoreData_combined):
         scoreData_combined[["genePair", "valinor_score"]]
         .drop_duplicates()
         .sort_values("valinor_score")
-        .genePair[:50]
+        .genePair[:100]
         .unique()
     )
     # then randomly select pairs
     selectpairs = scoreData_combined.genePair.sample(300).unique()
     selectpairs = set(np.concatenate((selectpairs, topsl)))
     return selectpairs
-
-
-def produce_dummy_hier(source):
-    guide1s = source["guide1"].unique()
-    samples = truncated_normal_samples(0.90, 0.05, 0, 1, len(guide1s))
-    guide1_eff_mean = pd.DataFrame(
-        {"guide1": guide1s, "guide_eff_mean_1_mean": samples}
-    )
-    samples = truncated_normal_samples(0.1, 0.01, 0.01, 1000000, len(guide1s))
-    guide1_eff_std = pd.DataFrame({"guide1": guide1s, "guide_eff_std_1_mean": samples})
-
-    guide2s = source["guide2"].unique()
-    samples = truncated_normal_samples(0.95, 0.05, 0, 1, len(guide2s))
-    guide2_eff_mean = pd.DataFrame(
-        {"guide2": guide2s, "guide_eff_mean_2_mean": samples}
-    )
-    samples = truncated_normal_samples(0.1, 0.01, 0.01, 1000000, len(guide2s))
-    guide2_eff_std = pd.DataFrame({"guide2": guide2s, "guide_eff_std_2_mean": samples})
-
-    return (
-        source.merge(guide1_eff_mean, on="guide1")
-        .merge(guide1_eff_std, on="guide1")
-        .merge(guide2_eff_mean, on="guide2")
-        .merge(guide2_eff_std, on="guide2")
-    )
 
 
 def create_overview_stats(combs_attr_df_f, combs_attr_s_df_f):
@@ -2088,15 +1820,13 @@ def create_necessary_folders(folders):
 def main():
     parser = argparse.ArgumentParser(description="Process some files.")
     parser.add_argument(
-        "--dataset", choices=["DUSP", "HT29s"], help="Data file combinations"
-    )  # TO DO: this needs to be removed once part of valinor package
-    parser.add_argument("--datacombinations", help="Data file combinations")
-    parser.add_argument("--datasingletons", help="Data file singletons")
-    parser.add_argument("--valinorcombinations", help="Valinor results combinations")
-    parser.add_argument("--valinorsingletons", help="Valinor results singletons")
+        "--combfile", help="processed table combining data and Valinor output"
+    )
 
     parser.add_argument(
-        "--combfile", help="processed table combining data and Valinor output"
+        "--subsetSLpairs",
+        action="store_true",
+        help="Don't export all the data but only a subset containing the most synthetic lethal pairs and several more randomly sampled ones.",
     )
 
     args = parser.parse_args()
@@ -2108,67 +1838,17 @@ def main():
     ]
     create_necessary_folders(folders)
 
-    # data, data_s, score, score_s = load_datasets(
-    #     args.dataset,
-    #     args.datacombinations,
-    #     args.datasingletons,
-    #     args.valinorcombinations,
-    #     args.valinorsingletons,
-    # )
-
-    # scoreData_combo = pd.concat(
-    #     (score.reset_index(drop=True), data.reset_index(drop=True)), axis=1
-    # )
-    # scoreData_single = pd.concat(
-    #     (score_s.reset_index(drop=True), data_s.reset_index(drop=True)), axis=1
-    # )
-
-    # scoreData_combo, scoreData_single = calc_valinor_score(
-    #     scoreData_combo, scoreData_single
-    # )
-    # scoreData_combo, scoreData_single = calc_overdisp(scoreData_combo, scoreData_single)
-
-    # scoreData_single_NEav = average_NE_singletons(scoreData_single)
-
-    # combo_cols = list(set(combination_cols).intersection(scoreData_combo.columns))
-    # scoreData_combined = combine_single_combo(
-    #     scoreData_combo, scoreData_single_NEav, combo_cols
-    # )
-
-    # scoreData_combined = calc_deltaLFC(scoreData_combined)
-
     scoreData_combined = pd.read_parquet(args.combfile)
-    combo_cols = list(set(combination_cols).intersection(scoreData_combined.columns))
 
-    single_cols = list(set(singleton_cols).intersection(scoreData_combined.columns))
-    additional_cols = ["deltaLFC"]
-    selected_cols = combo_cols + single_cols + additional_cols
+    if args.subsetSLpairs:
+        selectpairs = sample_genepairs(scoreData_combined)
 
-    # TO DO: remove once part of valinor python package, this is just so the data is smaller
-    selectpairs = sample_genepairs(scoreData_combined)
+        source = scoreData_combined.loc[
+            scoreData_combined.genePair.isin(selectpairs)
+        ].copy()
 
-    # I don't need the individual replicate measurements for my plots, aggregate over guide pair and cell line
-    groupbycols = [
-        "GuidePair",
-        "genePair",
-        "cell_line",
-        "gene2",
-        "guide2",
-        "gene1",
-        "guide1",
-    ]
-    source = scoreData_combined.loc[
-        scoreData_combined.genePair.isin(selectpairs)
-    ].copy()
-
-    numeric_columns = source.select_dtypes(include=[np.number]).columns.tolist()
-    numeric_columns = numeric_columns + groupbycols
-    source = source[numeric_columns].groupby(groupbycols).agg("mean").reset_index()
-
-    # produce some dummy guide eff hierarchy data if not exported yet, this is just for visualisation purposes
-    # TO DO: remove once part of Valinor package
-    # if "guide_eff_mean_1_mean" not in source.columns:
-    #     source = produce_dummy_hier(source)
+    else:
+        source = scoreData_combined.copy()
 
     # calculate the deviations from priors for hierarchical parameters
     if "guide_eff_mean_1_mean" in source.columns:
@@ -2179,9 +1859,7 @@ def main():
             source["guide_eff_2_mean"] - source["guide_eff_mean_2_mean"]
         ) / source["guide_eff_std_2_mean"]
 
-    selected_cols = naming_cols.keys()
-    selected_cols = list(set(selected_cols).intersection(source.columns))
-    source[selected_cols].to_csv("valinorreport/input/report_input.csv", index=False)
+    source.to_csv("valinorreport/input/report_input.csv", index=False)
     source_json = r"valinorreport/input/report_input.csv"
 
     ## HOME
