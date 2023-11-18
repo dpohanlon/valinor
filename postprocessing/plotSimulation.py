@@ -8,8 +8,6 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
-from tqdm import tqdm
-
 rcParams["axes.facecolor"] = "FFFFFF"
 rcParams["savefig.facecolor"] = "FFFFFF"
 rcParams["xtick.direction"] = "in"
@@ -31,6 +29,9 @@ import pandas as pd
 
 from scipy.stats import chisquare
 from sklearn.feature_selection import mutual_info_classif
+from sklearn import metrics
+
+from scipy.stats import norm
 
 import h5py
 
@@ -60,6 +61,8 @@ class SimPlotter(object):
         self.location = location
         self.singletons = singletons
         self.cutoff = cutoff
+
+        self.modelData = pd.concat((data, modelOutput), axis = 1)
 
         self.valueName = 'value'
 
@@ -178,14 +181,11 @@ class SimPlotter(object):
 
         return gi_data
 
-    def findContextGI(self, data, threshold = 0.2, n = 1):
+    def findContextGI(self, data, threshold = 0.4, n = 1):
 
         # Get gene pairs that have GI and also only appear in one cell line
 
         n_cl = len(data['cell_line'].unique())
-
-        data['gene_pair'] = data['gene1'].astype(str) + '_' + data['gene2'].astype(str)
-        data['cell_line'] = data['cell_line'].astype(str)
 
         gi_data_syn = data[np.abs(data['syn']) > threshold]
 
@@ -193,6 +193,31 @@ class SimPlotter(object):
         gi_data_n = gi_data_n[gi_data_n['cell_line'] <= n].rename(columns = {'cell_line' : 'n_cl'})
 
         return gi_data_n.merge(gi_data_syn[['gene_pair', 'cell_line']], on = 'gene_pair').drop_duplicates()
+
+    def find_unique_gi_based_on_zscore(self, data, zscore_threshold=3):
+        # List to collect rows that meet the criteria
+        selected_rows = []
+
+        # Group by gene pair
+        for gene_pair, group in tqdm(data.groupby('gene_pair')):
+            # For each cell line, calculate the mean and std of other cell lines
+            for index, row in group.iterrows():
+                other_syn_values = group[group['cell_line'] != row['cell_line']]['syn']
+
+                if len(other_syn_values) > 0:
+                    mean_other_syn = other_syn_values.mean()
+                    std_other_syn = other_syn_values.std()
+
+                    # Calculate Z-score
+                    z_score = abs(row['syn'] - mean_other_syn) / std_other_syn
+
+                    # Check if the Z-score exceeds the threshold
+                    if z_score > zscore_threshold:
+                        selected_rows.append(row)
+
+        # Create a DataFrame from the collected rows
+        unique_gi_pairs = pd.DataFrame(selected_rows).reset_index(drop=True)
+        return unique_gi_pairs
 
     def plotContextGI(self, data, modelOutput):
 
@@ -215,6 +240,155 @@ class SimPlotter(object):
 
         plt.savefig('context_gi.pdf')
         plt.clf()
+
+    def calculate_uniqueness_probability(self, df):
+        # Create an empty DataFrame for the results
+        uniqueness_df = pd.DataFrame()
+
+        # Ensure that mean and std columns are numeric
+        df['gene_ko_growth_12_mean'] = pd.to_numeric(df['gene_ko_growth_12_mean'], errors='coerce')
+        df['gene_ko_growth_12_std'] = pd.to_numeric(df['gene_ko_growth_12_std'], errors='coerce')
+
+        for gene_pair, group in tqdm(df.groupby('gene_pair')):
+            cell_lines_data = group.set_index('cell_line')[['gene_ko_growth_12_mean', 'gene_ko_growth_12_std']].T.to_dict()
+
+            # Calculate probabilities
+            probabilities = self.calculate_probabilities_for_gene_pair(cell_lines_data)
+
+            # Create a temporary DataFrame to store the results for this gene pair
+            temp_df = pd.DataFrame({
+                'gene_pair': gene_pair,
+                'cell_line': list(probabilities.keys()),
+                'uniqueness_probability': list(probabilities.values())
+            })
+
+            # Concatenate the temporary DataFrame with the main result DataFrame
+            uniqueness_df = pd.concat([uniqueness_df, temp_df], ignore_index=True)
+
+        return uniqueness_df
+
+    def calculate_probabilities_for_gene_pair(self, cell_lines_data):
+        probabilities = {}
+        for target_cell_line, target_stats in cell_lines_data.items():
+            target_mean = target_stats['gene_ko_growth_12_mean']
+            target_std = target_stats['gene_ko_growth_12_std']
+            sum_other_means = 0
+            sum_other_vars = 0
+
+            # Sum up the means and variances of other cell lines
+            for other_cell_line, other_stats in cell_lines_data.items():
+                if other_cell_line != target_cell_line:
+                    other_mean = other_stats['gene_ko_growth_12_mean']
+                    other_std = other_stats['gene_ko_growth_12_std']
+                    sum_other_means += other_mean
+                    sum_other_vars += other_std**2
+
+            # Number of other cell lines
+            n_other = len(cell_lines_data) - 1
+
+            # Calculate average mean and variance of other distributions
+            if n_other > 0:
+                avg_other_mean = sum_other_means / n_other
+                avg_other_var = sum_other_vars / n_other
+
+                # Calculate overlap
+                overlap = self.calculate_distribution_overlap(target_mean, target_std, avg_other_mean, np.sqrt(avg_other_var))
+
+                # Probability of uniqueness
+                probabilities[target_cell_line] = 1 - overlap
+            else:
+                # If there are no other cell lines, set uniqueness probability to 1
+                probabilities[target_cell_line] = 1
+
+        return probabilities
+
+    def calculate_distribution_overlap(self, mean1, std1, mean2, std2):
+        # mean_diff = mean1 - mean2
+        # var_diff = std1**2 + std2**2
+        # diff_dist = norm(mean_diff, np.sqrt(var_diff))
+        #
+        # # Use the absolute value of the cumulative probability up to zero
+        # overlap = abs(diff_dist.cdf(0))
+        #
+        # # The probability of uniqueness (non-overlap) is 1 - overlap
+        # # Ensure it's within [0, 1]
+        # uniqueness_probability = min(max(1 - overlap, 0), 1)
+        # return uniqueness_probability
+
+        mean_diff = mean1 - mean2
+        var_diff = std1**2 + std2**2
+        diff_dist = norm(mean_diff, np.sqrt(var_diff))
+        overlap = 2 * diff_dist.cdf(0)
+        return overlap
+
+    def scoreContextGI(self, data):
+
+        data['gene_pair'] = data['gene1'].astype(str) + '_' + data['gene2'].astype(str)
+        data['cell_line'] = data['cell_line'].astype(str)
+
+        # context_gi = self.findContextGI(data, 0.6)
+
+        context_gi = self.find_unique_gi_based_on_zscore(data.groupby(['gene_pair', 'cell_line']).agg({'syn' : 'first'}).reset_index(), 10)
+
+        print(len(context_gi))
+
+        context_gi = context_gi[['cell_line', 'gene_pair']].copy()
+
+        merged_df = pd.merge(data, context_gi, on=['gene_pair', 'cell_line'], how='left', indicator=True)
+        merged_df['gi'] = merged_df['_merge'].apply(lambda x: 1 if x == 'both' else 0)
+        merged_df.drop(columns=['_merge'], inplace=True)
+
+        # sns.kdeplot(data = merged_df, x = 'lfc', hue = 'gi', common_norm = False)
+        # plt.savefig('gi.pdf')
+        # plt.clf()
+
+        avg_df = merged_df.groupby(['gene_pair', 'cell_line']).agg({'gi' : 'first', 'lfc' : 'mean', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'syn' : 'first'}).reset_index()
+
+        sns.regplot(data = avg_df, x = 'syn', y = 'gene_ko_growth_12_mean')
+        sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'syn', y = 'gene_ko_growth_12_mean')
+        plt.savefig('syn_reg.pdf')
+        plt.clf()
+
+        # avg_df = avg_df[np.abs(avg_df['syn']) > 0.2]
+
+        unq_prob = self.calculate_uniqueness_probability(avg_df)
+
+        avg_df = avg_df.merge(unq_prob, on = ['cell_line', 'gene_pair'])
+
+        sns.regplot(data = avg_df, x = 'syn', y = 'uniqueness_probability')
+        sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'syn', y = 'uniqueness_probability')
+        plt.savefig('syn_reg_unq.pdf')
+        plt.clf()
+
+
+        # Split by sign, as there are positive and negative GI in the simulation
+        # whereas in reality negative is way more common. Could also just fold the data?
+
+        # Metric for model is not just growth_12, but rather a similar thresholding accounting
+        # for posteriors
+
+        for sign in ['pos', 'neg']:
+
+            # param = 'gene_ko_growth_12_mean'
+            param = 'uniqueness_probability'
+
+            avg_df_signed = avg_df[avg_df[param] > 0] if sign == 'pos' else avg_df[avg_df[param] < 0]
+            # avg_df_signed = avg_df_signed[np.abs(avg_df_signed['syn']) > 0.6]
+
+            print(np.sum(avg_df_signed['gi']), len(avg_df_signed))
+
+            fpr, tpr, thresholds = metrics.roc_curve(avg_df_signed['gi'], avg_df_signed[param] * (1 if sign == 'pos' else -1))
+
+            plt.plot(fpr, tpr, lw = 3.0)
+            plt.savefig(f'gi_roc_{sign}.pdf')
+            plt.clf()
+
+            precision, recall, thresholds = metrics.precision_recall_curve(avg_df_signed['gi'], avg_df_signed[param] * (1 if sign == 'pos' else -1))
+
+            plt.plot(recall, precision, lw = 3.0)
+            plt.savefig(f'gi_pr_{sign}.pdf')
+            plt.clf()
+
 
     def makePlots(self):
 
@@ -347,12 +521,12 @@ if __name__ == "__main__":
         calibrationFile=args.calibFile,
     )
 
-    print(plotter.findContextGI(data))
+    data = plotter.populateContexts(plotter.modelData, args.contextsFile)
+    data = plotter.calculateLFC(data)
+
+    plotter.scoreContextGI(data)
 
     exit(0)
-
-    data = plotter.populateContexts(data, args.contextsFile)
-    data = plotter.calculateLFC(data)
 
     plotter.plotContextGI(data, modelOutput)
 
