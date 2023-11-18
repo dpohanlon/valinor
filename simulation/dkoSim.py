@@ -76,7 +76,7 @@ def getContextMatrix(
     return mat
 
 
-def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context):
+def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context, scale = 2):
     """
     Generate context matrices for gene interactions.
 
@@ -108,8 +108,8 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
                 gene_pairs_to_modify.append(pair)
 
         for pair in gene_pairs_to_modify:
-            # Generate a random multiplier between 0 and 2 for the interaction
-            multiplier = np.random.uniform(0, 2)
+            # Generate a random multiplier between 0 and scale for the interaction
+            multiplier = np.random.uniform(0, scale)
             context_matrix[pair[0], pair[1]] = multiplier
             context_matrix[pair[1], pair[0]] = multiplier
 
@@ -118,25 +118,38 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
     return context_matrices
 
 
-def assign_contexts_to_cell_lines(total_cell_lines, num_contexts):
+def assign_contexts_to_cell_lines(total_cell_lines, num_contexts, unique_contexts=False):
     """
-    Assign contexts to cell lines. Each cell line can have multiple contexts.
+    Assign contexts to cell lines. Each cell line can have multiple contexts, or each context can be unique to a cell line.
 
     Parameters:
     - total_cell_lines: Total number of cell lines.
     - num_contexts: Number of context-specific groups of cell lines.
+    - unique_contexts: If True, each context is assigned to exactly one cell line.
 
     Returns:
     - A dictionary mapping each cell line to its associated context indices.
     """
 
     cell_line_to_contexts = {}
-    for i in range(total_cell_lines):
-        # Randomly assign one or more contexts to each cell line
-        assigned_contexts = np.random.choice(
-            num_contexts, size=np.random.randint(1, num_contexts + 1), replace=False
-        )
-        cell_line_to_contexts[i] = assigned_contexts
+
+    if unique_contexts:
+        # Ensure that the number of contexts is not greater than the number of cell lines
+        if num_contexts > total_cell_lines:
+            raise ValueError("Number of contexts cannot be greater than the number of cell lines for unique assignment.")
+
+        # Shuffle the contexts and assign each to a different cell line
+        contexts = np.random.permutation(num_contexts)
+        for i in range(total_cell_lines):
+            context_index = contexts[i % num_contexts]
+            cell_line_to_contexts[i] = [context_index]
+    else:
+        for i in range(total_cell_lines):
+            # Randomly assign one or more contexts to each cell line
+            assigned_contexts = np.random.choice(
+                num_contexts, size=np.random.randint(1, num_contexts + 1), replace=False
+            )
+            cell_line_to_contexts[i] = assigned_contexts
 
     return cell_line_to_contexts
 
@@ -920,8 +933,8 @@ def makeDataset(outDir):
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01)
-    cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts)
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01, scale = 3)
+    cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts, unique_contexts = True)
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
