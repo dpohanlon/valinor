@@ -76,7 +76,7 @@ def getContextMatrix(
     return mat
 
 
-def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context, scale = 2):
+def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context, scale = 0.1):
     """
     Generate context matrices for gene interactions.
 
@@ -97,8 +97,8 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
     context_matrices = []
 
     for _ in range(num_contexts):
-        # Start with a matrix of ones (indicating no change)
-        context_matrix = np.ones((num_genes, num_genes))
+        # Start with a matrix of zeros (indicating no change)
+        context_matrix = np.zeros((num_genes, num_genes))
 
         # Randomly select gene pairs to modify, ensuring we don't select diagonal pairs
         gene_pairs_to_modify = []
@@ -108,8 +108,13 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
                 gene_pairs_to_modify.append(pair)
 
         for pair in gene_pairs_to_modify:
+
             # Generate a random multiplier between 0 and scale for the interaction
-            multiplier = np.random.uniform(0, scale)
+            # multiplier = np.random.uniform(0, scale)
+
+            multiplier = np.random.normal(scale, scale / 5)
+            multiplier *= np.random.choice([1, -1])
+
             context_matrix[pair[0], pair[1]] = multiplier
             context_matrix[pair[1], pair[0]] = multiplier
 
@@ -172,7 +177,7 @@ def negativeBinomial(mean, variance=None, size=None):
 def genCellLine(
     prototypeDKO,
     resampleFrac=0.2,
-    fluctuateStd=0.05,
+    fluctuateStd=0.01,
     context=None,
     gi_contexts=None,
     gi_context_lists=None,
@@ -192,12 +197,25 @@ def genCellLine(
     )
     newGeneEss[resampleIdx] = np.random.normal(0.1, 0.2, size=len(resampleIdx))
 
-    newSyn = prototypeDKO.synergies + np.random.normal(
-        0, fluctuateStd, len(prototypeDKO.synergies)
-    )
-    newSyn[resampleIdx, :][:, resampleIdx] = np.random.normal(
-        0.0, 0.1, size=(len(resampleIdx), len(resampleIdx))
-    )
+    # If we're adding more context, don't include the prototype context GIs!
+
+    if not (gi_contexts == None):
+
+        newSyn = np.random.normal(
+            0, fluctuateStd, size = prototypeDKO.synergies.shape
+        )
+
+    else:
+
+        newSyn = prototypeDKO.synergies + np.random.normal(
+            0, fluctuateStd, len(prototypeDKO.synergies)
+        )
+
+
+        newSyn[resampleIdx, :][:, resampleIdx] = np.random.normal(
+            0.0, 0.1, size=(len(resampleIdx), len(resampleIdx))
+        )
+
     newSyn = np.tril(newSyn) + np.tril(newSyn, -1).T
 
     if np.random.randint(0, 2) == 1:
@@ -255,7 +273,7 @@ def addCellLines(
     gi_contexts=None,
     gi_context_lists=None,
     resampleFrac=0.2,
-    fluctuateStd=0.05,
+    fluctuateStd=0.01,
     offsets=None,
     returnCounts=False,
 ):
@@ -587,7 +605,7 @@ class DoubleKO(object):
         # Start with everything at the gene level
 
         if synergies is None:
-            self.synergies = np.random.normal(0.0, 0.1, (self.nGenes, self.nGenes))
+            self.synergies = np.random.normal(0.0, 0.02, (self.nGenes, self.nGenes))
             np.fill_diagonal(self.synergies, 0)
 
             # Symmetrise
@@ -602,7 +620,7 @@ class DoubleKO(object):
 
         if not (gi_contexts is None):
             for i in gi_context_lists:
-                self.synergies *= gi_contexts[i]
+                self.synergies += gi_contexts[i]
 
         # sns.heatmap(self.synergies, cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.5, vmax = 0.5)
         # plt.savefig('syn_after.pdf')
@@ -933,7 +951,7 @@ def makeDataset(outDir):
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01, scale = 3)
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01, scale = 0.02)
     cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts, unique_contexts = True)
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
@@ -970,8 +988,8 @@ def makeDataset(outDir):
     # plt.clf()
 
     sgRNAEfficiencies1 = np.clip(
-        np.random.normal(0.65, 0.02, size=nGenes * 1),
-        # np.random.normal(0.95, 0.02, size=nGenes * 1),
+        # np.random.normal(0.65, 0.02, size=nGenes * 1),
+        np.random.normal(0.95, 0.02, size=nGenes * 1),
         0,
         1,
     )
