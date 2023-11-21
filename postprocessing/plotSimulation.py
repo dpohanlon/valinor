@@ -399,6 +399,16 @@ class SimPlotter(object):
         print('')
         print(avg_df[avg_df['gene_pair'] == '28_53'])
 
+        sns.kdeplot(data = avg_df, x = 'gene_ko_growth_12_mean')
+        plt.savefig('gene_ko_growth_12_mean.pdf')
+        plt.clf()
+
+        avg_df['score'] = avg_df['gene_ko_growth_12_mean'] / avg_df['gene_ko_growth_12_std']
+
+        sns.kdeplot(data = avg_df, x = 'score')
+        plt.savefig('score.pdf')
+        plt.clf()
+
         sns.regplot(data = avg_df, x = 'syn', y = 'gene_ko_growth_12_mean')
         sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'syn', y = 'gene_ko_growth_12_mean')
         plt.savefig('syn_reg.pdf')
@@ -448,7 +458,7 @@ class SimPlotter(object):
             param = 'uniqueness_probability'
 
             avg_df_signed = avg_df[avg_df[param] > 0] if sign == 'pos' else avg_df[avg_df[param] < 0]
-            # avg_df_signed = avg_df_signed[np.abs(avg_df_signed['syn']) > 0.6]
+            avg_df_signed = avg_df_signed[avg_df_signed['score'] > 5]
 
             print(np.sum(avg_df_signed['gi']), len(avg_df_signed))
 
@@ -464,6 +474,63 @@ class SimPlotter(object):
             plt.savefig(f'gi_pr_{sign}.pdf')
             plt.clf()
 
+    def cell_line_performance(self, modelData):
+
+        # Valinor score vs 'syn' from simulation (~ g_12 param)
+        # Important we have enough of these context GI in the simulation to
+        # be able to evaluate
+
+        # Do this beforehand somewhere else
+
+        modelData['gene_pair'] = modelData['gene1'].astype(str) + '_' + modelData['gene2'].astype(str)
+        modelData['cell_line'] = modelData['cell_line'].astype(str)
+
+        # This feels redundant at the moment, but when we run on LFC we will
+        # have to average...
+
+        threshold = 0.01
+
+        sns.kdeplot(data = modelData, x = 'syn', clip = (-0.05, 0.05))
+        plt.savefig('syn.pdf')
+        plt.clf()
+
+        modelData['score']  = modelData['gene_ko_growth_12_mean'] / modelData['gene_ko_growth_12_std']
+
+        # modelData = modelData.groupby(['cell_line', 'gene_pair']).agg({'syn' : 'first', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'score' : 'first'})
+        modelData = modelData.groupby(['gene_pair']).agg({'cell_line' : 'first', 'syn' : 'median', 'gene_ko_growth_12_mean' : 'median', 'gene_ko_growth_12_std' : 'median', 'score' : 'median'})
+        modelData['gi'] = np.abs(modelData['syn']) > threshold
+
+        param = 'score'
+
+        sns.regplot(data = modelData, x = 'score', y = 'syn')
+        plt.savefig(f'gi_reg.pdf')
+        plt.clf()
+
+        for cell_line, data  in modelData.groupby('cell_line'):
+
+            # Negative a positive GI
+
+            for sign in ['neg', 'pos']:
+
+                data_signed = data[(data[param] > 0) if sign == 'pos' else (data[param] < 0)]
+
+                print(cell_line, sign, len(data_signed), np.sum(data_signed['gi']))
+
+                fpr, tpr, thresholds = metrics.roc_curve(data_signed['gi'], data_signed[param] * (1 if sign == 'pos' else -1))
+
+                plt.plot(fpr, tpr, lw = 3.0)
+                plt.savefig(f'gi_roc_{sign}_{cell_line}.pdf')
+                plt.clf()
+
+                precision, recall, thresholds = metrics.precision_recall_curve(data_signed['gi'], data_signed[param] * (1 if sign == 'pos' else -1))
+
+                plt.plot(recall, precision, lw = 3.0)
+                plt.savefig(f'gi_pr_{sign}_{cell_line}.pdf')
+                plt.clf()
+
+                sns.regplot(data = data_signed, x = 'score', y = 'syn')
+                plt.savefig(f'gi_reg_{sign}_{cell_line}.pdf')
+                plt.clf()
 
     def makePlots(self):
 
@@ -599,9 +666,11 @@ if __name__ == "__main__":
     data = plotter.populateContexts(plotter.modelData, args.contextsFile)
     data = plotter.calculateLFC(data)
 
-    plotter.scoreContextGI(data)
+    plotter.cell_line_performance(plotter.modelData)
 
     exit(0)
+
+    plotter.scoreContextGI(data)
 
     plotter.plotContextGI(data, modelOutput)
 
