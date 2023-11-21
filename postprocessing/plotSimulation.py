@@ -488,7 +488,7 @@ class SimPlotter(object):
         # This feels redundant at the moment, but when we run on LFC we will
         # have to average...
 
-        threshold = 0.01
+        threshold = 0.04
 
         sns.kdeplot(data = modelData, x = 'syn', clip = (-0.05, 0.05))
         plt.savefig('syn.pdf')
@@ -496,8 +496,8 @@ class SimPlotter(object):
 
         modelData['score']  = modelData['gene_ko_growth_12_mean'] / modelData['gene_ko_growth_12_std']
 
-        # modelData = modelData.groupby(['cell_line', 'gene_pair']).agg({'syn' : 'first', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'score' : 'first'})
-        modelData = modelData.groupby(['gene_pair']).agg({'cell_line' : 'first', 'syn' : 'median', 'gene_ko_growth_12_mean' : 'median', 'gene_ko_growth_12_std' : 'median', 'score' : 'median'})
+        modelData = modelData.groupby(['cell_line', 'gene_pair']).agg({'syn' : 'first', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'score' : 'first'})
+        # modelData = modelData.groupby(['gene_pair']).agg({'cell_line' : 'first', 'syn' : 'median', 'gene_ko_growth_12_mean' : 'median', 'gene_ko_growth_12_std' : 'median', 'score' : 'median'})
         modelData['gi'] = np.abs(modelData['syn']) > threshold
 
         param = 'score'
@@ -508,7 +508,7 @@ class SimPlotter(object):
 
         for cell_line, data  in modelData.groupby('cell_line'):
 
-            # Negative a positive GI
+            # Negative or positive GI
 
             for sign in ['neg', 'pos']:
 

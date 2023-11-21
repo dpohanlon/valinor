@@ -112,7 +112,7 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
             # Generate a random multiplier between 0 and scale for the interaction
             # multiplier = np.random.uniform(0, scale)
 
-            multiplier = np.random.normal(scale, scale / 5)
+            multiplier = np.random.normal(scale, scale / 2)
             multiplier *= np.random.choice([1, -1])
 
             context_matrix[pair[0], pair[1]] = multiplier
@@ -164,7 +164,7 @@ def negativeBinomial(mean, variance=None, size=None):
     mean[mean < 1e-8] = 10.0
 
     if variance is None:
-        variance = 1.25 * mean
+        variance = 1.5 * mean
 
     n_nb = -(mean ** 2 / (mean - variance))
     p_nb = 1.0 - (mean / (variance + 1e-8))
@@ -415,7 +415,7 @@ def addReplicates(df, nReplicates, returnCounts=False):
         else:
             # replicate["value"] = np.random.poisson(replicate["value"])
             replicate["value"] = negativeBinomial(
-                replicate["value"].values, 50.0 * replicate["value"].values
+                replicate["value"].values, 10.0 * replicate["value"].values
             )
 
         copies.append(replicate)
@@ -605,7 +605,7 @@ class DoubleKO(object):
         # Start with everything at the gene level
 
         if synergies is None:
-            self.synergies = np.random.normal(0.0, 0.02, (self.nGenes, self.nGenes))
+            self.synergies = np.random.normal(0.0, 0.01, (self.nGenes, self.nGenes))
             np.fill_diagonal(self.synergies, 0)
 
             # Symmetrise
@@ -628,7 +628,7 @@ class DoubleKO(object):
 
         if geneEssentiality is None:
             # We could even populate this with real data from the essentiality scores
-            self.geneEssentiality = np.random.normal(0.1, 0.02, size=self.nGenes)
+            self.geneEssentiality = np.random.normal(0.05, 0.1, size=self.nGenes)
 
         else:
             self.geneEssentiality = geneEssentiality
@@ -951,7 +951,7 @@ def makeDataset(outDir):
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01, scale = 0.02)
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01, scale = 0.1)
     cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts, unique_contexts = True)
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
