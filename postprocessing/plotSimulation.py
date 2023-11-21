@@ -488,7 +488,7 @@ class SimPlotter(object):
         # This feels redundant at the moment, but when we run on LFC we will
         # have to average...
 
-        threshold = 0.04
+        threshold = 0.02
 
         sns.kdeplot(data = modelData, x = 'syn', clip = (-0.05, 0.05))
         plt.savefig('syn.pdf')

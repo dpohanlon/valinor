@@ -112,7 +112,7 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
             # Generate a random multiplier between 0 and scale for the interaction
             # multiplier = np.random.uniform(0, scale)
 
-            multiplier = np.random.normal(scale, scale / 2)
+            multiplier = np.random.normal(scale, scale / 5)
             multiplier *= np.random.choice([1, -1])
 
             context_matrix[pair[0], pair[1]] = multiplier
@@ -951,7 +951,7 @@ def makeDataset(outDir):
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.01, scale = 0.1)
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale = 0.1)
     cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts, unique_contexts = True)
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
