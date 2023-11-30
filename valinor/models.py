@@ -34,6 +34,7 @@ def dkoLikelihoodFinal(
     gene_ko_growth_2: float,
     gene_ko_growth_12: float,
     mv: float,
+    library_bias: float,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -55,7 +56,7 @@ def dkoLikelihoodFinal(
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
         jnp.exp(
-            cell_line_growth + (gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
+            cell_line_growth + (library_bias * gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
         )
         - 1.0
     )
@@ -74,6 +75,7 @@ def dkoLikelihoodFullFinal(
     gene_ko_growth_2: float,
     gene_ko_growth_12: float,
     mv: float,
+    library_bias: float,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -96,7 +98,7 @@ def dkoLikelihoodFullFinal(
     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
     p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
 
-    g1 = gene_ko_growth_1 - cell_line_growth
+    g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
     g2 = gene_ko_growth_2 - cell_line_growth
     g12 = gene_ko_growth_12 - cell_line_growth
 
@@ -129,6 +131,7 @@ def skoLikelihoodFinal(
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
     mv: float,
+    library_bias: float,
     alternate: bool = False,
 ) -> Distribution:
     """
@@ -156,9 +159,10 @@ def skoLikelihoodFinal(
             gene_ko_growth_1 = gene_ko_growth_s,
             gene_ko_growth_2 = 0.0,
             gene_ko_growth_12 = 0.0,
-            mv = mv
+            mv = mv,
+            library_bias = library_bias,
         )
-        
+
     else:
 
         return dkoLikelihoodFullFinal(
@@ -170,6 +174,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_2=0.0,
             gene_ko_growth_12=0.0,
             mv=mv,
+            library_bias = library_bias,
         )
 
 
@@ -302,7 +307,12 @@ def sample_cell_line_distributions(
             "inv_mv_std", dist.TruncatedNormal(loc=od_stds, scale=mv_std_s, low=0.0)
         )
 
-    return cell_line_growth, inv_mv_mean, inv_mv_std
+        # TODO: Make me configurable
+        library_bias = numpyro.sample(
+            "library_bias", dist.Normal(loc=0, scale=0.1)
+        )
+
+    return cell_line_growth, inv_mv_mean, inv_mv_std, library_bias
 
 
 def sample_dko_distributions(
@@ -392,6 +402,7 @@ def sample_dko_distributions(
             gene_ko_growth_2,
             gene_ko_growth_12,
             mv,
+            library_bias = 1.0,
         )
 
     else:
@@ -405,6 +416,7 @@ def sample_dko_distributions(
             gene_ko_growth_2,
             gene_ko_growth_12,
             mv,
+            library_bias = 1.0,
         )
 
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
@@ -422,6 +434,7 @@ def sample_sko_distributions(
     cell_line_growth,
     inv_mv_mean,
     inv_mv_std,
+    library_bias,
     alternate: bool = False,
 ):
     with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
@@ -449,6 +462,8 @@ def sample_sko_distributions(
 
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
+    library_bias_s = library_bias[indices["cell_line_s_idx"]]
+
     init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
     lh_s, theta_s = skoLikelihoodFinal(
@@ -457,6 +472,7 @@ def sample_sko_distributions(
         cell_line_growth_s,
         gene_ko_growth_s,
         mv_s,
+        library_bias_s,
         alternate,
     )
 
@@ -482,7 +498,7 @@ def valinorHierarchy(
 ) -> None:
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
-    cell_line_growth, inv_mv_mean, inv_mv_std = sample_cell_line_distributions(
+    cell_line_growth, inv_mv_mean, inv_mv_std, library_bias = sample_cell_line_distributions(
         lengths, prior_params
     )
 
@@ -510,5 +526,6 @@ def valinorHierarchy(
             cell_line_growth,
             inv_mv_mean,
             inv_mv_std,
+            library_bias,
             alternate,
         )

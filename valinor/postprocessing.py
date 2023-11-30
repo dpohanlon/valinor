@@ -106,6 +106,10 @@ def sampleParams(
             :, indices["cell_line_s_idx"]
         ]
 
+        singlesParams["library_bias_s"] = samples["library_bias"][
+            :, indices["cell_line_s_idx"]
+        ]
+
         singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
             :, indices["gene_s_idx"]
         ]
@@ -124,6 +128,7 @@ def sampleParams(
             singlesParams["cell_growth_s"],
             singlesParams["ko_growth_s"],
             singlesParams["mv_s"],
+            singlesParams["library_bias_s"],
             alternate,
         )[0].sample(random.PRNGKey(42))
 
@@ -195,6 +200,7 @@ def sampleParams(
             combsParams["gene_ko_growth_2"],
             combsParams["gene_ko_growth_12"],
             combsParams["mv"],
+            1.0,
         )[0].sample(random.PRNGKey(42))
 
     else:
@@ -209,6 +215,7 @@ def sampleParams(
             combsParams["gene_ko_growth_2"],
             combsParams["gene_ko_growth_12"],
             combsParams["mv"],
+            1.0,
         )[0].sample(random.PRNGKey(42))
 
     params["combs"] = combsParams
