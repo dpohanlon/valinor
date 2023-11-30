@@ -499,7 +499,7 @@ def sample_control_distributions(
 
     init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
 
-    lh_c, theta_c = controlLikelihoodFinal(guide_init_count_c, cell_line_growth_c, mv_c)
+    lh_c, theta_c = controlLikelihoodFinal(init_theta_c[indices['guide_pair_c_idx']], cell_line_growth_c, mv_c)
 
     numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
 
