@@ -173,6 +173,17 @@ def skoLikelihoodFinal(
         )
 
 
+def controlLikelihoodFinal(
+    init_theta_c: float,
+    cell_line_growth_c: float,
+    mv: float,
+) -> Distribution:
+
+    theta = init_theta_c * jnp.exp(cell_line_growth_c)
+
+    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
+
+
 def sample_guide_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any], config="partial_pooling"
 ):
@@ -212,7 +223,7 @@ def sample_guide_distributions(
 
     elif config == "partial_pooling_low":
 
-        with numpyro.plate("guides", lengths["len_guides"], dim = -2):
+        with numpyro.plate("guides", lengths["len_guides"], dim=-2):
 
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
@@ -222,7 +233,7 @@ def sample_guide_distributions(
                 "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
             )
 
-        with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim = -1):
+        with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
 
             guide_eff = numpyro.sample(
                 "guide_eff",
@@ -469,6 +480,50 @@ def sample_sko_distributions(
     )
 
 
+def sample_control_distributions(
+    data: Dict[str, jnp.array],
+    lengths: Dict[str, int],
+    indices,
+    prior_params: Dict[str, Any],
+    cell_line_growth,
+    inv_mv_mean,
+    inv_mv_std,
+):
+
+    init_c_l, init_c_s = prior_params["init_count_c"]
+
+    with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_c"]):
+
+        guide_init_count_c = numpyro.sample(
+            "guide_init_count_c",
+            dist.TruncatedNormal(loc=init_c_l, scale=init_c_s, low=0.0),
+        )
+
+    inv_mv_c = numpyro.sample(
+        "inv_mv_c",
+        dist.TruncatedNormal(
+            loc=inv_mv_mean[indices["cell_line_c_idx"]],
+            scale=inv_mv_std[indices["cell_line_c_idx"]],
+            low=1.0,
+        ),
+    )
+    mv_c = numpyro.deterministic("mv_c", 1.0 / inv_mv_c)
+
+    cell_line_growth_c = cell_line_growth[indices["cell_line_c_idx"]]
+
+    init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
+
+    lh_c, theta_c = controlLikelihoodFinal(init_theta_c[indices['guide_pair_c_idx']], cell_line_growth_c, mv_c)
+
+    numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
+
+    numpyro.sample(
+        "obs_c",
+        lh_c,
+        obs=data["final"]["controls"],
+    )
+
+
 def valinorHierarchy(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
@@ -511,4 +566,14 @@ def valinorHierarchy(
             inv_mv_mean,
             inv_mv_std,
             alternate,
+        )
+    if not no_controls:
+        sample_control_distributions(
+            data,
+            lengths,
+            indices,
+            prior_params,
+            cell_line_growth,
+            inv_mv_mean,
+            inv_mv_std,
         )

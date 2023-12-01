@@ -59,6 +59,12 @@ def prepareData(
             np.std(datasets["singletons"]["plasmid"]),
         )
 
+    if not (datasets["controls"] is None):
+        prior_params["init_count_c"] = (
+            np.mean(datasets["controls"]["plasmid"]),
+            np.std(datasets["controls"]["plasmid"]),
+        )
+
     # These args can be `None`
     indices = getIndices(
         datasets["combinations"], datasets["singletons"], datasets["controls"]
