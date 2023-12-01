@@ -135,7 +135,29 @@ def sampleParams(
         params["singles"] = singlesParams
 
     if controls:
-        pass
+        controlsParams = {}
+
+        controlsParams["init_count_c"] = samples["guide_init_count_c"][
+            :, indices["guide_pair_c_idx"]
+        ]
+
+        controlsParams["cell_growth_c"] = samples["cell_line_growth"][
+            :, indices["cell_line_c_idx"]
+        ]
+
+        controlsParams["mv_c"] = 1.0 / samples["inv_mv_c"]
+
+        controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
+            controlsParams["init_count_c"]
+        )[0].sample(random.PRNGKey(42))
+
+        controlsParams["samples_c"] = models.controlLikelihoodFinal(
+            controlsParams["init_count_c"],
+            controlsParams["cell_growth_c"],
+            controlsParams["mv_c"],
+        )[0].sample(random.PRNGKey(42))
+
+        params["controls"] = controlsParams
 
     combsParams = {}
 
