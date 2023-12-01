@@ -186,11 +186,10 @@ def average_replicates(scoreData_combined):
 
 
 def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_single):
-    # TO DO: make this consistent based on the valior package, remove dataset dependence after
     av_replic_percln = "{:.2f}".format(len(data["replicate"].unique()))
     av_replic_percln_s = "{:.2f}".format(len(data_s["replicate"].unique()))
 
-    # TO DO: fix the file path, creating date and introduce the settings from valinor
+    # TO DO: creating date and introduce the settings from valinor
     combs_attr = {
         "n_cell_lines": data["cell_line"].unique().shape[0],
         "cell_lines": ", ".join(data["cell_line"].unique()),
@@ -230,7 +229,7 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
     return (combs_attr_df, combs_attr_s_df)
 
 
-def process_valinor_pred(data_combo, data_single, val_combo, val_single):
+def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_folder):
     data, data_s, score, score_s = load_datasets(
         data_combo, data_single, val_combo, val_single
     )
@@ -239,15 +238,6 @@ def process_valinor_pred(data_combo, data_single, val_combo, val_single):
         data, data_s, data_combo, data_single, val_combo, val_single
     )
 
-    folders = ["valinorreport/input", "valinorreport/plots"]
-
-    for folder in folders:
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-
-    combs_attr_df.to_csv("valinorreport/input/combs_attr_df.csv", index=False)
-    combs_attr_s_df.to_csv("valinorreport/input/combs_attr_s_df.csv", index=False)
-
     df_combs = merge_data_scores(data, score)
     df_singles = merge_data_scores(data_s, score_s)
 
@@ -255,7 +245,19 @@ def process_valinor_pred(data_combo, data_single, val_combo, val_single):
 
     df_combs, df_singles = calc_overdisp(df_combs, df_singles)
 
-    produce_modelfit_plot(df_combs, df_singles, "valinorreport/plots/")
+    if report_folder is not None:
+        folders = [f"{report_folder}/input", f"{report_folder}/plots"]
+
+        for folder in folders:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+
+        combs_attr_df.to_csv(f"{report_folder}/input/combs_attr_df.csv", index=False)
+        combs_attr_s_df.to_csv(
+            f"{report_folder}/input/combs_attr_s_df.csv", index=False
+        )
+
+        produce_modelfit_plot(df_combs, df_singles, f"{report_folder}/plots/")
 
     df_singles_NEav = average_NE_singletons(df_singles)
 
@@ -278,14 +280,27 @@ def main():
     parser.add_argument("--val_single", help="Path to the val_single file.")
     parser.add_argument("--data_combo", help="Path to the data_combo file.")
     parser.add_argument("--data_single", help="Path to the data_single file.")
+    parser.add_argument(
+        "--output_file",
+        help="Processed output file. Default is valinoroutput_processed.pq",
+        default="../valinoroutput_processed.pq",
+    )
+    parser.add_argument(
+        "--report_folder",
+        help="Optional: if given this will produce files necessary for the report in the given location",
+    )
 
     args = parser.parse_args()
 
     scoreData_combined = process_valinor_pred(
-        args.data_combo, args.data_single, args.val_combo, args.val_single
+        args.data_combo,
+        args.data_single,
+        args.val_combo,
+        args.val_single,
+        args.report_folder,
     )
 
-    scoreData_combined.to_parquet("valinoroutput_processed.pq")
+    scoreData_combined.to_parquet(args.output_file)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,54 @@ import argparse
 from plotting import *
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import numpy as np
+
+naming_cols = {
+    "GuidePair": "Guide pair",
+    "gene1": "Singleton gene 1",
+    "gene2": "Singleton gene 2",
+    "guide1": "Singleton guide 1",
+    "guide2": "Singleton guide 2",
+    "cell_line": "Cell line",
+    "deltaLFC": "dLFC",
+    "dev_prior_guide_eff_1_mean": "Deviation from hyper distribution of guide 1",
+    "dev_prior_guide_eff_2_mean": "Deviation from hyper distribution of guide 2",
+    "gene1": "Gene 1",
+    "gene2": "Gene 2",
+    "genePair": "Gene pair",
+    "guide1": "Guide 1",
+    "guide2": "Guide 2",
+    "guide_eff_1_mean": "Efficiency guide 1",
+    "guide_eff_2_mean": "Efficiency guide 2",
+    "guide_eff_mean_1_mean": "Mean of hyper distribution",
+    "guide_eff_std_1_mean": "Standard deviation of hyper distribution",
+    "gene_ko_growth_1_mean": "Estimated gene 1 effect",
+    "gene_ko_growth_12_mean": "Estimated combination effect",
+    "gene_ko_growth_12_std": "Uncertainty",
+    "gene_ko_growth_1_std": "Uncertainty",
+    "gene_ko_growth_2_mean": "Estimated gene 2 effect",
+    "gene_ko_growth_2_std": "Uncertainty",
+    "ko_growth_s_mean_s_1": "Estimated singleton effect",
+    "ko_growth_s_mean_s_2": "Estimated singleton effect",
+    "ko_growth_s_std_s_1": "Uncertainty",
+    "ko_growth_s_std_s_2": "Uncertainty",
+    "lfc": "Combination LFC",
+    "lfc_s_1": "Singleton LFC - gene 1",
+    "lfc_s_2": "Singleton LFC - gene 2",
+    "mv_mean": "Estimated overdispersion",
+    "mv_std": "Uncertainty",
+    "overdispersion": "Overdispersion",
+    "overdispersion_s_1": "Overdispersion",
+    "overdispersion_s_2": "Overdispersion",
+    "plasmid": "Plasmid counts",
+    "rank_valinor_score": "Rank of Valinor Score",
+    "rank_valinor_score_s_s_1": "Rank of Valinor Singleton Score",
+    "rank_valinor_score_s_s_2": "Rank of Valinor Singleton Score",
+    "valinor_score": "Valinor Score",
+    "valinor_score_s_s_1": "Valinor Singleton Score - gene 1",
+    "valinor_score_s_s_2": "Valinor Singleton Score - gene 2",
+    "value": "End of experiment counts",
+}
 
 
 def plot_guide_eff_hyper_hist(scoreData_combined):
@@ -278,14 +326,26 @@ def main():
     parser = argparse.ArgumentParser(description="Load processed valinor output")
 
     parser.add_argument(
-        "--combfile", help="processed table combining data and Valinor output"
+        "--combfile",
+        help="Processed table combining data and Valinor output.",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--output_folder",
+        help="Folder in which to save the output plots",
+        required=True,
     )
 
     args = parser.parse_args()
 
     scoreData_combined = pd.read_parquet(args.combfile)
 
-    outputfolder = "plots/"
+    outputfolder = (
+        args.output_folder
+        if args.output_folder[-1] == "/"
+        else args.output_folder + "/"
+    )
     folders = [outputfolder, outputfolder + "topSLgenepairs/"]
     for folder in folders:
         if not os.path.exists(folder):

@@ -13,68 +13,82 @@ import shutil
 import os
 import re
 import argparse
-from plotting import *
 
 alt.data_transformers.disable_max_rows()
 
+fontsizes = [18, 16, 14]
+colorblindfr = {
+    "main": ["#56b3e9", "#e0d316", "#0072b2", "#e69d00", "#cc79a7"],
+    "additional": ["#EC681E", "#009e74", "#000000"],
+}
+colors_palette = colorblindfr["main"]
 
-def load_datasets(dataset, data_combo, data_single, val_combo, val_single):
-    # DUSP dataset, seems here pq files contain the model results and h5 files contain the data (so opposite to the HT29 data)
-    if dataset == "HT29":
-        # HT29 datasets from ENCORE
-        data = pd.read_parquet(data_combo)
-        data_s = pd.read_parquet(data_single)
-
-        with h5py.File(val_combo, "r+") as file:
-            combi_attr = {i: file.attrs[i] for i in file.attrs.keys()}
-            # Access a dataset
-            dataset_name = "score"
-            if dataset_name in file.keys():
-                score = pd.read_hdf(val_combo, dataset_name)
-
-        with h5py.File(val_single, "r+") as file:
-            single_attr = {i: file.attrs[i] for i in file.attrs.keys()}
-            # Access a dataset
-            dataset_name = "score"
-            if dataset_name in file.keys():
-                score_s = pd.read_hdf(val_single, dataset_name)
+naming_cols = {
+    "GuidePair": "Guide pair",
+    "gene1": "Singleton gene 1",
+    "gene2": "Singleton gene 2",
+    "guide1": "Singleton guide 1",
+    "guide2": "Singleton guide 2",
+    "cell_line": "Cell line",
+    "deltaLFC": "dLFC",
+    "dev_prior_guide_eff_1_mean": "Deviation from hyper distribution of guide 1",
+    "dev_prior_guide_eff_2_mean": "Deviation from hyper distribution of guide 2",
+    "gene1": "Gene 1",
+    "gene2": "Gene 2",
+    "genePair": "Gene pair",
+    "guide1": "Guide 1",
+    "guide2": "Guide 2",
+    "guide_eff_1_mean": "Efficiency guide 1",
+    "guide_eff_2_mean": "Efficiency guide 2",
+    "guide_eff_mean_1_mean": "Mean of hyper distribution",
+    "guide_eff_std_1_mean": "Standard deviation of hyper distribution",
+    "gene_ko_growth_1_mean": "Estimated gene 1 effect",
+    "gene_ko_growth_12_mean": "Estimated combination effect",
+    "gene_ko_growth_12_std": "Uncertainty",
+    "gene_ko_growth_1_std": "Uncertainty",
+    "gene_ko_growth_2_mean": "Estimated gene 2 effect",
+    "gene_ko_growth_2_std": "Uncertainty",
+    "ko_growth_s_mean_s_1": "Estimated singleton effect",
+    "ko_growth_s_mean_s_2": "Estimated singleton effect",
+    "ko_growth_s_std_s_1": "Uncertainty",
+    "ko_growth_s_std_s_2": "Uncertainty",
+    "lfc": "Combination LFC",
+    "lfc_s_1": "Singleton LFC - gene 1",
+    "lfc_s_2": "Singleton LFC - gene 2",
+    "mv_mean": "Estimated overdispersion",
+    "mv_std": "Uncertainty",
+    "overdispersion": "Overdispersion",
+    "overdispersion_s_1": "Overdispersion",
+    "overdispersion_s_2": "Overdispersion",
+    "plasmid": "Plasmid counts",
+    "rank_valinor_score": "Rank of Valinor Score",
+    "rank_valinor_score_s_s_1": "Rank of Valinor Singleton Score",
+    "rank_valinor_score_s_s_2": "Rank of Valinor Singleton Score",
+    "valinor_score": "Valinor Score",
+    "valinor_score_s_s_1": "Valinor Singleton Score - gene 1",
+    "valinor_score_s_s_2": "Valinor Singleton Score - gene 2",
+    "value": "End of experiment counts",
+}
+def plot_hist(
+    data_dict, xlabel, figsize=(6, 6), nbins=50, figure=None, loc="upper right"
+):
+    if figure is None:
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
     else:
-        score = pd.read_parquet(val_combo)
-        score.columns = [
-            col_mapping[dataset]["score"][i]
-            if col_mapping[dataset]["score"][i] is not None
-            else i
-            for i in score.columns
-        ]
+        fig = figure[0]
+        ax = figure[1]
+    data_min = min([i.min() for i in data_dict.values()])
+    data_max = max([np.quantile(i, 0.999) for i in data_dict.values()])
+    bins = np.linspace(data_min, data_max, nbins)
+    for label, data in data_dict.items():
+        ax.hist(data, histtype="step", bins=bins, density=True, label=label)
+    ax.set_xlabel(xlabel, fontsize=fontsizes[1])
+    ax.set_ylabel("Density", fontsize=fontsizes[1])
+    ax.tick_params(axis="both", labelsize=fontsizes[2])
+    ax.legend(loc=loc)
+    fig.tight_layout()
 
-        score_s = pd.read_parquet(val_single)
-        score_s.columns = [
-            col_mapping[dataset]["score_s"][i]
-            if col_mapping[dataset]["score_s"][i] is not None
-            else i
-            for i in score_s.columns
-        ]
-
-        dataset_name = "combs"
-        data = pd.read_hdf(data_combo, dataset_name)
-        data.columns = [
-            col_mapping[dataset]["data"][i]
-            if col_mapping[dataset]["data"][i] is not None
-            else i
-            for i in data.columns
-        ]
-
-        dataset_name = "singles"
-        data_s = pd.read_hdf(data_single, dataset_name)
-        data_s.columns = [
-            col_mapping[dataset]["data_s"][i]
-            if col_mapping[dataset]["data_s"][i] is not None
-            else i
-            for i in data_s.columns
-        ]
-    return (data, data_s, score, score_s)
-
-
+    return (fig, ax)
 def calc_valinor_score(scoreData_combo, scoreData_single):
     scoreData_combo["valinor_score"] = (
         scoreData_combo["gene_ko_growth_12_mean"]
@@ -259,7 +273,7 @@ def produce_lossfunc_examples():
     ax.set_ylabel("Loss", fontsize=fontsizes[1])
     ax.tick_params(axis="both", labelsize=fontsizes[2])
     fig.tight_layout()
-    fig.savefig("valinorreport/plots/good_lossfunction.svg", bbox_inches="tight")
+    fig.savefig("plots/good_lossfunction.svg", bbox_inches="tight")
     plt.close(fig)
 
     x = np.arange(0, 1000)
@@ -271,7 +285,7 @@ def produce_lossfunc_examples():
     ax.set_ylabel("Loss", fontsize=fontsizes[1])
     ax.tick_params(axis="both", labelsize=fontsizes[2])
     fig.tight_layout()
-    fig.savefig("valinorreport/plots/bad_lossfunction.svg", bbox_inches="tight")
+    fig.savefig("plots/bad_lossfunction.svg", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -285,10 +299,10 @@ def copy_loss_plot():
             break
 
     if target_file and file.startswith("../valinor_loss_"):
-        new_path = os.path.join("valinorreport/plots/", "valinor_loss.svg")
+        new_path = os.path.join("plots/", "valinor_loss.svg")
         shutil.copy(target_file, new_path)
     else:
-        shutil.copy(target_file, "valinorreport/plots/" + target_file)
+        shutil.copy(target_file, "plots/" + target_file)
 
 
 def produce_modelfit_examples():
@@ -303,14 +317,14 @@ def produce_modelfit_examples():
     model_val = rng.negative_binomial(k, p, 10000)
 
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig("valinorreport/plots/good_modelfit.svg", bbox_inches="tight")
+    fig.savefig("plots/good_modelfit.svg", bbox_inches="tight")
     plt.close(fig)
 
     rng = np.random.default_rng(31)
     model_val = rng.negative_binomial(k, 0.02, 10000)
 
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig("valinorreport/plots/bad_modelfit.svg", bbox_inches="tight")
+    fig.savefig("plots/bad_modelfit.svg", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -323,7 +337,10 @@ def get_prior_val(variable, param="loc"):
         raise Exception("regular expression no found")
 
 
-def produce_paramfit_guideff_hyper(source, priors):
+def produce_paramfit_guideff_hyper(
+    source,
+    priors,
+):
     if "guide_eff_mean_1_mean" in source.columns:
         fig, ax = plt.subplots(1, 2, figsize=(16, 6))
         dev = (
@@ -399,13 +416,16 @@ def produce_paramfit_guideff_hyper(source, priors):
         ax.set_yticks([])
 
     fig.savefig(
-        "valinorreport/plots/parameterfits_guideeffs_metahier_combo.svg",
+        "plots/parameterfits_guideeffs_metahier_combo.svg",
         bbox_inches="tight",
         dpi=200,
     )
+    plt.close(fig)
 
 
-def produce_paramfit_guideff(source_json):
+def produce_paramfit_guideff(
+    source_json,
+):
     selection = alt.selection_single(fields=["cell_line"], bind="legend", empty="none")
 
     # Base chart with only the outline (using mark_line)
@@ -533,12 +553,12 @@ def produce_paramfit_guideff(source_json):
     final_chart = (grey_rect + base_line + base_area + vline) | (
         grey_rect + base_line2 + base_area2 + vline
     )
-    final_chart.save(
-        "valinorreport/altair_snippets/parameterfits_guideeffs_devprior_combo.html"
-    )
+    final_chart.save("altair_snippets/parameterfits_guideeffs_devprior_combo.html")
 
 
-def produce_datastats_countdistr(source_json):
+def produce_datastats_countdistr(
+    source_json,
+):
     # plot distribution of counts
     # color by cell lines
     # very slow for the whole dataset, but renders!
@@ -566,10 +586,13 @@ def produce_datastats_countdistr(source_json):
         alt.Y("count()", stack=None),
     )
 
-    base.save("valinorreport/altair_snippets/data_stats_counts.html")
+    base.save("altair_snippets/data_stats_counts.html")
 
 
-def produce_datastats_overdisp(source, source_json):
+def produce_datastats_overdisp(
+    source,
+    source_json,
+):
     # use the overdispersion calculated from the replicate data rather than the mv parameter fitted by Valinor
     selection = alt.selection_single(fields=["cell_line"], bind="legend")
     min_od = np.min([source.overdispersion.min()])
@@ -629,10 +652,12 @@ def produce_datastats_overdisp(source, source_json):
 
     chart = base_line + base_area
 
-    chart.save("valinorreport/altair_snippets/data_stats_dispersion.html")
+    chart.save("altair_snippets/data_stats_dispersion.html")
 
 
-def produce_diagnplots_dlfc_valscore(source_json):
+def produce_diagnplots_dlfc_valscore(
+    source_json,
+):
     cell_line_selection = alt.selection_single(fields=["cell_line"], bind="legend")
 
     tooltip = [
@@ -697,12 +722,12 @@ def produce_diagnplots_dlfc_valscore(source_json):
     # Combine the charts for Gene 2 and make them interactive
     combined_chart = (chart + hline + vline).interactive()
 
-    combined_chart.save(
-        "valinorreport/altair_snippets/diagnostic_plots_dLFCvsValinor.html"
-    )
+    combined_chart.save("altair_snippets/diagnostic_plots_dLFCvsValinor.html")
 
 
-def produce_diagnplots_kogrowths(source_json):
+def produce_diagnplots_kogrowths(
+    source_json,
+):
     cell_line_selection = alt.selection_single(fields=["cell_line"], bind="legend")
 
     tooltip = [
@@ -762,10 +787,12 @@ def produce_diagnplots_kogrowths(source_json):
         alt.Chart().mark_rule(color="grey").encode(x="a:Q").transform_calculate(a="0")
     )
     chart = (chart + vline).interactive()
-    chart.save("valinorreport/altair_snippets/diagnostic_plots_kogrowhstd.html")
+    chart.save("altair_snippets/diagnostic_plots_kogrowhstd.html")
 
 
-def produce_diagnplots_singletons(source_json):
+def produce_diagnplots_singletons(
+    source_json,
+):
     tooltip = [
         "gene1:O",
         "cell_line:O",
@@ -858,12 +885,12 @@ def produce_diagnplots_singletons(source_json):
     # Horizontally concatenate the Gene 1 and Gene 2 charts
     combined_chart = alt.hconcat(chart, chart_gene2)
 
-    combined_chart.save(
-        "valinorreport/altair_snippets/diagnostic_plots_singleLFCvsvalscore.html"
-    )
+    combined_chart.save("altair_snippets/diagnostic_plots_singleLFCvsvalscore.html")
 
 
-def produce_diagnplots_guideeff_vslfc(source_json, source):
+def produce_diagnplots_guideeff_vslfc(
+    source_json,
+):
     tooltip = [
         "guide1:O",
         "gene1:O",
@@ -943,12 +970,13 @@ def produce_diagnplots_guideeff_vslfc(source_json, source):
     chart1 = (chart1 + vline + hline).interactive()
     chart2 = (chart2 + vline + hline).interactive()
     combined_chart = alt.hconcat(chart1, chart2)
-    combined_chart.save(
-        "valinorreport/altair_snippets/diagnostic_plots_singleLFCvsefficiency.html"
-    )
+    combined_chart.save("altair_snippets/diagnostic_plots_singleLFCvsefficiency.html")
 
 
-def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
+def produce_hitprior_lfc_vs_valscore_avg(
+    source,
+    source_json,
+):
     tmp = source.groupby(["genePair"])[["valinor_score", "lfc"]].mean()
     x_diff = (tmp["valinor_score"].max() - tmp["valinor_score"].min()) / 10
     xrange = (
@@ -1054,10 +1082,13 @@ def produce_hitprior_lfc_vs_valscore_avg(source, source_json):
     # add dummy selection
     plot = (base + span1 + span2 + span3 + span4).add_selection(alt.selection_single())
 
-    plot.save("valinorreport/altair_snippets/hit_prioritisation_cell_avg.html")
+    plot.save("altair_snippets/hit_prioritisation_cell_avg.html")
 
 
-def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
+def produce_hitprior_lfc_vs_valscore_hist(
+    source,
+    source_json,
+):
     tmp = source.groupby(["genePair", "cell_line"])[["valinor_score", "lfc"]].mean()
     x_diff = (tmp["valinor_score"].max() - tmp["valinor_score"].min()) / 10
     xrange = (
@@ -1193,10 +1224,12 @@ def produce_hitprior_lfc_vs_valscore_hist(source, source_json):
     )
     chart = (scatter + span1 + span2 + span3 + span4) & histogram  # & histogram
 
-    chart.save("valinorreport/altair_snippets/hit_prioritisation_lfcvsval_histo.html")
+    chart.save("altair_snippets/hit_prioritisation_lfcvsval_histo.html")
 
 
-def produce_hitprior_kogrowths(source_json):
+def produce_hitprior_kogrowths(
+    source_json,
+):
     # Create a selection_interval for selecting rectangular area in scatterplot
     brush = alt.selection_interval()  # empty='none'
 
@@ -1302,12 +1335,13 @@ def produce_hitprior_kogrowths(source_json):
     )
 
     chart = (scatter1 + hline + vline) | (scatter2 + hline + vline)
-    chart.save(
-        "valinorreport/altair_snippets/hit_prioritisation_growthdefecscatter.html"
-    )
+    chart.save("altair_snippets/hit_prioritisation_growthdefecscatter.html")
 
 
-def produce_geneview_valscore_rank(source, source_json):
+def produce_geneview_valscore_rank(
+    source,
+    source_json,
+):
     min_valinor_score = source.valinor_score.min()
     max_valinor_score = source.valinor_score.max()
 
@@ -1352,10 +1386,12 @@ def produce_geneview_valscore_rank(source, source_json):
         )
     )
 
-    base.save("valinorreport/altair_snippets/gene_pair_valscore_percln.html")
+    base.save("altair_snippets/gene_pair_valscore_percln.html")
 
 
-def produce_geneview_valscore_lfc(source_json):
+def produce_geneview_valscore_lfc(
+    source_json,
+):
     single = alt.selection_single()
 
     tooltip = [
@@ -1421,10 +1457,12 @@ def produce_geneview_valscore_lfc(source_json):
     )
     base = base.resolve_scale(y="shared")
 
-    base.save("valinorreport/altair_snippets/gene_pair_valscorevslfc.html")
+    base.save("altair_snippets/gene_pair_valscorevslfc.html")
 
 
-def produce_geneview_growth_lfc(source_json):
+def produce_geneview_growth_lfc(
+    source_json,
+):
     single = alt.selection_single()
 
     tooltip = [
@@ -1491,10 +1529,12 @@ def produce_geneview_growth_lfc(source_json):
 
     base = base.resolve_scale(y="shared")
 
-    base.save("valinorreport/altair_snippets/gene_pair_valscorescombovssingle.html")
+    base.save("altair_snippets/gene_pair_valscorescombovssingle.html")
 
 
-def produce_geneview_valscore_lfc_single(source_json):
+def produce_geneview_valscore_lfc_single(
+    source_json,
+):
     single = alt.selection_single()
 
     tooltip = [
@@ -1565,7 +1605,7 @@ def produce_geneview_valscore_lfc_single(source_json):
     # base = base | base.encode(y=alt.Y('valinor_score_s_s_2:Q', title='Valinor Score Gene 2'))
 
     base = base.resolve_scale(y="shared", x="shared")
-    base.save("valinorreport/altair_snippets/gene_pair_valscoresinglevslfc.html")
+    base.save("altair_snippets/gene_pair_valscoresinglevslfc.html")
 
 
 def postprocess_altairhtml(htmlfile, datafile, id_handle, select_on=None):
@@ -1699,79 +1739,79 @@ def create_report(
     # not really elegant constantly writing and loading files
     # but not sure how to do it in place
     hit_prioritisation_cell_avg_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/hit_prioritisation_cell_avg.html",
+        "altair_snippets/hit_prioritisation_cell_avg.html",
         source_json,
         "hit_prioritisation_cell_avg_plot",
     )
     hit_prioritisation_lfcvsval_histo = postprocess_altairhtml(
-        "valinorreport/altair_snippets/hit_prioritisation_lfcvsval_histo.html",
+        "altair_snippets/hit_prioritisation_lfcvsval_histo.html",
         source_json,
         "hit_prioritisation_lfcvsval_histo",
     )
     hit_prioritisation_growthdefecscatter = postprocess_altairhtml(
-        "valinorreport/altair_snippets/hit_prioritisation_growthdefecscatter.html",
+        "altair_snippets/hit_prioritisation_growthdefecscatter.html",
         source_json,
         "hit_prioritisation_growthdefecscatter",
     )
 
     parameterfits_guideeffs_devprior_combo = postprocess_altairhtml(
-        "valinorreport/altair_snippets/parameterfits_guideeffs_devprior_combo.html",
+        "altair_snippets/parameterfits_guideeffs_devprior_combo.html",
         source_json,
         "parameterfits_guideeffs_devprior_combo",
     )
 
     datastats_count_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/data_stats_counts.html",
+        "altair_snippets/data_stats_counts.html",
         source_json,
         "datastats_count_plot",
     )
     datastats_disp_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/data_stats_dispersion.html",
+        "altair_snippets/data_stats_dispersion.html",
         source_json,
         "datastats_disp_plot",
     )
 
     diagnplots_dlfcval_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/diagnostic_plots_dLFCvsValinor.html",
+        "altair_snippets/diagnostic_plots_dLFCvsValinor.html",
         source_json,
         "diagnplots_dlfcval_plot",
     )
     diagnplots_kogrowthstd_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/diagnostic_plots_kogrowhstd.html",
+        "altair_snippets/diagnostic_plots_kogrowhstd.html",
         source_json,
         "diagnplots_kogrowthstd_plot",
     )
     diagnplots_singlelfcval_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/diagnostic_plots_singleLFCvsvalscore.html",
+        "altair_snippets/diagnostic_plots_singleLFCvsvalscore.html",
         source_json,
         "diagnplots_singlelfcval_plot",
     )
     diagnplots_singleLFCeffic_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/diagnostic_plots_singleLFCvsefficiency.html",
+        "altair_snippets/diagnostic_plots_singleLFCvsefficiency.html",
         source_json,
         "diagnplots_singleLFCeffic_plot",
     )
 
     genepair_valinorscore_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/gene_pair_valscore_percln.html",
+        "altair_snippets/gene_pair_valscore_percln.html",
         source_json,
         "genepair_valinorscore_plot",
         select_on="genePair",
     )
     genepair_valinorscorevslfc_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/gene_pair_valscorevslfc.html",
+        "altair_snippets/gene_pair_valscorevslfc.html",
         source_json,
         "genepair_valinorscorevslfc_plot",
         select_on="genePair",
     )
     genepair_valscorescombovssingle_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/gene_pair_valscorescombovssingle.html",
+        "altair_snippets/gene_pair_valscorescombovssingle.html",
         source_json,
         "genepair_valscorescombovssingle_plot",
         select_on="genePair",
     )
     genepair_valscoresinglevslfc_plot = postprocess_altairhtml(
-        "valinorreport/altair_snippets/gene_pair_valscoresinglevslfc.html",
+        "altair_snippets/gene_pair_valscoresinglevslfc.html",
         source_json,
         "genepair_valscoresinglevslfc_plot",
         select_on="genePair",
@@ -1781,7 +1821,7 @@ def create_report(
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(searchpath=""))
     # template = env.get_template('Bootstrap, from Twitter.html')
     # html = template.render()
-    template = env.get_template("valinorreport/template_tabs.html")
+    template = env.get_template("template_tabs.html")
     html = template.render(
         date=date.today(),
         overviewstats=overview_stats,
@@ -1806,7 +1846,7 @@ def create_report(
     )
 
     # Write the HTML file
-    with open("valinorreport/report.html", "w") as f:
+    with open("report.html", "w") as f:
         f.write(html)
 
 
@@ -1832,9 +1872,9 @@ def main():
     args = parser.parse_args()
 
     folders = [
-        "valinorreport/input",
-        "valinorreport/plots",
-        "valinorreport/altair_snippets",
+        "input",
+        "plots",
+        "altair_snippets",
     ]
     create_necessary_folders(folders)
 
@@ -1859,13 +1899,13 @@ def main():
             source["guide_eff_2_mean"] - source["guide_eff_mean_2_mean"]
         ) / source["guide_eff_std_2_mean"]
 
-    source.to_csv("valinorreport/input/report_input.csv", index=False)
-    source_json = r"valinorreport/input/report_input.csv"
+    source.to_csv("input/report_input.csv", index=False)
+    source_json = "input/report_input.csv"
 
     ## HOME
     # Overview stats
-    combs_attr_df_f = "valinorreport/input/combs_attr_df.csv"
-    combs_attr_s_df_f = "valinorreport/input/combs_attr_s_df.csv"
+    combs_attr_df_f = "input/combs_attr_df.csv"
+    combs_attr_s_df_f = "input/combs_attr_s_df.csv"
     overview_stats, overview_stats_combs, overview_stats_s = create_overview_stats(
         combs_attr_df_f, combs_attr_s_df_f
     )
@@ -1913,7 +1953,7 @@ def main():
     # singleton LFC vs. singleton gene effect
     produce_diagnplots_singletons(source_json)
     # guide eff vs. guide lfc Singletons
-    produce_diagnplots_guideeff_vslfc(source_json, source)
+    produce_diagnplots_guideeff_vslfc(source_json)
 
     ## HIT PRIORITISATION
     # LFC vs. Valinor Score - genePair averaged
@@ -1935,6 +1975,7 @@ def main():
 
     ## MAKE REPORT
     html_pairs = populate_genelist(source)
+
     create_report(
         source_json,
         overview_stats,
