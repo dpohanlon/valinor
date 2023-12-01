@@ -145,18 +145,32 @@ def skoLikelihoodFinal(
         A Negative Binomial distribution object.
     """
 
-    lh = dkoLikelihoodFinal if alternate else dkoLikelihoodFullFinal
+    if alternate:
 
-    return lh(
-        init_theta=init_theta_s,
-        guide_eff_1=guide_eff_s,
-        guide_eff_2=0.0,
-        cell_line_growth=cell_line_growth_s,
-        gene_ko_growth_1=gene_ko_growth_s,
-        gene_ko_growth_2=0.0,
-        gene_ko_growth_12=0.0,
-        mv=mv,
-    )
+        return dkoLikelihoodFinal(
+            init_theta = init_theta_s,
+            guide_eff_1 = guide_eff_s,
+            guide_eff_2 = 0.0,
+            guide_eff_12  = 0.0,
+            cell_line_growth = cell_line_growth_s,
+            gene_ko_growth_1 = gene_ko_growth_s,
+            gene_ko_growth_2 = 0.0,
+            gene_ko_growth_12 = 0.0,
+            mv = mv
+        )
+        
+    else:
+
+        return dkoLikelihoodFullFinal(
+            init_theta=init_theta_s,
+            guide_eff_1=guide_eff_s,
+            guide_eff_2=0.0,
+            cell_line_growth=cell_line_growth_s,
+            gene_ko_growth_1=gene_ko_growth_s,
+            gene_ko_growth_2=0.0,
+            gene_ko_growth_12=0.0,
+            mv=mv,
+        )
 
 
 def controlLikelihoodFinal(
