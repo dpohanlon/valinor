@@ -43,7 +43,7 @@ Navigate into the `valinorreport` folder.
 
 1. Create the report: use the `subsetSLpairs` flag if you have many genepairs and many cell lines, this will create the report showing data from only the top 100 synthetic lethal (based on the Valinor scoer) gene pairs + some randomly selected gene pairs across the range of Valinor scores.
 ```bash
-python build_report.py --combfile ../valinoroutput_processed.pq --subsetSLpairs
+python build_report.py --combfile ../valinoroutput_processed.pq --valinorLossFile ../valinor_loss_duspoutput.svg --subsetSLpairs
 ```
 
 2. Open the report

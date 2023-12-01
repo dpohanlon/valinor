@@ -69,6 +69,8 @@ naming_cols = {
     "valinor_score_s_s_2": "Valinor Singleton Score - gene 2",
     "value": "End of experiment counts",
 }
+
+
 def plot_hist(
     data_dict, xlabel, figsize=(6, 6), nbins=50, figure=None, loc="upper right"
 ):
@@ -89,6 +91,8 @@ def plot_hist(
     fig.tight_layout()
 
     return (fig, ax)
+
+
 def calc_valinor_score(scoreData_combo, scoreData_single):
     scoreData_combo["valinor_score"] = (
         scoreData_combo["gene_ko_growth_12_mean"]
@@ -289,20 +293,18 @@ def produce_lossfunc_examples():
     plt.close(fig)
 
 
-def copy_loss_plot():
-    files = glob.glob("../valinor_loss*.svg")
-    target_file = None
+def copy_loss_plot(target_file):
+    # files = glob.glob("../valinor_loss*.svg")
+    # target_file = None
 
-    for file in files:
-        if file == "../valinor_loss.svg" or file.startswith("../valinor_loss_"):
-            target_file = file
-            break
+    # for file in files:
+    #     if file == "../valinor_loss.svg" or file.startswith("../valinor_loss_"):
+    #         target_file = file
+    #         break
 
-    if target_file and file.startswith("../valinor_loss_"):
-        new_path = os.path.join("plots/", "valinor_loss.svg")
-        shutil.copy(target_file, new_path)
-    else:
-        shutil.copy(target_file, "plots/" + target_file)
+    # if target_file and file.startswith("../valinor_loss_"):
+    new_path = os.path.join("plots/", "valinor_loss.svg")
+    shutil.copy(target_file, new_path)
 
 
 def produce_modelfit_examples():
@@ -1863,6 +1865,8 @@ def main():
         "--combfile", help="processed table combining data and Valinor output"
     )
 
+    parser.add_argument("--valinorLossFile", help="SVG file that shows the loss curve")
+
     parser.add_argument(
         "--subsetSLpairs",
         action="store_true",
@@ -1912,7 +1916,7 @@ def main():
 
     # Loss Function
     produce_lossfunc_examples()
-    copy_loss_plot()
+    copy_loss_plot(args.valinorLossFile)
 
     # Model Fit
     produce_modelfit_examples()

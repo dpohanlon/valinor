@@ -8,10 +8,54 @@ import argparse
 from plotting import *
 
 
-cols_rename = {
-    "Pyogenes_gene": "gene2",
-    "Aureus_gene": "gene1",
-}
+def find_1_to_1_mappings(df, base_column):
+    one_to_one_columns = []
+
+    for column in df.columns:
+        if column != base_column:
+            # Create a mapping from base_column to the current column
+            mapping = df.groupby(base_column)[column].nunique()
+
+            # Check if the mapping is 1-to-1
+            if mapping.max() == 1 and mapping.min() == 1:
+                # Check if the reverse mapping is also 1-to-1
+                reverse_mapping = df.groupby(column)[base_column].nunique()
+                if reverse_mapping.max() == 1:
+                    one_to_one_columns.append(column)
+
+    return one_to_one_columns
+
+
+def rename_gene_columns(df):
+    if "gene1" not in df.columns:
+        gene1_col = find_1_to_1_mappings(df, "gene1_index")
+        if len(gene1_col) != 1:
+            raise ValueError(
+                "Can't determine the gene1 column. Please modify your data input files."
+            )
+        else:
+            gene1_col = gene1_col[0]
+    else:
+        gene1_col = "gene1"
+
+    # Indexed singleton files don't need to have a gene2_index column
+    if "gene2" not in df.columns and "gene2_index" in df.columns:
+        gene2_col = find_1_to_1_mappings(df, "gene2_index")
+        if len(gene2_col) > 1:
+            raise ValueError(
+                "Can't determine the gene2 column. Please modify your data input files."
+            )
+        else:
+            gene2_col = gene2_col[0]
+    else:
+        gene2_col = "gene2"
+
+    cols_rename = {
+        gene1_col: "gene1",
+        gene2_col: "gene2",
+    }
+
+    return cols_rename
 
 
 def load_datasets(data_combo, data_single, val_combo, val_single):
@@ -21,11 +65,15 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
 
     dataset_name = "combs"
     data = pd.read_hdf(data_combo, dataset_name)
-    data = data.rename(columns=cols_rename)
 
     dataset_name = "singles"
     data_s = pd.read_hdf(data_single, dataset_name)
-    data_s = data_s.rename(columns=cols_rename)
+
+    # sometimes there are no gene1 or gene2 columns but there are named after e.g. the promoter U6/H1 or Cas9 enzyme Pyogenes/Aureus
+    # find the columns that correspond to gene1/gene2 and rename them
+    # in the singleton file there will be a SingletonGene and SingletonGuide column, so this conversion is not necessary
+    cols_rename = rename_gene_columns(data)
+    data = data.rename(columns=cols_rename)
 
     return (data, data_s, score, score_s)
 
@@ -162,6 +210,7 @@ def calc_deltaLFC(scoreData_combined):
 def average_replicates(scoreData_combined):
     numerics = ["int16", "int32", "int64", "float16", "float32", "float64"]
     drop_cols = ["variable", "replicate", "guide1_o", "guide2_o"]
+    drop_cols = [col for col in drop_cols if col in scoreData_combined.columns]
     groupby_cols = [
         "GuidePair",
         "gene2",
@@ -173,7 +222,6 @@ def average_replicates(scoreData_combined):
         "genePairUnoriented",
         "GuidePairUnoriented",
     ]
-
     scoreData_combined = scoreData_combined.drop(columns=drop_cols)
     numeric_cols = scoreData_combined.select_dtypes(include=numerics).columns
 
@@ -213,8 +261,8 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
         "n_cell_lines": data_s["cell_line"].unique().shape[0],
         "cell_lines": ", ".join(data_s["cell_line"].unique()),
         "n_replicates": av_replic_percln_s,
-        "n_genes": len(set(data_s["gene1"]).union(data_s["gene2"])),
-        "n_guides": len(set(data_s["guide1"]).union(data_s["guide2"])),
+        "n_genes": len(set(data_s["SingletonGene"])),
+        "n_guides": len(set(data_s["SingletonGuide"])),
         "file_name": val_single,
         #         "creation_date": "20.10.2022",  # <- this should be stored as meta data with the valinor output
         "input_path": data_single,  # <- this points to the data file that was used as valinor input
@@ -229,6 +277,23 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
     return (combs_attr_df, combs_attr_s_df)
 
 
+def calc_LFC(df_combs, df_singles):
+    # Calculate the LFC from the counts that were used as input into Valinor
+    # don't rely on already existing 'lfc' columns
+    tmp = df_combs["value"] / df_combs["plasmid"]
+    tmp[np.isinf(tmp)] = np.nan
+    # also set 0 to nan since log2 doesn't exist for 0
+    tmp[tmp == 0] = np.nan
+    df_combs["lfc"] = np.log2(tmp)
+
+    tmp = df_singles["value"] / df_singles["plasmid"]
+    tmp[np.isinf(tmp)] = np.nan
+    tmp[tmp == 0] = np.nan
+    df_singles["lfc"] = np.log2(tmp)
+
+    return (df_combs, df_singles)
+
+
 def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_folder):
     data, data_s, score, score_s = load_datasets(
         data_combo, data_single, val_combo, val_single
@@ -240,6 +305,8 @@ def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_
 
     df_combs = merge_data_scores(data, score)
     df_singles = merge_data_scores(data_s, score_s)
+
+    df_combs, df_singles = calc_LFC(df_combs, df_singles)
 
     df_combs, df_singles = calc_valinor_score(df_combs, df_singles)
 
