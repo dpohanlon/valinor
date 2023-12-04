@@ -153,8 +153,8 @@ def skoLikelihoodFinal(
         return dkoLikelihoodFinal(
             init_theta = init_theta_s,
             guide_eff_1 = guide_eff_s,
-            guide_eff_2 = 0.0,
-            guide_eff_12  = 0.0,
+            guide_eff_2 = 1.0,
+            guide_eff_12  = 1.0,
             cell_line_growth = cell_line_growth_s,
             gene_ko_growth_1 = gene_ko_growth_s,
             gene_ko_growth_2 = 0.0,
