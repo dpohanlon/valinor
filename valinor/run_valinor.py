@@ -1,6 +1,7 @@
 import argparse
 
 import jax.numpy as jnp
+import numpy as np
 
 from jax import random
 import numpyro
@@ -17,6 +18,8 @@ from valinor.postprocessing import sampleParams, createDataFrame
 from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
+
+import json
 
 
 def get_model_sites(model, *args):
@@ -123,6 +126,26 @@ def runValinor(
             if config["name"] is None
             else f"singlesModel_{config['name']}.pq"
         )
+
+    # save the config to a json
+    with open(f"valinorrun_{config['name']}.json", "w") as outfile:
+        json.dump(config, outfile)
+
+    # save prior parameters to a json
+    with open(f"valinorrun_priors_{config['name']}.json", "w") as outfile:
+        # Convert tuples to lists
+        prior_params_serializable = {
+            k: list(v)
+            if isinstance(v, tuple)
+            else v.tolist()
+            if isinstance(v, jnp.ndarray)
+            else v.tolist()
+            if isinstance(v, np.ndarray)
+            else v
+            for k, v in prior_params.items()
+        }
+
+        json.dump(prior_params_serializable, outfile)
 
 
 def makeArgs():

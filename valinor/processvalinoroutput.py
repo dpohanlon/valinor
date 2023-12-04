@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
+import json
 from plotting import *
 
 
@@ -64,10 +65,18 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
     score_s = pd.read_parquet(val_single)
 
     dataset_name = "combs"
-    data = pd.read_hdf(data_combo, dataset_name)
+    data = (
+        pd.read_hdf(data_combo, dataset_name)
+        if "h5" in data_combo
+        else pd.read_parquet(data_combo)
+    )
 
     dataset_name = "singles"
-    data_s = pd.read_hdf(data_single, dataset_name)
+    data_s = (
+        pd.read_hdf(data_single, dataset_name)
+        if "h5" in data_single
+        else pd.read_parquet(data_single)
+    )
 
     # sometimes there are no gene1 or gene2 columns but there are named after e.g. the promoter U6/H1 or Cas9 enzyme Pyogenes/Aureus
     # find the columns that correspond to gene1/gene2 and rename them
@@ -234,8 +243,12 @@ def average_replicates(scoreData_combined):
 
 
 def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_single):
-    av_replic_percln = "{:.2f}".format(len(data["replicate"].unique()))
-    av_replic_percln_s = "{:.2f}".format(len(data_s["replicate"].unique()))
+    av_replic_percln = "{:.2f}".format(
+        data.groupby("cell_line")["replicate"].nunique().mean()
+    )
+    av_replic_percln_s = "{:.2f}".format(
+        data_s.groupby("cell_line")["replicate"].nunique().mean()
+    )
 
     # TO DO: creating date and introduce the settings from valinor
     combs_attr = {
@@ -253,10 +266,6 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
         #         "normalised_total": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
     }
 
-    combs_attr_df = pd.DataFrame(
-        list(combs_attr.items()), columns=["Attribute", "Value"]
-    )
-
     combs_attr_s = {
         "n_cell_lines": data_s["cell_line"].unique().shape[0],
         "cell_lines": ", ".join(data_s["cell_line"].unique()),
@@ -270,11 +279,7 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
         #         "normalised_total": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
     }
 
-    combs_attr_s_df = pd.DataFrame(
-        list(combs_attr_s.items()), columns=["Attribute", "Value"]
-    )
-
-    return (combs_attr_df, combs_attr_s_df)
+    return (combs_attr, combs_attr_s)
 
 
 def calc_LFC(df_combs, df_singles):
@@ -299,7 +304,7 @@ def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_
         data_combo, data_single, val_combo, val_single
     )
 
-    combs_attr_df, combs_attr_s_df = create_overview_stats(
+    combs_attr, combs_attr_s = create_overview_stats(
         data, data_s, data_combo, data_single, val_combo, val_single
     )
 
@@ -319,10 +324,10 @@ def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_
             if not os.path.exists(folder):
                 os.makedirs(folder)
 
-        combs_attr_df.to_csv(f"{report_folder}/input/combs_attr_df.csv", index=False)
-        combs_attr_s_df.to_csv(
-            f"{report_folder}/input/combs_attr_s_df.csv", index=False
-        )
+        with open(f"{report_folder}/input/combs_attr.json", "w") as outfile:
+            json.dump(combs_attr, outfile)
+        with open(f"{report_folder}/input/combs_attr_s.json", "w") as outfile:
+            json.dump(combs_attr_s, outfile)
 
         produce_modelfit_plot(df_combs, df_singles, f"{report_folder}/plots/")
 

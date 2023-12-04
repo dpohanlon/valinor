@@ -13,6 +13,7 @@ import shutil
 import os
 import re
 import argparse
+import json
 
 alt.data_transformers.disable_max_rows()
 
@@ -216,13 +217,16 @@ def sample_genepairs(scoreData_combined):
     return selectpairs
 
 
-def create_overview_stats(combs_attr_df_f, combs_attr_s_df_f):
-    combs_attr_df = pd.read_csv(combs_attr_df_f)
-    combs_attr_s_df = pd.read_csv(combs_attr_s_df_f)
+def create_valinorrun_settings(valinorsettings):
+    valinorrun_settings = [
+        f"{i}: {j}" for i, j in valinorsettings.items() if "File" not in i
+    ]
+    valinorrun_settings = "<br>".join(valinorrun_settings)
 
-    combs_attr = combs_attr_df.set_index("Attribute")["Value"].to_dict()
-    combs_attr_s = combs_attr_s_df.set_index("Attribute")["Value"].to_dict()
+    return valinorrun_settings
 
+
+def create_overview_stats(combs_attr, combs_attr_s):
     overview_stats = [
         "{} cell lines: {}".format(
             combs_attr["n_cell_lines"], combs_attr["cell_lines"]
@@ -238,31 +242,68 @@ def create_overview_stats(combs_attr_df_f, combs_attr_s_df_f):
         "{} guide pairs (orientation aware) out of {} guides".format(
             combs_attr["n_guide_pairs"], combs_attr["n_guides"]
         ),
-        # "<b>Valinor settings:</b>",
-        "intput data: {}".format(combs_attr["input_path"]),
-        # "normalised_replicates: {}".format(combs_attr["normalised_replicates"]),
-        # "normalised_total: {}".format(combs_attr["normalised_total"]),
-        "<b>Output file:</b>",
-        "{}".format(combs_attr["file_name"]),
-        # "created on: {}".format(combs_attr["creation_date"]),
     ]
     overview_stats_combs = "<br>".join(overview_stats_combs)
 
     overview_stats_s = [
         "{} genes".format(combs_attr_s["n_genes"]),
         "{} guides".format(combs_attr_s["n_guides"]),
-        # "<b>Valinor settings:</b>",
-        "input data: {}".format(combs_attr_s["input_path"]),
-        # "normalised_replicates: {}".format(combs_attr_s["normalised_replicates"]),
-        # "normalised_total: {}".format(combs_attr_s["normalised_total"]),
-        "<b>Output file:</b>",
-        "{}".format(combs_attr_s["file_name"]),
-        # "created on: {}".format(combs_attr_s["creation_date"]),
     ]
 
     overview_stats_s = "<br>".join(overview_stats_s)
 
     return (overview_stats, overview_stats_combs, overview_stats_s)
+
+
+def create_file_settings(mergedfile, combs_attr, combs_attr_s, valinorsettings):
+    input_files = [
+        f"{i}: {j}"
+        for i, j in valinorsettings.items()
+        if "File" in i
+        if i != "paramsFileName"
+    ]
+    input_files = "<br>".join(input_files)
+
+    output_files = [
+        "Combinations: {}".format(combs_attr["file_name"]),
+        "Singletons: {}".format(combs_attr_s["file_name"]),
+        "Merged, replicates averaged: {}".format(mergedfile),
+    ]
+    output_files = "<br>".join(output_files)
+
+    return (input_files, output_files)
+
+
+def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_json):
+    with open(valinorrun_json, "r") as file:
+        valinorsettings = json.load(file)
+
+    with open(combs_attr_f, "r") as file:
+        combs_attr_df = json.load(file)
+
+    with open(combs_attr_s_f, "r") as file:
+        combs_attr_s_df = json.load(file)
+
+    overview_stats, overview_stats_combs, overview_stats_s = create_overview_stats(
+        combs_attr_df, combs_attr_s_df
+    )
+
+    valinorrun_settings = create_valinorrun_settings(valinorsettings)
+
+    input_files, output_files = create_file_settings(
+        mergedfile, combs_attr_df, combs_attr_s_df, valinorsettings
+    )
+
+    startpage_stats = {
+        "overviewstats": overview_stats,
+        "overviewstatscomb": overview_stats_combs,
+        "overviewstatssingle": overview_stats_s,
+        "valinorrun": valinorrun_settings,
+        "valinorruninput": input_files,
+        "valinorrunoutput": output_files,
+    }
+
+    return startpage_stats
 
 
 def produce_lossfunc_examples():
@@ -1363,6 +1404,8 @@ def produce_geneview_valscore_rank(
         for field in tooltip
     ]
 
+    sym_valinor_score = np.max([-1 * min_valinor_score, max_valinor_score])
+
     base = (
         alt.Chart(source_json)
         .mark_circle(size=60)
@@ -1376,7 +1419,8 @@ def produce_geneview_valscore_rank(
             color=alt.Color(
                 "valinor_score:Q",
                 scale=alt.Scale(
-                    scheme="blueorange", domain=[min_valinor_score, max_valinor_score]
+                    scheme="blueorange",
+                    domain=[-1 * sym_valinor_score, sym_valinor_score],
                 ),
                 legend=alt.Legend(title=naming_cols["valinor_score"]),
             ),
@@ -1731,9 +1775,7 @@ def populate_genelist(source):
 
 def create_report(
     source_json,
-    overview_stats,
-    overview_stats_combs,
-    overview_stats_s,
+    startpage_stats,
     guide_eff_priors_str,
     html_pairs,
 ):
@@ -1826,9 +1868,12 @@ def create_report(
     template = env.get_template("template_tabs.html")
     html = template.render(
         date=date.today(),
-        overviewstats=overview_stats,
-        overviewstatscomb=overview_stats_combs,
-        overviewstatssingle=overview_stats_s,
+        overviewstats=startpage_stats["overviewstats"],
+        overviewstatscomb=startpage_stats["overviewstatscomb"],
+        overviewstatssingle=startpage_stats["overviewstatssingle"],
+        valinorrun=startpage_stats["valinorrun"],
+        valinorruninput=startpage_stats["valinorruninput"],
+        valinorrunoutput=startpage_stats["valinorrunoutput"],
         guide_eff_priors_str=guide_eff_priors_str,
         parameterfits_guideeffs_devprior_combo=parameterfits_guideeffs_devprior_combo,
         datastats_count_plot=datastats_count_plot,
@@ -1866,6 +1911,12 @@ def main():
     )
 
     parser.add_argument("--valinorLossFile", help="SVG file that shows the loss curve")
+
+    parser.add_argument(
+        "--valinorConfigFile", help="JSON that contains the config for the valinor run"
+    )
+
+    parser.add_argument("--valinorPriorFile", help="JSON that contains the priors")
 
     parser.add_argument(
         "--subsetSLpairs",
@@ -1908,10 +1959,11 @@ def main():
 
     ## HOME
     # Overview stats
-    combs_attr_df_f = "input/combs_attr_df.csv"
-    combs_attr_s_df_f = "input/combs_attr_s_df.csv"
-    overview_stats, overview_stats_combs, overview_stats_s = create_overview_stats(
-        combs_attr_df_f, combs_attr_s_df_f
+    combs_attr_f = "input/combs_attr.json"
+    combs_attr_s_f = "input/combs_attr_s.json"
+
+    startpage_stats = create_startpage_stats(
+        args.combfile, combs_attr_f, combs_attr_s_f, args.valinorConfigFile
     )
 
     # Loss Function
@@ -1923,9 +1975,12 @@ def main():
     # produce_modelfit_plot(scoreData_combo, scoreData_single)
 
     # TO DO: export priors from valinor, and load them in here to avoid hard coding them
+    with open(args.valinorPriorFile, "r") as file:
+        prior_params = json.load(file)
+
     priors = {
-        "guide_eff_mean": "dist.TruncatedNormal(loc = 0.90, scale = 0.1, low = 0.0, high = 1.0)",
-        "guide_eff_std": "dist.TruncatedNormal(loc = 0.1, scale = 0.1, low = 0.0)",
+        "guide_eff_mean": f"dist.TruncatedNormal(loc = {prior_params['guide_eff_mean'][0]}, scale = {prior_params['guide_eff_mean'][1]}, low = 0.0, high = 1.0)",
+        "guide_eff_std": f"dist.TruncatedNormal(loc = {prior_params['guide_eff_std'][0]}, scale = {prior_params['guide_eff_std'][1]}, low = 0.0)",
     }
 
     ## PARAMETER FITS
@@ -1982,9 +2037,7 @@ def main():
 
     create_report(
         source_json,
-        overview_stats,
-        overview_stats_combs,
-        overview_stats_s,
+        startpage_stats,
         guide_eff_priors_str,
         html_pairs,
     )
