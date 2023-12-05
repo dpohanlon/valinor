@@ -39,6 +39,25 @@ def plotDiagPlots(svi_result, name=None):
 def plot_hist(
     data_dict, xlabel, figsize=(6, 6), nbins=50, figure=None, loc="upper right"
 ):
+    """
+    Plot histograms for several different data series.
+
+    Args:
+        data_dict (Dict[str, np.ndarray]): A dictionary where keys are labels of the data and values are numpy arrays containing the data points for each entry.
+        xlabel (str): The label for the x-axis.
+        figsize (Tuple[int, int], optional): The size of the figure in inches. Defaults to (6, 6).
+        nbins (int, optional): The number of bins for the histogram. Defaults to 50.
+        figure (Tuple[matplotlib.figure.Figure, matplotlib.axes._subplots.AxesSubplot], optional):
+               A tuple containing a figure and axes object to plot on. If None, a new figure and axes are created.
+               Defaults to None.
+        loc (str, optional): The location of the legend. Defaults to "upper right".
+
+    Returns:
+        Tuple[matplotlib.figure.Figure, matplotlib.axes._subplots.AxesSubplot]: A tuple containing the figure and axes
+                                                                                objects used for the plot. This can be
+                                                                                used for further customization outside
+                                                                                the function.
+    """
     if figure is None:
         fig, ax = plt.subplots(1, 1, figsize=figsize)
     else:
@@ -59,6 +78,18 @@ def plot_hist(
 
 
 def produce_modelfit_plot(df, outputfolder, type="combo"):
+    """
+    Plot the goodness of fit by comparing input data with Valinor's output.
+
+
+    Args:
+        df (pandas.DataFrame): The dataframe containing the model and actual data values.
+        outputfolder (str): The path to the folder where the plots will be saved.
+        type (str, optional): The type of plot to produce, either 'combo' or 'single'. Defaults to 'combo'.
+
+    Returns:
+        None: The function saves the plots directly to the specified folder and does not return any value.
+    """
     sample_name = "samples" if type == "combo" else "samples_s"
     figname = (
         "modelperformance_combo.svg"
