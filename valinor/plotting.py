@@ -58,28 +58,27 @@ def plot_hist(
     return (fig, ax)
 
 
-def produce_modelfit_plot(scoreData_combo, scoreData_single, outputfolder):
-    model_val = scoreData_combo["samples"].values
-    data_val = scoreData_combo["value"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(outputfolder + "modelperformance_combo.svg", bbox_inches="tight")
-
-    model_val = scoreData_single["samples_s"].values
-    data_val = scoreData_single["value"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(outputfolder + "modelperformance_single.svg", bbox_inches="tight")
-
-    model_val = scoreData_combo["init_count_mean"].values
-    data_val = scoreData_combo["plasmid"].values
-    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(
-        outputfolder + "modelperformance_combo_plasmid.svg", bbox_inches="tight"
+def produce_modelfit_plot(df, outputfolder, type="combo"):
+    sample_name = "samples" if type == "combo" else "samples_s"
+    figname = (
+        "modelperformance_combo.svg"
+        if type == "combo"
+        else "modelperformance_single.svg"
     )
-
-    model_val = scoreData_single["init_count_s_mean"].values
-    data_val = scoreData_single["plasmid"].values
+    model_val = df[sample_name].values
+    data_val = df["value"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(
-        outputfolder + "modelperformance_single_plasmid.svg", bbox_inches="tight"
+    fig.savefig(outputfolder + figname, bbox_inches="tight")
+    plt.close(fig)
+
+    init_count_name = "init_count_mean" if type == "combo" else "init_count_s_mean"
+    figname = (
+        "modelperformance_combo_plasmid.svg"
+        if type == "combo"
+        else "modelperformance_single_plasmid.svg"
     )
+    model_val = df[init_count_name].values
+    data_val = df["plasmid"].values
+    fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
+    fig.savefig(outputfolder + figname, bbox_inches="tight")
     plt.close(fig)

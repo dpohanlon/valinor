@@ -63,7 +63,7 @@ def rename_gene_columns(df):
 def load_datasets(data_combo, data_single, val_combo, val_single):
     score = pd.read_parquet(val_combo)
 
-    score_s = pd.read_parquet(val_single)
+    score_s = pd.read_parquet(val_single) if val_single else None
 
     dataset_name = "combs"
     data = (
@@ -73,11 +73,14 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
     )
 
     dataset_name = "singles"
-    data_s = (
-        pd.read_hdf(data_single, dataset_name)
-        if "h5" in data_single
-        else pd.read_parquet(data_single)
-    )
+    if data_single:
+        data_s = (
+            pd.read_hdf(data_single, dataset_name)
+            if "h5" in data_single
+            else pd.read_parquet(data_single)
+        )
+    else:
+        data_s = None
 
     # sometimes there are no gene1 or gene2 columns but there are named after e.g. the promoter U6/H1 or Cas9 enzyme Pyogenes/Aureus
     # find the columns that correspond to gene1/gene2 and rename them
@@ -95,56 +98,58 @@ def merge_data_scores(data, score):
     return df_combined
 
 
-def calc_valinor_score(df_combs, df_singles):
-    df_combs["valinor_score"] = (
-        df_combs["gene_ko_growth_12_mean"] / df_combs["gene_ko_growth_12_std"]
-    )
-    df_singles["valinor_score_s"] = (
-        df_singles["ko_growth_s_mean"] / df_singles["ko_growth_s_std"]
-    )
+def calc_valinor_score(df, type="combo"):
+    if type == "combo":
+        df["valinor_score"] = df["gene_ko_growth_12_mean"] / df["gene_ko_growth_12_std"]
+        df["rank_" + "valinor_score"] = df.groupby("cell_line")["valinor_score"].rank(
+            "dense"
+        )
+    elif type == "singles":
+        df["valinor_score_s"] = df["ko_growth_s_mean"] / df["ko_growth_s_std"]
+        df["rank_" + "valinor_score_s"] = df.groupby("cell_line")[
+            "valinor_score_s"
+        ].rank("dense")
+    else:
+        raise ValueError(f"{type} is not known. Choose either combo or singles.")
 
-    df_combs["rank_" + "valinor_score"] = df_combs.groupby("cell_line")[
-        "valinor_score"
-    ].rank("dense")
-    df_singles["rank_" + "valinor_score_s"] = df_singles.groupby("cell_line")[
-        "valinor_score_s"
-    ].rank("dense")
-
-    return (df_combs, df_singles)
+    return df
 
 
-def calc_overdisp(df_combs, df_singles):
+def calc_overdisp(df, type="combo"):
     # calculate the overdispersion based on the variance in counts across replicates for a given guide pair in a given cell line
-    numeric_columns = df_combs.select_dtypes(include=[np.number]).columns.tolist()
-    numeric_columns = numeric_columns + ["GuidePair"]
-    reps = (
-        df_combs[numeric_columns]
-        .groupby(["GuidePair", "cell_line_index"])
-        .agg(mean=("value", np.mean), std=("value", np.std))
-        .reset_index()
-    )
-    reps["var"] = reps["std"] ** 2
-    reps["overdispersion"] = reps["var"] / reps["mean"]
-    df_combs = df_combs.merge(
-        reps[["GuidePair", "cell_line_index", "overdispersion"]],
-        on=["GuidePair", "cell_line_index"],
-    )
+    numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
 
-    numeric_columns = df_singles.select_dtypes(include=[np.number]).columns.tolist()
-    numeric_columns = numeric_columns + ["GuidePair", "SingletonGuide"]
-    reps = (
-        df_singles.groupby(["GuidePair", "SingletonGuide", "cell_line_index"])
-        .agg(mean=("value", np.mean), std=("value", np.std))
-        .reset_index()
-    )
-    reps["var"] = reps["std"] ** 2
-    reps["overdispersion"] = reps["var"] / reps["mean"]
-    df_singles = df_singles.merge(
-        reps[["GuidePair", "SingletonGuide", "cell_line_index", "overdispersion"]],
-        on=["GuidePair", "SingletonGuide", "cell_line_index"],
-    )
+    if type == "combo":
+        numeric_columns = numeric_columns + ["GuidePair"]
+        reps = (
+            df[numeric_columns]
+            .groupby(["GuidePair", "cell_line_index"])
+            .agg(mean=("value", np.mean), std=("value", np.std))
+            .reset_index()
+        )
+        reps["var"] = reps["std"] ** 2
+        reps["overdispersion"] = reps["var"] / reps["mean"]
+        df = df.merge(
+            reps[["GuidePair", "cell_line_index", "overdispersion"]],
+            on=["GuidePair", "cell_line_index"],
+        )
+    elif type == "singles":
+        numeric_columns = numeric_columns + ["GuidePair", "SingletonGuide"]
+        reps = (
+            df.groupby(["GuidePair", "SingletonGuide", "cell_line_index"])
+            .agg(mean=("value", np.mean), std=("value", np.std))
+            .reset_index()
+        )
+        reps["var"] = reps["std"] ** 2
+        reps["overdispersion"] = reps["var"] / reps["mean"]
+        df = df.merge(
+            reps[["GuidePair", "SingletonGuide", "cell_line_index", "overdispersion"]],
+            on=["GuidePair", "SingletonGuide", "cell_line_index"],
+        )
+    else:
+        raise ValueError(f"{type} is not known. Choose either combo or singles.")
 
-    return (df_combs, df_singles)
+    return df
 
 
 def average_NE_singletons(df_singles):
@@ -247,11 +252,6 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
     av_replic_percln = "{:.2f}".format(
         data.groupby("cell_line")["replicate"].nunique().mean()
     )
-    av_replic_percln_s = "{:.2f}".format(
-        data_s.groupby("cell_line")["replicate"].nunique().mean()
-    )
-
-    # TO DO: creating date and introduce the settings from valinor
     combs_attr = {
         "n_cell_lines": data["cell_line"].unique().shape[0],
         "cell_lines": ", ".join(data["cell_line"].unique()),
@@ -261,43 +261,44 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
         "n_guide_pairs": len(data["GuidePair"].unique()),
         "n_guides": len(set(data["guide1"]).union(data["guide2"])),
         "file_name": val_combo,
-        #         "creation_date": "20.10.2022",  # <- this should be stored as meta data with the valinor output
-        "input_path": data_combo,  # <- this points to the data file that was used as valinor input
-        #         "normalised_replicates": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-        #         "normalised_total": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
+        "input_path": data_combo,
     }
 
-    combs_attr_s = {
-        "n_cell_lines": data_s["cell_line"].unique().shape[0],
-        "cell_lines": ", ".join(data_s["cell_line"].unique()),
-        "n_replicates": av_replic_percln_s,
-        "n_genes": len(set(data_s["SingletonGene"])),
-        "n_guides": len(set(data_s["SingletonGuide"])),
-        "file_name": val_single,
-        #         "creation_date": "20.10.2022",  # <- this should be stored as meta data with the valinor output
-        "input_path": data_single,  # <- this points to the data file that was used as valinor input
-        #         "normalised_replicates": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-        #         "normalised_total": True,  # <- this is a Valinor setting, check how to set this, needs to be exported as meta
-    }
+    if data_s is None:
+        combs_attr_s = {
+            "n_cell_lines": "NA",
+            "cell_lines": "NA",
+            "n_replicates": "NA",
+            "n_genes": "NA",
+            "n_guides": "NA",
+            "file_name": "NA",
+            "input_path": "NA",
+        }
+    else:
+        av_replic_percln_s = "{:.2f}".format(
+            data_s.groupby("cell_line")["replicate"].nunique().mean()
+        )
+
+        combs_attr_s = {
+            "n_cell_lines": data_s["cell_line"].unique().shape[0],
+            "cell_lines": ", ".join(data_s["cell_line"].unique()),
+            "n_replicates": av_replic_percln_s,
+            "n_genes": len(set(data_s["SingletonGene"])),
+            "n_guides": len(set(data_s["SingletonGuide"])),
+            "file_name": val_single,
+            "input_path": data_single,
+        }
 
     return (combs_attr, combs_attr_s)
 
 
-def calc_LFC(df_combs, df_singles):
-    # Calculate the LFC from the counts that were used as input into Valinor
-    # don't rely on already existing 'lfc' columns
-    tmp = df_combs["value"] / df_combs["plasmid"]
+def calc_LFC(df):
+    tmp = df["value"] / df["plasmid"]
     tmp[np.isinf(tmp)] = np.nan
     # also set 0 to nan since log2 doesn't exist for 0
     tmp[tmp == 0] = np.nan
-    df_combs["lfc"] = np.log2(tmp)
-
-    tmp = df_singles["value"] / df_singles["plasmid"]
-    tmp[np.isinf(tmp)] = np.nan
-    tmp[tmp == 0] = np.nan
-    df_singles["lfc"] = np.log2(tmp)
-
-    return (df_combs, df_singles)
+    df["lfc"] = np.log2(tmp)
+    return df
 
 
 def calc_guide_eff_deviation(scoreData_combined, priors):
@@ -341,13 +342,21 @@ def process_valinor_pred(
     )
 
     df_combs = merge_data_scores(data, score)
-    df_singles = merge_data_scores(data_s, score_s)
+    df_combs = calc_LFC(df_combs)
+    df_combs = calc_valinor_score(df_combs, type="combo")
+    df_combs = calc_overdisp(df_combs, type="combo")
 
-    df_combs, df_singles = calc_LFC(df_combs, df_singles)
-
-    df_combs, df_singles = calc_valinor_score(df_combs, df_singles)
-
-    df_combs, df_singles = calc_overdisp(df_combs, df_singles)
+    if data_s is None:
+        df_singles = pd.DataFrame()
+        scoreData_combined = df_combs.copy()
+    else:
+        df_singles = merge_data_scores(data_s, score_s)
+        df_singles = calc_LFC(df_singles)
+        df_singles = calc_valinor_score(df_singles, type="singles")
+        df_singles = calc_overdisp(df_singles, type="singles")
+        df_singles_NEav = average_NE_singletons(df_singles)
+        scoreData_combined = combine_single_combo(df_combs, df_singles_NEav)
+        scoreData_combined = calc_deltaLFC(scoreData_combined)
 
     if report_folder is not None:
         folders = [f"{report_folder}/input", f"{report_folder}/plots"]
@@ -361,13 +370,11 @@ def process_valinor_pred(
         with open(f"{report_folder}/input/combs_attr_s.json", "w") as outfile:
             json.dump(combs_attr_s, outfile)
 
-        produce_modelfit_plot(df_combs, df_singles, f"{report_folder}/plots/")
+        produce_modelfit_plot(df_combs, f"{report_folder}/plots/", type="combo")
+        if data_s is not None:
+            produce_modelfit_plot(df_singles, f"{report_folder}/plots/", type="singles")
 
-    df_singles_NEav = average_NE_singletons(df_singles)
-
-    scoreData_combined = combine_single_combo(df_combs, df_singles_NEav)
-
-    scoreData_combined = calc_deltaLFC(scoreData_combined)
+        # produce_modelfit_plot(df_combs, df_singles, f"{report_folder}/plots/")
 
     # we don't really need the replicate counts/LFCs -> just average across them
     scoreData_combined = average_replicates(scoreData_combined)
