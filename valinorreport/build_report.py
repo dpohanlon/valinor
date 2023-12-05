@@ -93,25 +93,6 @@ def plot_hist(
     return (fig, ax)
 
 
-def calc_valinor_score(scoreData_combo, scoreData_single):
-    scoreData_combo["valinor_score"] = (
-        scoreData_combo["gene_ko_growth_12_mean"]
-        / scoreData_combo["gene_ko_growth_12_std"]
-    )
-    scoreData_single["valinor_score_s"] = (
-        scoreData_single["ko_growth_s_mean"] / scoreData_single["ko_growth_s_std"]
-    )
-
-    scoreData_combo["rank_" + "valinor_score"] = scoreData_combo.groupby("cell_line")[
-        "valinor_score"
-    ].rank("dense")
-    scoreData_single["rank_" + "valinor_score_s"] = scoreData_single.groupby(
-        "cell_line"
-    )["valinor_score_s"].rank("dense")
-
-    return (scoreData_combo, scoreData_single)
-
-
 def calc_overdisp(scoreData_combo, scoreData_single):
     # calculate the overdispersion based on the variance in counts across replicates for a given guide pair in a given cell line
     numeric_columns = scoreData_combo.select_dtypes(

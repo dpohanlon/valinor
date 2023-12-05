@@ -211,8 +211,9 @@ def plot_genepair_valscore_rank(df, genepair, max_rank, valscore_range):
         c=df.valinor_score,
         cmap="PuOr_r",
         norm=mcolors.Normalize(vmin=valscore_range[0], vmax=valscore_range[1]),
+        edgecolors="black",
     )
-    ax.set_xlim([-4, max_rank])
+    ax.set_xlim([-10, max_rank])
     ax.set_title(genepair, fontsize=fontsizes[1])
     ax.set_xlabel(naming_cols["rank_valinor_score"], fontsize=fontsizes[1])
     ax.set_ylabel(naming_cols["cell_line"], fontsize=fontsizes[1])
@@ -222,7 +223,7 @@ def plot_genepair_valscore_rank(df, genepair, max_rank, valscore_range):
     cbar.set_label(naming_cols["valinor_score"], fontsize=14)
     cbar.ax.tick_params(labelsize=12)
 
-    ax.set_facecolor("lightgrey")
+    # ax.set_facecolor("darkgrey")
 
     return (fig, ax)
 
@@ -270,17 +271,14 @@ def plot_genepair_singleton_lfc_vs_valscore(df, genepair):
 def plot_genepair_combo_lfcs_vs_valscore(df, genepair):
     fig, ax = plt.subplots(1, 3, figsize=(18, 6))
 
-    ax[0].scatter(df.lfc_s_1, df.valinor_score)
-    ax[1].scatter(df.lfc_s_2, df.valinor_score)
-    ax[2].scatter(df.lfc, df.valinor_score)
-
     xaxis = ["lfc_s_1", "lfc_s_2", "lfc"]
 
     for i, axx in enumerate(ax):
         axx.axhline(0, color="grey")
         axx.axvline(0, color="grey")
 
-        axx.scatter(df[xaxis[i]], df.valinor_score, color="blue")
+        if xaxis[i] in df.columns:
+            axx.scatter(df[xaxis[i]], df.valinor_score, color="blue")
 
         axx.set_title(genepair, fontsize=fontsizes[1])
         axx.set_xlabel(naming_cols[xaxis[i]], fontsize=fontsizes[1])
@@ -367,49 +365,74 @@ def main():
     )
     plt.close(fig)
 
-    xaxis = {"name": "valinor_score", "label": naming_cols["valinor_score"]}
-    yaxis = {"name": "deltaLFC", "label": naming_cols["deltaLFC"]}
-    fig, ax = plot_scatter_genepairlevel(scoreData_combined, xaxis, yaxis)
-    fig.savefig(outputfolder + "valscore_vs_dLFC.png", dpi=300, bbox_inches="tight")
-    plt.close(fig)
+    if "deltaLFC" in scoreData_combined.columns:
+        xaxis = {"name": "valinor_score", "label": naming_cols["valinor_score"]}
+        yaxis = {"name": "deltaLFC", "label": naming_cols["deltaLFC"]}
+        fig, ax = plot_scatter_genepairlevel(scoreData_combined, xaxis, yaxis)
+        fig.savefig(outputfolder + "valscore_vs_dLFC.png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
 
-    xaxis = {"name": "valinor_score_s_s_1", "label": naming_cols["valinor_score_s_s_1"]}
-    yaxis = {"name": "lfc_s_1", "label": naming_cols["lfc_s_1"]}
-    fig, ax = plot_scatter_singlegenelevel(scoreData_combined, "gene1", xaxis, yaxis)
-    fig.savefig(
-        outputfolder + "singleton_1_valscore_vs_lfc.png", dpi=300, bbox_inches="tight"
-    )
-    plt.close(fig)
+    if "lfc_s_1" in scoreData_combined.columns:
+        xaxis = {
+            "name": "valinor_score_s_s_1",
+            "label": naming_cols["valinor_score_s_s_1"],
+        }
+        yaxis = {"name": "lfc_s_1", "label": naming_cols["lfc_s_1"]}
+        fig, ax = plot_scatter_singlegenelevel(
+            scoreData_combined, "gene1", xaxis, yaxis
+        )
+        fig.savefig(
+            outputfolder + "singleton_1_valscore_vs_lfc.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
 
-    xaxis = {"name": "valinor_score_s_s_2", "label": naming_cols["valinor_score_s_s_2"]}
-    yaxis = {"name": "lfc_s_2", "label": naming_cols["lfc_s_2"]}
-    fig, ax = plot_scatter_singlegenelevel(scoreData_combined, "gene2", xaxis, yaxis)
-    fig.savefig(
-        outputfolder + "singleton_2_valscore_vs_lfc.png", dpi=300, bbox_inches="tight"
-    )
-    plt.close(fig)
+        yaxis = {"name": "guide_eff_1_mean", "label": naming_cols["guide_eff_1_mean"]}
+        xaxis = {
+            "name": "lfc_s_1",
+            "label": naming_cols["lfc_s_1"].replace("gene", "guide"),
+        }
+        fig, ax = plot_scatter_singleguidelevel(
+            scoreData_combined, "guide1", xaxis, yaxis
+        )
+        fig.savefig(
+            outputfolder + "singleton_1_lfc_vs_guideeffic.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
 
-    yaxis = {"name": "guide_eff_1_mean", "label": naming_cols["guide_eff_1_mean"]}
-    xaxis = {
-        "name": "lfc_s_1",
-        "label": naming_cols["lfc_s_1"].replace("gene", "guide"),
-    }
-    fig, ax = plot_scatter_singleguidelevel(scoreData_combined, "guide1", xaxis, yaxis)
-    fig.savefig(
-        outputfolder + "singleton_1_lfc_vs_guideeffic.png", dpi=300, bbox_inches="tight"
-    )
-    plt.close(fig)
+    if "lfc_s_2" in scoreData_combined.columns:
+        xaxis = {
+            "name": "valinor_score_s_s_2",
+            "label": naming_cols["valinor_score_s_s_2"],
+        }
+        yaxis = {"name": "lfc_s_2", "label": naming_cols["lfc_s_2"]}
+        fig, ax = plot_scatter_singlegenelevel(
+            scoreData_combined, "gene2", xaxis, yaxis
+        )
+        fig.savefig(
+            outputfolder + "singleton_2_valscore_vs_lfc.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
 
-    xaxis = {"name": "guide_eff_2_mean", "label": naming_cols["guide_eff_2_mean"]}
-    xaxis = {
-        "name": "lfc_s_2",
-        "label": naming_cols["lfc_s_2"].replace("gene", "guide"),
-    }
-    fig, ax = plot_scatter_singleguidelevel(scoreData_combined, "guide2", xaxis, yaxis)
-    fig.savefig(
-        outputfolder + "singleton_2_lfc_vs_guideeffic.png", dpi=300, bbox_inches="tight"
-    )
-    plt.close(fig)
+        xaxis = {"name": "guide_eff_2_mean", "label": naming_cols["guide_eff_2_mean"]}
+        xaxis = {
+            "name": "lfc_s_2",
+            "label": naming_cols["lfc_s_2"].replace("gene", "guide"),
+        }
+        fig, ax = plot_scatter_singleguidelevel(
+            scoreData_combined, "guide2", xaxis, yaxis
+        )
+        fig.savefig(
+            outputfolder + "singleton_2_lfc_vs_guideeffic.png",
+            dpi=300,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
 
     # make plots for the synthetic lethal within each cell line
     top_x = 10
@@ -420,10 +443,11 @@ def main():
     max_rank = scoreData_combined.rank_valinor_score.max()
     min_valscore = scoreData_combined.valinor_score.min()
     max_valscore = scoreData_combined.valinor_score.max()
+    symetric_score = np.max([-1 * min_valscore, max_valscore])
     for genepair, df in tmp.groupby("genePair"):
         df = df.drop_duplicates(subset=["genePair", "cell_line", "rank_valinor_score"])
         fig, ax = plot_genepair_valscore_rank(
-            df, genepair, max_rank, [min_valscore, max_valscore]
+            df, genepair, max_rank, [-1 * symetric_score, symetric_score]
         )
         fig.savefig(
             outputfolder + f"topSLgenepairs/{genepair}_ranks.png",
@@ -441,23 +465,26 @@ def main():
         )
         plt.close(fig)
 
-        df = df.groupby(["genePair", "gene1", "gene2", "cell_line"]).agg(
-            {
-                "valinor_score": "mean",
-                "valinor_score_s_s_1": "mean",
-                "valinor_score_s_s_2": "mean",
-                "lfc": "mean",
-                "lfc_s_1": "mean",
-                "lfc_s_2": "mean",
-            }
-        )
-        fig, ax = plot_genepair_singleton_lfc_vs_valscore(df, genepair)
-        fig.savefig(
-            outputfolder + f"topSLgenepairs/{genepair}_singleton_lfc_vs_valscore.png",
-            dpi=300,
-            bbox_inches="tight",
-        )
-        plt.close(fig)
+        col_to_mean = [
+            "valinor_score",
+            "valinor_score_s_s_1",
+            "valinor_score_s_s_2",
+            "lfc",
+            "lfc_s_1",
+            "lfc_s_2",
+        ]
+        col_means = {i: "mean" for i in col_to_mean if i in df.columns}
+        df = df.groupby(["genePair", "gene1", "gene2", "cell_line"]).agg(col_means)
+
+        if "lfc_s_1" in df.columns:
+            fig, ax = plot_genepair_singleton_lfc_vs_valscore(df, genepair)
+            fig.savefig(
+                outputfolder
+                + f"topSLgenepairs/{genepair}_singleton_lfc_vs_valscore.png",
+                dpi=300,
+                bbox_inches="tight",
+            )
+            plt.close(fig)
 
         fig, ax = plot_genepair_combo_lfcs_vs_valscore(df, genepair)
         fig.savefig(

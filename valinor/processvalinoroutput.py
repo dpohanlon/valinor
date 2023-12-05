@@ -104,6 +104,21 @@ def calc_valinor_score(df, type="combo"):
         df["rank_" + "valinor_score"] = df.groupby("cell_line")["valinor_score"].rank(
             "dense"
         )
+
+        # Singleton valinor score can be determined from the combs file
+        df["valinor_score_s_1"] = (
+            df["gene_ko_growth_1_mean"] / df["gene_ko_growth_1_std"]
+        )
+        df["rank_" + "valinor_score_s_1"] = df.groupby("cell_line")[
+            "valinor_score_s_1"
+        ].rank("dense")
+
+        df["valinor_score_s_2"] = (
+            df["gene_ko_growth_2_mean"] / df["gene_ko_growth_2_std"]
+        )
+        df["rank_" + "valinor_score_s_2"] = df.groupby("cell_line")[
+            "valinor_score_s_2"
+        ].rank("dense")
     elif type == "singles":
         df["valinor_score_s"] = df["ko_growth_s_mean"] / df["ko_growth_s_std"]
         df["rank_" + "valinor_score_s"] = df.groupby("cell_line")[
@@ -211,7 +226,6 @@ def combine_single_combo(df_combs, df_singles_NEav):
         )
         .rename(columns={i: i + "_2" for i in colstorename.values()})
     )
-
     return scoreData_combined
 
 
@@ -349,6 +363,14 @@ def process_valinor_pred(
     if data_s is None:
         df_singles = pd.DataFrame()
         scoreData_combined = df_combs.copy()
+
+        # use the Singleton Valinor Scores obtained from the combination measurements
+        scoreData_combined = scoreData_combined.rename(
+            columns={
+                "valinor_score_s_1": "valinor_score_s_s_1",
+                "valinor_score_s_2": "valinor_score_s_s_2",
+            }
+        )
     else:
         df_singles = merge_data_scores(data_s, score_s)
         df_singles = calc_LFC(df_singles)
