@@ -382,24 +382,26 @@ def get_prior_val(variable, param="loc"):
 
 def produce_paramfit_guideff_hyper(
     source,
-    priors,
+    # priors,
 ):
     if "guide_eff_mean_1_mean" in source.columns:
         fig, ax = plt.subplots(1, 2, figsize=(16, 6))
-        dev = (
-            (
-                source["guide_eff_mean_1_mean"]
-                - get_prior_val(priors["guide_eff_mean"], "loc")
-            )
-            / get_prior_val(priors["guide_eff_mean"], "scale")
-        ).unique()
-        dev2 = (
-            (
-                source["guide_eff_mean_2_mean"]
-                - get_prior_val(priors["guide_eff_mean"], "loc")
-            )
-            / get_prior_val(priors["guide_eff_mean"], "scale")
-        ).unique()
+        # dev = (
+        #     (
+        #         source["guide_eff_mean_1_mean"]
+        #         - get_prior_val(priors["guide_eff_mean"], "loc")
+        #     )
+        #     / get_prior_val(priors["guide_eff_mean"], "scale")
+        # ).unique()
+        # dev2 = (
+        #     (
+        #         source["guide_eff_mean_2_mean"]
+        #         - get_prior_val(priors["guide_eff_mean"], "loc")
+        #     )
+        #     / get_prior_val(priors["guide_eff_mean"], "scale")
+        # ).unique()
+        dev = source.dev_prior_guide_eff_mean_1.unique()
+        dev2 = source.dev_prior_guide_eff_mean_2.unique()
         dev = np.unique(np.concatenate([dev, dev2]))
         # Add shaded region
         ax[0].axvspan(-1, 1, facecolor="grey", alpha=0.5)
@@ -415,20 +417,22 @@ def produce_paramfit_guideff_hyper(
         )
         # ax[0].legend(handles=[grey_patch], fontsize=12)
 
-        dev = (
-            (
-                source["guide_eff_std_1_mean"]
-                - get_prior_val(priors["guide_eff_std"], "loc")
-            )
-            / get_prior_val(priors["guide_eff_std"], "scale")
-        ).unique()
-        dev2 = (
-            (
-                source["guide_eff_std_2_mean"]
-                - get_prior_val(priors["guide_eff_std"], "loc")
-            )
-            / get_prior_val(priors["guide_eff_std"], "scale")
-        ).unique()
+        # dev = (
+        #     (
+        #         source["guide_eff_std_1_mean"]
+        #         - get_prior_val(priors["guide_eff_std"], "loc")
+        #     )
+        #     / get_prior_val(priors["guide_eff_std"], "scale")
+        # ).unique()
+        # dev2 = (
+        #     (
+        #         source["guide_eff_std_2_mean"]
+        #         - get_prior_val(priors["guide_eff_std"], "loc")
+        #     )
+        #     / get_prior_val(priors["guide_eff_std"], "scale")
+        # ).unique()
+        dev = source.dev_prior_guide_eff_std_1.unique()
+        dev2 = source.dev_prior_guide_eff_std_2.unique()
         dev = np.unique(np.concatenate([dev, dev2]))
         # Add shaded region
         ax[1].axvspan(-1, 1, facecolor="grey", alpha=0.5)
@@ -1776,7 +1780,7 @@ def populate_genelist(source):
 def create_report(
     source_json,
     startpage_stats,
-    guide_eff_priors_str,
+    # guide_eff_priors_str,
     html_pairs,
 ):
     # postprocess the saved html to it works in the final report
@@ -1874,7 +1878,7 @@ def create_report(
         valinorrun=startpage_stats["valinorrun"],
         valinorruninput=startpage_stats["valinorruninput"],
         valinorrunoutput=startpage_stats["valinorrunoutput"],
-        guide_eff_priors_str=guide_eff_priors_str,
+        # guide_eff_priors_str=guide_eff_priors_str,
         parameterfits_guideeffs_devprior_combo=parameterfits_guideeffs_devprior_combo,
         datastats_count_plot=datastats_count_plot,
         datastats_disp_plot=datastats_disp_plot,
@@ -1916,7 +1920,7 @@ def main():
         "--valinorConfigFile", help="JSON that contains the config for the valinor run"
     )
 
-    parser.add_argument("--valinorPriorFile", help="JSON that contains the priors")
+    # parser.add_argument("--valinorPriorFile", help="JSON that contains the priors")
 
     parser.add_argument(
         "--subsetSLpairs",
@@ -1941,18 +1945,17 @@ def main():
         source = scoreData_combined.loc[
             scoreData_combined.genePair.isin(selectpairs)
         ].copy()
-
     else:
         source = scoreData_combined.copy()
 
     # calculate the deviations from priors for hierarchical parameters
-    if "guide_eff_mean_1_mean" in source.columns:
-        source["dev_prior_guide_eff_1_mean"] = (
-            source["guide_eff_1_mean"] - source["guide_eff_mean_1_mean"]
-        ) / source["guide_eff_std_1_mean"]
-        source["dev_prior_guide_eff_2_mean"] = (
-            source["guide_eff_2_mean"] - source["guide_eff_mean_2_mean"]
-        ) / source["guide_eff_std_2_mean"]
+    # if "guide_eff_mean_1_mean" in source.columns:
+    #     source["dev_prior_guide_eff_1_mean"] = (
+    #         source["guide_eff_1_mean"] - source["guide_eff_mean_1_mean"]
+    #     ) / source["guide_eff_std_1_mean"]
+    #     source["dev_prior_guide_eff_2_mean"] = (
+    #         source["guide_eff_2_mean"] - source["guide_eff_mean_2_mean"]
+    #     ) / source["guide_eff_std_2_mean"]
 
     source.to_csv("input/report_input.csv", index=False)
     source_json = "input/report_input.csv"
@@ -1975,27 +1978,27 @@ def main():
     # produce_modelfit_plot(scoreData_combo, scoreData_single)
 
     # TO DO: export priors from valinor, and load them in here to avoid hard coding them
-    with open(args.valinorPriorFile, "r") as file:
-        prior_params = json.load(file)
+    # with open(args.valinorPriorFile, "r") as file:
+    #     prior_params = json.load(file)
 
-    priors = {
-        "guide_eff_mean": f"dist.TruncatedNormal(loc = {prior_params['guide_eff_mean'][0]}, scale = {prior_params['guide_eff_mean'][1]}, low = 0.0, high = 1.0)",
-        "guide_eff_std": f"dist.TruncatedNormal(loc = {prior_params['guide_eff_std'][0]}, scale = {prior_params['guide_eff_std'][1]}, low = 0.0)",
-    }
+    # priors = {
+    #     "guide_eff_mean": f"dist.TruncatedNormal(loc = {prior_params['guide_eff_mean'][0]}, scale = {prior_params['guide_eff_mean'][1]}, low = 0.0, high = 1.0)",
+    #     "guide_eff_std": f"dist.TruncatedNormal(loc = {prior_params['guide_eff_std'][0]}, scale = {prior_params['guide_eff_std'][1]}, low = 0.0)",
+    # }
 
     ## PARAMETER FITS
     # Guide efficiencies
-    guide_eff_priors_str = [
-        "Prior on the mean, &mu;, of the hyper distributions: <code>{}</code>".format(
-            priors["guide_eff_mean"]
-        ),
-        "Prior on the standard deviation, &sigma;, of the hyper distributions: <code>{}</code>".format(
-            priors["guide_eff_std"]
-        ),
-    ]
+    # guide_eff_priors_str = [
+    #     "Prior on the mean, &mu;, of the hyper distributions: <code>{}</code>".format(
+    #         priors["guide_eff_mean"]
+    #     ),
+    #     "Prior on the standard deviation, &sigma;, of the hyper distributions: <code>{}</code>".format(
+    #         priors["guide_eff_std"]
+    #     ),
+    # ]
 
-    guide_eff_priors_str = "<br>".join(guide_eff_priors_str)
-    produce_paramfit_guideff_hyper(source, priors)
+    # guide_eff_priors_str = "<br>".join(guide_eff_priors_str)
+    produce_paramfit_guideff_hyper(source)
     produce_paramfit_guideff(source_json)
 
     ## DATA STATS
@@ -2038,7 +2041,7 @@ def main():
     create_report(
         source_json,
         startpage_stats,
-        guide_eff_priors_str,
+        # guide_eff_priors_str,
         html_pairs,
     )
 

@@ -9,7 +9,7 @@
 Installation
 ---
 Install from the Github repository. 
-Make sure that you are installing valinor in an environment that has python version >3.7 but smaller than 3.11.
+Make sure that you are installing Valinor in an environment that has python version >3.7 but smaller than 3.11.
 ```bash
 git clone git@github.com:dpohanlon/valinor.git
 pip install -e .
@@ -27,16 +27,27 @@ valinor \
         --nSamples 100 \
         -n duspoutput
 ```
-This will output the valinor fit for combination and singleton effects and several additional files, that store the valinor settings and priors used for running valinor.
+This will output the Valinor fit for combination and singleton effects and several additional files, that store the Valinor settings and priors used for running Valinor.
 
 Run processing script on Valinor output
 ---
 This creates some dignostic plots that are relevant for the Valinor report (s. below) and a file that combines the data and Valinor output into one table for downstream usage.
 ```bash
 cd valinor
-python processvalinoroutput.py --val_combo ../combsModel_duspoutput.pq --val_single ../singlesModel_duspoutput.pq --data_combo ../duspCombs_good.h5 --data_single ../duspSingles_good.h5 --output_file ../valinoroutput_processed.pq --report_folder ../valinorreport
+python processvalinoroutput.py \
+    --val_combo ../combsModel_duspoutput.pq \
+    --val_single ../singlesModel_duspoutput.pq \
+    --data_combo ../duspCombs_good.h5 \
+    --data_single ../duspSingles_good.h5 \
+    --output_file ../valinoroutput_processed.pq \
+    --valinorPriorFile ../valinorrun_priors_duspoutput.json \
+    --report_folder ../valinorreport
 ```
-This will create a table stored in `valinoroutput_processed.pq` that contains all necessary data and valinor outputs averaged over replicates with singletons and combinations merged. For singleton data values were merged across control pairings so produce values per singleton gene. If `--report_folder` is specified this should point to the `valinorreport` folder that was downloaded with this repository, then plots and output files are stored in the folder to be used for the subsequent report generation.
+This will create a table stored in `valinoroutput_processed.pq` that contains all necessary data and Valinor outputs averaged over replicates with singletons and combinations merged. For singleton data values were merged across control pairings so produce values per singleton gene.
+
+If `--report_folder` is specified this needs to point to the `valinorreport` folder that was downloaded with this repository, then plots and output files are stored in the folder to be used for the subsequent report generation. If it is not specified, then no report outputs will be generated.
+
+If custom priors were used to run Valinor, then they should be stored in a `.json` file and given to the processing script using the `--valinorPriorFile` flag. If the flag is not used, then Valinor's default priors are used.
 
 Create the Valinor report
 ---
@@ -48,7 +59,6 @@ python build_report.py \
       --combfile ../valinoroutput_processed.pq \
       --valinorLossFile ../valinor_loss_duspoutput.svg \
       --valinorConfigFile ../valinorrun_duspoutput.json \
-      --valinorPriorFile ../valinorrun_priors_duspoutput.json \
       --subsetSLpairs
 ```
 

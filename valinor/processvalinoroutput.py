@@ -6,6 +6,7 @@ import numpy as np
 import os
 import argparse
 import json
+from priors import defaultPriors
 from plotting import *
 
 
@@ -299,7 +300,38 @@ def calc_LFC(df_combs, df_singles):
     return (df_combs, df_singles)
 
 
-def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_folder):
+def calc_guide_eff_deviation(scoreData_combined, priors):
+    # calculate the deviations from priors for hierarchical parameters
+    if "guide_eff_mean_1_mean" in scoreData_combined.columns:
+        scoreData_combined["dev_prior_guide_eff_mean_1"] = (
+            scoreData_combined["guide_eff_mean_1_mean"] - priors["guide_eff_mean"][0]
+        ) / priors["guide_eff_mean"][1]
+        scoreData_combined["dev_prior_guide_eff_mean_2"] = (
+            scoreData_combined["guide_eff_mean_2_mean"] - priors["guide_eff_mean"][0]
+        ) / priors["guide_eff_mean"][1]
+
+        scoreData_combined["dev_prior_guide_eff_std_1"] = (
+            scoreData_combined["guide_eff_std_1_mean"] - priors["guide_eff_std"][0]
+        ) / priors["guide_eff_std"][1]
+        scoreData_combined["dev_prior_guide_eff_std_2"] = (
+            scoreData_combined["guide_eff_std_2_mean"] - priors["guide_eff_std"][0]
+        ) / priors["guide_eff_std"][1]
+
+        scoreData_combined["dev_prior_guide_eff_1_mean"] = (
+            scoreData_combined["guide_eff_1_mean"]
+            - scoreData_combined["guide_eff_mean_1_mean"]
+        ) / scoreData_combined["guide_eff_std_1_mean"]
+        scoreData_combined["dev_prior_guide_eff_2_mean"] = (
+            scoreData_combined["guide_eff_2_mean"]
+            - scoreData_combined["guide_eff_mean_2_mean"]
+        ) / scoreData_combined["guide_eff_std_2_mean"]
+
+    return scoreData_combined
+
+
+def process_valinor_pred(
+    data_combo, data_single, val_combo, val_single, report_folder, prior_params
+):
     data, data_s, score, score_s = load_datasets(
         data_combo, data_single, val_combo, val_single
     )
@@ -340,6 +372,9 @@ def process_valinor_pred(data_combo, data_single, val_combo, val_single, report_
     # we don't really need the replicate counts/LFCs -> just average across them
     scoreData_combined = average_replicates(scoreData_combined)
 
+    # calculate the deviation of guide efficiencies from the prior
+    scoreData_combined = calc_guide_eff_deviation(scoreData_combined, prior_params)
+
     return scoreData_combined
 
 
@@ -358,11 +393,22 @@ def main():
         default="../valinoroutput_processed.pq",
     )
     parser.add_argument(
+        "--valinorPriorFile",
+        help="Optional: JSON that contains the priors used to run valinor",
+    )
+
+    parser.add_argument(
         "--report_folder",
         help="Optional: if given this will produce files necessary for the report in the given location",
     )
 
     args = parser.parse_args()
+
+    if args.valinorPriorFile:
+        with open(args.valinorPriorFile, "r") as file:
+            prior_params = json.load(file)
+    else:
+        prior_params = defaultPriors()
 
     scoreData_combined = process_valinor_pred(
         args.data_combo,
@@ -370,6 +416,7 @@ def main():
         args.val_combo,
         args.val_single,
         args.report_folder,
+        prior_params,
     )
 
     scoreData_combined.to_parquet(args.output_file)
