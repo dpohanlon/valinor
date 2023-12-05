@@ -39,9 +39,9 @@ python processvalinoroutput.py \
     --val_single ../singlesModel_duspoutput.pq \
     --data_combo ../duspCombs_good.h5 \
     --data_single ../duspSingles_good.h5 \
-    --output_file ../valinoroutput_processed.pq \
     --valinorPriorFile ../valinorrun_priors_duspoutput.json \
-    --report_folder ../valinorreport
+    --report_folder ../valinorreport \
+    --output_file ../valinoroutput_processed.pq 
 ```
 This will create a table stored in `valinoroutput_processed.pq` that contains all necessary data and Valinor outputs averaged over replicates with singletons and combinations merged. For singleton data values were merged across control pairings so produce values per singleton gene.
 
