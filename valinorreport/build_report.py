@@ -74,6 +74,25 @@ naming_cols = {
 def plot_hist(
     data_dict, xlabel, figsize=(6, 6), nbins=50, figure=None, loc="upper right"
 ):
+    """
+    Plot histograms for several different data series.
+
+    Args:
+        data_dict (Dict[str, np.ndarray]): A dictionary where keys are labels of the data and values are numpy arrays containing the data points for each entry.
+        xlabel (str): The label for the x-axis.
+        figsize (Tuple[int, int], optional): The size of the figure in inches. Defaults to (6, 6).
+        nbins (int, optional): The number of bins for the histogram. Defaults to 50.
+        figure (Tuple[matplotlib.figure.Figure, matplotlib.axes._subplots.AxesSubplot], optional):
+               A tuple containing a figure and axes object to plot on. If None, a new figure and axes are created.
+               Defaults to None.
+        loc (str, optional): The location of the legend. Defaults to "upper right".
+
+    Returns:
+        Tuple[matplotlib.figure.Figure, matplotlib.axes._subplots.AxesSubplot]: A tuple containing the figure and axes
+                                                                                objects used for the plot. This can be
+                                                                                used for further customization outside
+                                                                                the function.
+    """
     if figure is None:
         fig, ax = plt.subplots(1, 1, figsize=figsize)
     else:
@@ -93,76 +112,21 @@ def plot_hist(
     return (fig, ax)
 
 
-def calc_overdisp(scoreData_combo, scoreData_single):
-    # calculate the overdispersion based on the variance in counts across replicates for a given guide pair in a given cell line
-    numeric_columns = scoreData_combo.select_dtypes(
-        include=[np.number]
-    ).columns.tolist()
-    numeric_columns = numeric_columns + ["GuidePair"]
-    reps = (
-        scoreData_combo[numeric_columns]
-        .groupby(["GuidePair", "cell_line_index"])
-        .agg(mean=("value", np.mean), std=("value", np.std))
-        .reset_index()
-    )
-    reps["var"] = reps["std"] ** 2
-    reps["overdispersion"] = reps["var"] / reps["mean"]
-    scoreData_combo = scoreData_combo.merge(
-        reps[["GuidePair", "cell_line_index", "overdispersion"]],
-        on=["GuidePair", "cell_line_index"],
-    )
-
-    numeric_columns = scoreData_single.select_dtypes(
-        include=[np.number]
-    ).columns.tolist()
-    numeric_columns = numeric_columns + ["GuidePair", "SingletonGuide"]
-    reps = (
-        scoreData_single.groupby(["GuidePair", "SingletonGuide", "cell_line_index"])
-        .agg(mean=("value", np.mean), std=("value", np.std))
-        .reset_index()
-    )
-    reps["var"] = reps["std"] ** 2
-    reps["overdispersion"] = reps["var"] / reps["mean"]
-    scoreData_single = scoreData_single.merge(
-        reps[["GuidePair", "SingletonGuide", "cell_line_index", "overdispersion"]],
-        on=["GuidePair", "SingletonGuide", "cell_line_index"],
-    )
-
-    return (scoreData_combo, scoreData_single)
-
-
-def combine_single_combo(scoreData_combo, scoreData_single_NEav, combo_cols):
-    colstorename = {i: i + "_s" for i in scoreData_single_NEav.columns}
-
-    scoreData_combined = (
-        scoreData_combo[combo_cols]
-        .merge(
-            scoreData_single_NEav.rename(columns=colstorename),
-            left_on=["guide1", "cell_line", "replicate"],
-            right_on=["SingletonGuide_s", "cell_line_s", "replicate_s"],
-            how="left",
-        )
-        .rename(columns={i: i + "_1" for i in colstorename.values()})
-        .merge(
-            scoreData_single_NEav.rename(columns=colstorename),
-            left_on=["guide2", "cell_line", "replicate"],
-            right_on=["SingletonGuide_s", "cell_line_s", "replicate_s"],
-            how="left",
-        )
-        .rename(columns={i: i + "_2" for i in colstorename.values()})
-    )
-
-    return scoreData_combined
-
-
-def calc_deltaLFC(scoreData_combined):
-    scoreData_combined["deltaLFC"] = scoreData_combined["lfc"] - (
-        scoreData_combined["lfc_s_1"] + scoreData_combined["lfc_s_2"]
-    )
-    return scoreData_combined
-
-
 def sample_genepairs(scoreData_combined):
+    """
+    Selects a sample of gene pairs from the combined score data.
+
+    This function first selects the top 100 synthetic lethality (SL) pairs based on the Valinor score and then
+    randomly samples an additional 300 gene pairs. The resulting set combines these two selections.
+    The final selection might be less than 400 gene pairs because one gene pair might be present several times in the Top 100 SL ordering.
+
+    Args:
+        scoreData_combined (pandas.DataFrame): DataFrame that contains combined singleton and combination data and Valinor outputs.
+
+    Returns:
+        set: A set of selected gene pairs, combining top SL pairs and random samples.
+    """
+
     # pick the top SL pairs based on rank
     topsl = (
         scoreData_combined[["genePair", "valinor_score"]]
@@ -178,6 +142,19 @@ def sample_genepairs(scoreData_combined):
 
 
 def create_valinorrun_settings(valinorsettings):
+    """
+    Creates a string of Valinor run settings, excluding file paths.
+
+    This function formats the settings for a Valinor run, excluding any settings that contain 'File' in their keys.
+    The resulting string is HTML-formatted with each setting on a new line.
+
+    Args:
+        valinorsettings (dict): Dictionary of Valinor settings.
+
+    Returns:
+        str: A HTML-formatted string of Valinor run settings.
+    """
+
     valinorrun_settings = [
         f"{i}: {j}" for i, j in valinorsettings.items() if "File" not in i
     ]
@@ -187,6 +164,20 @@ def create_valinorrun_settings(valinorsettings):
 
 
 def create_overview_stats(combs_attr, combs_attr_s):
+    """
+    Creates HTML-formatted overview statistics for combination and singleton datasets.
+
+    This function generates HTML-formatted strings summarizing key statistics of both combination and singleton datasets.
+    It includes information such as the number of cell lines, replicates, genes, gene pairs, and guides.
+
+    Args:
+        combs_attr (dict): Dictionary containing statistics for the combination dataset.
+        combs_attr_s (dict): Dictionary containing statistics for the singleton dataset.
+
+    Returns:
+        tuple: A tuple of three strings, each containing HTML-formatted statistics for different aspects of the datasets.
+    """
+
     overview_stats = [
         "{} cell lines: {}".format(
             combs_attr["n_cell_lines"], combs_attr["cell_lines"]
@@ -216,6 +207,22 @@ def create_overview_stats(combs_attr, combs_attr_s):
 
 
 def create_file_settings(mergedfile, combs_attr, combs_attr_s, valinorsettings):
+    """
+    Generates HTML-formatted settings for input and output files used in the Valinor analysis.
+
+    This function creates two lists: one for input file settings, including paths from the Valinor settings, and
+    another for output files, detailing files related to combinations, singletons, and the merged dataset.
+
+    Args:
+        mergedfile (str): File path of the combined singleton and combination data and Valinor outputs.
+        combs_attr (dict): Dictionary containing attributes for the combinations dataset.
+        combs_attr_s (dict): Dictionary containing attributes for the singletons dataset.
+        valinorsettings (dict): Dictionary of Valinor settings including file paths.
+
+    Returns:
+        tuple: A tuple containing two strings, one for input file settings and another for output file settings, both HTML-formatted.
+    """
+
     input_files = [
         f"{i}: {j}"
         for i, j in valinorsettings.items()
@@ -235,6 +242,23 @@ def create_file_settings(mergedfile, combs_attr, combs_attr_s, valinorsettings):
 
 
 def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_json):
+    """
+    Generates a dictionary of HTML-formatted statistics for the start page of the Valinor analysis.
+
+    This function reads the Valinor settings and attributes from provided files, then uses these to create html code that details
+    overview statistics, file settings, and Valinor run settings. It compiles these into a dictionary suitable
+    for display on a start page.
+
+    Args:
+        mergedfile (str): File path of the combined singleton and combination data and Valinor outputs.
+        combs_attr_f (str): File path to the JSON file with combination dataset attributes.
+        combs_attr_s_f (str): File path to the JSON file with singleton dataset attributes.
+        valinorrun_json (str): File path to the JSON file with Valinor run settings.
+
+    Returns:
+        dict: A dictionary containing various HTML-formatted statistics for the start page.
+    """
+
     with open(valinorrun_json, "r") as file:
         valinorsettings = json.load(file)
 
@@ -267,7 +291,18 @@ def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_
 
 
 def produce_lossfunc_examples():
-    # produce example of a good loss function
+    """
+    Produces visual examples of good and bad loss functions.
+
+    This function generates two plots: one representing a 'good' loss function with an appropriate decay rate
+    and another representing a 'bad' loss function with a slower decay rate. The plots are saved as SVG files.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
 
     x = np.arange(0, 1000)
     y = np.exp(-1 * x * 0.05)
@@ -300,6 +335,20 @@ def copy_loss_plot(target_file):
 
 
 def produce_modelfit_examples():
+    """
+    Generates visual examples of good and bad model fits using histograms.
+
+    This function creates two sets of histograms: one demonstrating a good model fit where the model-generated
+    values closely match the data, and another showing a bad model fit where there is a mismatch. The histograms
+    are saved as SVG files.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+
     # create images for good and bad model performance
     k = 10  # Number of successes
     p = 0.01  # Probability of success on each trial
@@ -320,15 +369,6 @@ def produce_modelfit_examples():
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
     fig.savefig("plots/bad_modelfit.svg", bbox_inches="tight")
     plt.close(fig)
-
-
-def get_prior_val(variable, param="loc"):
-    match = re.search(r"{}\s*=\s*([\d.]+)".format(param), variable)
-    if match:
-        value = float(match.group(1))
-        return value
-    else:
-        raise Exception("regular expression no found")
 
 
 def produce_paramfit_guideff_hyper(

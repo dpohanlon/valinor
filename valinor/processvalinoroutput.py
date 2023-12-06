@@ -11,6 +11,17 @@ from plotting import *
 
 
 def find_1_to_1_mappings(df, base_column):
+    """
+    Identifies columns in the DataFrame that have a 1-to-1 mapping with the entries in the specified base column.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to analyze.
+        base_column (str): The column name in the DataFrame to be used as a base for finding 1-to-1 mappings.
+
+    Returns:
+        List[str]: A list of column names that have a 1-to-1 mapping with the entries in the base column.
+    """
+
     one_to_one_columns = []
 
     for column in df.columns:
@@ -29,6 +40,19 @@ def find_1_to_1_mappings(df, base_column):
 
 
 def rename_gene_columns(df):
+    """
+    Finds columns that contain gene1 and gene2 annotations and returns a dictionary to rename the columns accordingly.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame where gene columns need to be renamed.
+
+    Returns:
+        Dict[str, str]: A dictionary mapping original column names to their new names.
+
+    Raises:
+        ValueError: If unable to determine the correct gene column names from the data.
+    """
+
     if "gene1" not in df.columns:
         gene1_col = find_1_to_1_mappings(df, "gene1_index")
         if len(gene1_col) != 1:
@@ -61,6 +85,23 @@ def rename_gene_columns(df):
 
 
 def load_datasets(data_combo, data_single, val_combo, val_single):
+    """
+    Loads and processes the datasets for the Valinor model.
+
+    Args:
+        data_combo (str): Path to the data file for combinations.
+        data_single (str): Path to the data file for singletons.
+        val_combo (str): Path to the Valinor output file for combinations.
+        val_single (str): Path to the Valinor output file for singletons.
+
+    Returns:
+        tuple: A tuple containing four elements:
+            - data (pandas.DataFrame): Data file for combinations.
+            - data_s (pandas.DataFrame): Data file for singletons.
+            - score (pandas.DataFrame): Valinor output file for combinations.
+            - score_s (pandas.DataFrame): Valinor output file for singletons.
+    """
+
     score = pd.read_parquet(val_combo)
 
     score_s = pd.read_parquet(val_single) if val_single else None
@@ -92,6 +133,18 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
 
 
 def merge_data_scores(data, score):
+    """
+    Merges two pandas DataFrames, 'data' and 'score', into a single DataFrame.
+
+    This function resets the index of both DataFrames before concatenating them along the columns.
+
+    Args:
+        data (pandas.DataFrame): Data file containing counts, gene and guide annotations.
+        score (pandas.DataFrame): Valinor output containing the synthetic lethality scores, guide efficiencies etc.
+
+    Returns:
+        pandas.DataFrame: A DataFrame resulting from the concatenation of 'data' and 'score'.
+    """
     df_combined = pd.concat(
         (score.reset_index(drop=True), data.reset_index(drop=True)), axis=1
     )
@@ -99,6 +152,20 @@ def merge_data_scores(data, score):
 
 
 def calc_valinor_score(df, type="combo"):
+    """
+    Calculates the Valinor scores for combination and singletons based on the specified type ('combo' or 'singles').
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing the merged Valinor output an input data.
+        type (str, optional): The type of data to process. Can be either 'combo' for combination data or 'singles'
+                              for singleton data. Defaults to 'combo'.
+
+    Returns:
+        pandas.DataFrame: The input DataFrame with additional columns for Valinor scores and their ranks.
+
+    Raises:
+        ValueError: If the specified type is neither 'combo' nor 'singles'.
+    """
     if type == "combo":
         df["valinor_score"] = df["gene_ko_growth_12_mean"] / df["gene_ko_growth_12_std"]
         df["rank_" + "valinor_score"] = df.groupby("cell_line")["valinor_score"].rank(
@@ -131,6 +198,20 @@ def calc_valinor_score(df, type="combo"):
 
 
 def calc_overdisp(df, type="combo"):
+    """
+    Calculates overdispersion for each guide pair in a given cell line based on the variance in counts across replicates.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing guide pair and cell line data.
+        type (str, optional): The type of data to process. Can be either 'combo' or 'singles'. Defaults to 'combo'.
+
+    Returns:
+        pandas.DataFrame: The DataFrame with an added 'overdispersion' column.
+
+    Raises:
+        ValueError: If the specified type is neither 'combo' nor 'singles'.
+    """
+
     # calculate the overdispersion based on the variance in counts across replicates for a given guide pair in a given cell line
     numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
 
@@ -168,6 +249,16 @@ def calc_overdisp(df, type="combo"):
 
 
 def average_NE_singletons(df_singles):
+    """
+    Averages multiple singleton measurements for each guide across its non-essential gene partners in a DataFrame.
+
+    Args:
+        df_singles (pandas.DataFrame): The DataFrame containing singleton measurements.
+
+    Returns:
+        pandas.DataFrame: A DataFrame with averaged values for each gene across different metrics.
+    """
+
     # if a gene has multiple singleton measurements, i.e. was paired with multiple non-essential or non-targeting guides
     # then we just average over the measurements
     df_singles_NEav = (
@@ -192,6 +283,20 @@ def average_NE_singletons(df_singles):
 
 
 def combine_single_combo(df_combs, df_singles_NEav):
+    """
+    Combines singleton and combination data into a single DataFrame.
+
+    This function merges the singleton data (averaged over non-essential guides) and combination data into one DataFrame. It handles
+    renaming and aligning columns appropriately to ensure a consistent and unified structure in the resulting DataFrame.
+
+    Args:
+        df_combs (pandas.DataFrame): The DataFrame containing combination data.
+        df_singles_NEav (pandas.DataFrame): The DataFrame containing averaged singleton data.
+
+    Returns:
+        pandas.DataFrame: The combined DataFrame with both singleton and combination data.
+    """
+
     colstorename = {i: i + "_s" for i in df_singles_NEav.columns}
 
     scoreData_combined = (
@@ -230,6 +335,19 @@ def combine_single_combo(df_combs, df_singles_NEav):
 
 
 def calc_deltaLFC(scoreData_combined):
+    """
+    Calculates the delta Log Fold Change (deltaLFC) for the combined score data.
+
+    This function adds a new column 'deltaLFC' to the DataFrame, which is calculated as the difference
+    between the combination LFC and the sum of singleton lfc values.
+
+    Args:
+        scoreData_combined (pandas.DataFrame): DataFrame that contains combined singleton and combination data and Valinor outputs.
+
+    Returns:
+        pandas.DataFrame: The updated DataFrame including the 'deltaLFC' column.
+    """
+
     scoreData_combined["deltaLFC"] = scoreData_combined["lfc"] - (
         scoreData_combined["lfc_s_1"] + scoreData_combined["lfc_s_2"]
     )
@@ -237,6 +355,18 @@ def calc_deltaLFC(scoreData_combined):
 
 
 def average_replicates(scoreData_combined):
+    """
+    Averages values (e.g. LFCs) across replicates.
+
+    This function averages the numerical data across replicates for each guide pair and cell line.
+
+    Args:
+        scoreData_combined (pandas.DataFrame): DataFrame that contains combined singleton and combination data and Valinor outputs.
+
+    Returns:
+        pandas.DataFrame: The DataFrame with averaged values across replicates.
+    """
+
     numerics = ["int16", "int32", "int64", "float16", "float32", "float64"]
     drop_cols = ["variable", "replicate", "guide1_o", "guide2_o"]
     drop_cols = [col for col in drop_cols if col in scoreData_combined.columns]
@@ -263,6 +393,24 @@ def average_replicates(scoreData_combined):
 
 
 def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_single):
+    """
+    Creates overview statistics for the given datasets.
+
+    This function computes and compiles key statistics for both the combination and singleton datasets. Statistics include
+    the number of cell lines, replicates, gene pairs, genes, guide pairs, guides, and file information.
+
+    Args:
+        data (pandas.DataFrame): The DataFrame containing combination data.
+        data_s (pandas.DataFrame): The DataFrame containing singleton data.
+        data_combo (str): File path of the combination data.
+        data_single (str): File path of the singleton data.
+        val_combo (str): Validation file path for the combination data.
+        val_single (str): Validation file path for the singleton data.
+
+    Returns:
+        tuple: A tuple containing two dictionaries, one for combination data stats (combs_attr) and one for singleton data stats (combs_attr_s).
+    """
+
     av_replic_percln = "{:.2f}".format(
         data.groupby("cell_line")["replicate"].nunique().mean()
     )
@@ -307,6 +455,19 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
 
 
 def calc_LFC(df):
+    """
+    Calculates the Log Fold Change (LFC) for the given DataFrame.
+
+    This function computes the LFC as the log2 of the ratio of 'value' to 'plasmid' columns in the DataFrame.
+    It handles infinite and zero values by setting them to NaN.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing 'value' and 'plasmid' columns.
+
+    Returns:
+        pandas.DataFrame: The DataFrame with an added 'lfc' column representing the Log Fold Change.
+    """
+
     tmp = df["value"] / df["plasmid"]
     tmp[np.isinf(tmp)] = np.nan
     # also set 0 to nan since log2 doesn't exist for 0
@@ -316,6 +477,20 @@ def calc_LFC(df):
 
 
 def calc_guide_eff_deviation(scoreData_combined, priors):
+    """
+    Calculates deviations from prior parameters for guide efficiency in the combined data.
+
+    This function computes the deviations of guide efficiency mean and standard deviation values from their prior
+    parameters. It adds multiple columns to the DataFrame indicating these deviations.
+
+    Args:
+        scoreData_combined (pandas.DataFrame): DataFrame that contains combined singleton and combination data and Valinor outputs.
+        priors (dict): A dictionary containing prior parameter values for guide efficiency.
+
+    Returns:
+        pandas.DataFrame: The updated DataFrame including new columns for deviations from prior parameters.
+    """
+
     # calculate the deviations from priors for hierarchical parameters
     if "guide_eff_mean_1_mean" in scoreData_combined.columns:
         scoreData_combined["dev_prior_guide_eff_mean_1"] = (
@@ -347,6 +522,25 @@ def calc_guide_eff_deviation(scoreData_combined, priors):
 def process_valinor_pred(
     data_combo, data_single, val_combo, val_single, report_folder, prior_params
 ):
+    """
+    Processes Valinor predictions by combining, scoring, and analyzing data from multiple sources.
+
+    This function orchestrates the entire process of loading datasets, merging them, calculating scores and
+    overdispersion, and optionally generating reports. It handles both combination and singleton datasets and merges them
+    into a comprehensive dataset for analysis.
+
+    Args:
+        data_combo (str): Path to the combination data file.
+        data_single (str): Path to the singleton data file, if available.
+        val_combo (str): Path to the validation file for combination data.
+        val_single (str): Path to the validation file for singleton data, if available.
+        report_folder (str): Directory path to save the reports.
+        prior_params (dict): Dictionary of prior parameters for calculations.
+
+    Returns:
+        pandas.DataFrame: DataFrame that contains combined singleton and combination data and Valinor outputs.
+    """
+
     data, data_s, score, score_s = load_datasets(
         data_combo, data_single, val_combo, val_single
     )
@@ -408,6 +602,12 @@ def process_valinor_pred(
 
 
 def main():
+    """
+    Main function to process model and data files for the Valinor model.
+
+    This function parses command line arguments for data file paths and saves the processed data.
+    """
+
     parser = argparse.ArgumentParser(
         description="Script to process model and data files."
     )
