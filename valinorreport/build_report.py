@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import jinja2
 from datetime import date
-import h5py
 import altair as alt
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches

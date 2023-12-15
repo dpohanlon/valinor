@@ -39,7 +39,6 @@ python processvalinoroutput.py \
     --val_single ../singlesModel_duspoutput.pq \
     --data_combo ../duspCombs_good.h5 \
     --data_single ../duspSingles_good.h5 \
-    --valinorPriorFile ../valinorrun_priors_duspoutput.json \
     --report_folder ../valinorreport \
     --output_file ../valinoroutput_processed.pq 
 ```
