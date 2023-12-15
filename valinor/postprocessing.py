@@ -178,30 +178,21 @@ def sampleParams(
     ][  # Check whether this should be specified given the hierarchy, ordering, etc
         :, indices["guide_2_idx"], indices["cell_line_idx"]
     ]
-    # combsParams["guide_eff_1"] = samples[
-    #     "guide_eff_1"
-    # ][  # Check whether this should be specified given the hierarchy, ordering, etc
-    #     :, indices["guide_1_idx"]
-    # ]
-    # combsParams["guide_eff_2"] = samples[
-    #     "guide_eff_2"
-    # ][  # Check whether this should be specified given the hierarchy, ordering, etc
-    #     :, indices["guide_2_idx"]
-    # ]
-    # combsParams["guide_eff_12"] = samples["guide_eff_12"]
-    combsParams["guide_eff_mean_1"] = samples["guide_eff_mean"][
-        :, indices["guide_1_idx"]
-    ]
-    combsParams["guide_eff_mean_2"] = samples["guide_eff_mean"][
-        :, indices["guide_2_idx"]
-    ]
 
-    combsParams["guide_eff_std_1"] = samples["guide_eff_std"][
-        :, indices["guide_1_idx"]
-    ]
-    combsParams["guide_eff_std_2"] = samples["guide_eff_std"][
-        :, indices["guide_2_idx"]
-    ]
+    if "guide_eff_mean" in samples.keys():
+        combsParams["guide_eff_mean_1"] = samples["guide_eff_mean"][
+            :, indices["guide_1_idx"]
+        ]
+        combsParams["guide_eff_mean_2"] = samples["guide_eff_mean"][
+            :, indices["guide_2_idx"]
+        ]
+    if "guide_eff_std" in samples.keys():
+        combsParams["guide_eff_std_1"] = samples["guide_eff_std"][
+            :, indices["guide_1_idx"]
+        ]
+        combsParams["guide_eff_std_2"] = samples["guide_eff_std"][
+            :, indices["guide_2_idx"]
+        ]
 
     combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
         :, indices["gene_1_idx"]
@@ -222,7 +213,6 @@ def sampleParams(
     finalLH = models.dkoLikelihoodFinal if alternate else models.dkoLikelihoodFullFinal
 
     if alternate:
-
         combsParams["guide_eff_12"] = samples["guide_eff_12"]
 
         combsParams["samples"] = models.dkoLikelihoodFinal(
@@ -239,7 +229,6 @@ def sampleParams(
         )[0].sample(random.PRNGKey(42))
 
     else:
-
         combsParams["samples"] = models.dkoLikelihoodFullFinal(
             combsParams["init_count"],
             combsParams["guide_eff_1"],

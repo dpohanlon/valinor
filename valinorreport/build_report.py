@@ -17,11 +17,6 @@ import json
 alt.data_transformers.disable_max_rows()
 
 fontsizes = [18, 16, 14]
-colorblindfr = {
-    "main": ["#56b3e9", "#e0d316", "#0072b2", "#e69d00", "#cc79a7"],
-    "additional": ["#EC681E", "#009e74", "#000000"],
-}
-colors_palette = colorblindfr["main"]
 
 naming_cols = {
     "GuidePair": "Guide pair",
@@ -256,7 +251,7 @@ def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_
         valinorrun_json (str): File path to the JSON file with Valinor run settings.
 
     Returns:
-        dict: A dictionary containing various HTML-formatted statistics for the start page.
+        tuple: A dictionary containing various HTML-formatted statistics for the start page and a dict containing the valinor settins such as pooling etc.
     """
 
     with open(valinorrun_json, "r") as file:
@@ -287,7 +282,7 @@ def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_
         "valinorrunoutput": output_files,
     }
 
-    return startpage_stats
+    return startpage_stats, valinorsettings
 
 
 def produce_lossfunc_examples():
@@ -371,11 +366,10 @@ def produce_modelfit_examples():
     plt.close(fig)
 
 
-def produce_paramfit_guideff_hyper(
-    source,
-    # priors,
-):
-    if "guide_eff_mean_1_mean" in source.columns:
+def produce_paramfit_guideff_hyper(source, valinorsettings):
+    if (valinorsettings["guide_config"] not in ["no_pooling", "full_pooling"]) and (
+        "guide_eff_mean_1_mean" in source.columns
+    ):
         fig, ax = plt.subplots(1, 2, figsize=(16, 6))
         dev = source.dev_prior_guide_eff_mean_1.unique()
         dev2 = source.dev_prior_guide_eff_mean_2.unique()
@@ -419,7 +413,9 @@ def produce_paramfit_guideff_hyper(
         ax.set_ylim(0, 1)
 
         # Add the text in the middle
-        text = "Could not be displayed because\ncolumns such as 'guide_eff_mean_1_mean' were missing"
+        text = "Not applicable\nbecause pooling strategy set to {}".format(
+            valinorsettings["guide_config"]
+        )
         ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12)
 
         # Remove axis labels and ticks
@@ -1920,7 +1916,7 @@ def main():
     combs_attr_f = "input/combs_attr.json"
     combs_attr_s_f = "input/combs_attr_s.json"
 
-    startpage_stats = create_startpage_stats(
+    startpage_stats, valinorsettings = create_startpage_stats(
         args.combfile, combs_attr_f, combs_attr_s_f, args.valinorConfigFile
     )
 
@@ -1931,8 +1927,7 @@ def main():
     # Model Fit
     produce_modelfit_examples()
 
-    # guide_eff_priors_str = "<br>".join(guide_eff_priors_str)
-    produce_paramfit_guideff_hyper(source)
+    produce_paramfit_guideff_hyper(source, valinorsettings)
     produce_paramfit_guideff(source_json)
 
     ## DATA STATS

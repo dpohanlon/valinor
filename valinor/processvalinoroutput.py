@@ -491,7 +491,7 @@ def calc_guide_eff_deviation(scoreData_combined, priors):
         pandas.DataFrame: The updated DataFrame including new columns for deviations from prior parameters.
     """
 
-    # calculate the deviations from priors for hierarchical parameters
+    # calculate the deviations from priors for hierarchical parameters - partial_pooling scenario
     if "guide_eff_mean_1_mean" in scoreData_combined.columns:
         scoreData_combined["dev_prior_guide_eff_mean_1"] = (
             scoreData_combined["guide_eff_mean_1_mean"] - priors["guide_eff_mean"][0]
@@ -515,6 +515,15 @@ def calc_guide_eff_deviation(scoreData_combined, priors):
             scoreData_combined["guide_eff_2_mean"]
             - scoreData_combined["guide_eff_mean_2_mean"]
         ) / scoreData_combined["guide_eff_std_2_mean"]
+
+    elif "guide_eff_1_mean" in scoreData_combined.columns:
+        # full_pooling or no_pooling -> no hierarchy
+        scoreData_combined["dev_prior_guide_eff_1_mean"] = (
+            scoreData_combined["guide_eff_1_mean"] - priors["guide_eff_mean"][0]
+        ) / priors["guide_eff_mean"][1]
+        scoreData_combined["dev_prior_guide_eff_2_mean"] = (
+            scoreData_combined["guide_eff_2_mean"] - priors["guide_eff_mean"][0]
+        ) / priors["guide_eff_mean"][1]
 
     return scoreData_combined
 

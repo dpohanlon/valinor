@@ -131,22 +131,6 @@ def runValinor(
     with open(f"valinorrun_{config['name']}.json", "w") as outfile:
         json.dump(config, outfile)
 
-    # # save prior parameters to a json
-    # with open(f"valinorrun_priors_{config['name']}.json", "w") as outfile:
-    #     # Convert tuples to lists
-    #     prior_params_serializable = {
-    #         k: list(v)
-    #         if isinstance(v, tuple)
-    #         else v.tolist()
-    #         if isinstance(v, jnp.ndarray)
-    #         else v.tolist()
-    #         if isinstance(v, np.ndarray)
-    #         else v
-    #         for k, v in prior_params.items()
-    #     }
-
-    #     json.dump(prior_params_serializable, outfile)
-
 
 def makeArgs():
     argParser = argparse.ArgumentParser()
