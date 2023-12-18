@@ -16,6 +16,7 @@ from typing import Dict, List, Tuple, Any
 
 def prepareData(
     data_files: Dict[str, str],
+    priors: Dict[str, float],
     only_singletons: bool = False,
     singletons: bool = True,
     controls: bool = True,
@@ -45,6 +46,12 @@ def prepareData(
     )
 
     prior_params = defaultPriors()
+
+    # Update with our input overriding values
+    if len(priors) > 0:
+        for k in prior_params.keys():
+            prior_params[k] = priors.get(k, prior_params[k])
+
     prior_params["od_means"] = meanOD
     prior_params["od_stds"] = stdOD
 
