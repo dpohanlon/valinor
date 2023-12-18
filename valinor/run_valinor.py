@@ -250,6 +250,14 @@ def makeArgs():
         help="Guide pooling type, one of 'no_pooling', 'full pooling', or 'partial_pooling'.",
     )
 
+    argParser.add_argument(
+        "--priorsFile",
+        type=str,
+        dest="priorsFile",
+        default=None,
+        help="Prior parameters file.",
+    )
+
     return argParser
 
 
@@ -267,8 +275,11 @@ def run():
         "controls": config["controlsFile"],
     }
 
+    loaded_priors = utils.loadPriors(args.priorsFile) if args.priorsFile != None else None
+
     lengths, indices, prior_params, data = prepareData(
         data_files,
+        loaded_priors,
         config["only_singletons"],
         not config["no_singletons"],
         not config["no_controls"],
