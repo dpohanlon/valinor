@@ -209,7 +209,6 @@ def sampleParams(
     finalLH = models.dkoLikelihoodFinal if alternate else models.dkoLikelihoodFullFinal
 
     if alternate:
-
         combsParams["guide_eff_12"] = samples["guide_eff_12"]
 
         combsParams["samples"] = models.dkoLikelihoodFinal(
@@ -226,7 +225,6 @@ def sampleParams(
         )[0].sample(random.PRNGKey(42))
 
     else:
-
         combsParams["samples"] = models.dkoLikelihoodFullFinal(
             combsParams["init_count"],
             combsParams["guide_eff_1"],

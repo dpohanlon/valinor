@@ -1,0 +1,11 @@
+guide_eff_mean : [0.9, 0.1]
+guide_eff_std : [0.1, 0.1]
+
+gene_ko_growth : [0.0, 0.1]
+
+cell_line_growth : [0.0, 0.1]
+
+mv_mean_scale : 1.0
+mv_std_scale : 1.0
+
+pair_growth : [0.0, 0.1]

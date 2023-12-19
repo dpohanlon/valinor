@@ -6,6 +6,8 @@ import numpy as np
 
 import h5py
 
+import yaml
+
 from typing import Dict, List, Tuple, Optional
 
 # TODO: Have a better interface to these, especially when first building them
@@ -28,6 +30,13 @@ def loadData(data_files: Dict[str, str]):
         outFiles[n] = d
 
     return outFiles
+
+
+def loadPriors(priorsFile: str):
+    with open(priorsFile) as f:
+        priors = yaml.safe_load(f)
+
+    return priors
 
 
 def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
