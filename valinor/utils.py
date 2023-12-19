@@ -31,12 +31,13 @@ def loadData(data_files: Dict[str, str]):
 
     return outFiles
 
-def loadPriors(priorsFile : str):
 
+def loadPriors(priorsFile: str):
     with open(priorsFile) as f:
         priors = yaml.safe_load(f)
 
     return priors
+
 
 def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
     counts = {}

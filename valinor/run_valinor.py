@@ -11,7 +11,13 @@ from numpyro.infer.autoguide import AutoNormal
 from numpyro.handlers import seed, trace
 
 from valinor import models
-from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams, loadPriors
+from valinor.utils import (
+    getIndices,
+    calculateLengths,
+    configArgs,
+    saveModelParams,
+    loadPriors,
+)
 from valinor.preprocessing import prepareData
 from valinor.postprocessing import sampleParams, createDataFrame
 from valinor.plotting import plotDiagPlots
