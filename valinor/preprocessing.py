@@ -48,7 +48,7 @@ def prepareData(
     prior_params = defaultPriors()
 
     # Update with our input overriding values
-    if len(priors) > 0:
+    if (priors != None) and (len(priors) > 0):
         for k in prior_params.keys():
             prior_params[k] = priors.get(k, prior_params[k])
 

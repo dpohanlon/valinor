@@ -11,7 +11,7 @@ from numpyro.infer.autoguide import AutoNormal
 from numpyro.handlers import seed, trace
 
 from valinor import models
-from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams
+from valinor.utils import getIndices, calculateLengths, configArgs, saveModelParams, loadPriors
 from valinor.preprocessing import prepareData
 from valinor.postprocessing import sampleParams, createDataFrame
 from valinor.plotting import plotDiagPlots
@@ -275,7 +275,7 @@ def run():
         "controls": config["controlsFile"],
     }
 
-    loaded_priors = utils.loadPriors(args.priorsFile) if args.priorsFile != None else None
+    loaded_priors = loadPriors(args.priorsFile) if args.priorsFile != None else None
 
     lengths, indices, prior_params, data = prepareData(
         data_files,
