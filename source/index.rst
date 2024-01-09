@@ -14,11 +14,16 @@ You can read more about the method, motivations, and benchmarks the accompanying
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: User Guide
 
    quickstart
    tutorial
+   indexing
 
+.. toctree::
+   :maxdepth: 2
+   :caption: API
+   
    run_valinor
    models
    preprocessing
