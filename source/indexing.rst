@@ -15,7 +15,7 @@ and these would represent the shared parameters for each of the two replicates f
 
     N = [N_0, N_1, N_2, N_3]
 
-and similarly for N_initial. N_0 and N_1 are replicates of each other, and so are N_2 and N_3 and therefore will share g parameters (g_0 and g_1, respectively). Written out in full, we have an equation that describes the expectation value of each these counts according to our internal parameters, g,
+and similarly for ``N_initial``. ``N_0`` and ``N_1`` are replicates of each other, and so are ``N_2`` and ``N_3`` and therefore will share ``g`` parameters (``g_0`` and ``g_1``, respectively). Written out in full, we have an equation that describes the expectation value of each these counts according to our internal parameters, ``g``,
 
 ::
 
@@ -30,13 +30,13 @@ For clarity and to benefit from vector operations on CPUs and GPUs, it would be 
 
     N = N_initial * exp(g)
 
-however as N is length 4 and g is length 2, it's not clear what operation should be performed here. However using NumPy style fancy indexing, we can define a map, ``gene_to_data`` such that
+however as ``N`` is length 4 and ``g`` is length 2, it's not clear what operation should be performed here. However using NumPy style fancy indexing, we can define a map, ``gene_to_data`` such that
 
 ::
 
     g[gene_to_data] = [g[0], g[0], g[1], g[1]]
 
-so that this is the same shape as our `N` array. This ``gene_to_data`` map is a length `N` array that corresponds to the correct index in the gene term array for that data index, so here this is
+so that this is the same shape as our ``N`` array. This ``gene_to_data`` map is a length ``N`` array that corresponds to the correct index in the gene term array for that data index, so here this is
 
 ::
 
