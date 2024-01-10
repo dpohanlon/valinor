@@ -9,7 +9,7 @@ For example, to evaluate the predicted counts of a single knock-out experiment t
 
     g = [g_0, g_1]
 
-and these would represent the shared parameters for each of the two replicates for that genetic knock out. The initial and final counts for our experiment are arrays of length 4 each that are different for each
+and these would represent the shared parameters for each of the two replicates for that genetic knock out. The initial and final counts for our experiment are arrays of length 4
 
 ::
 
@@ -42,6 +42,6 @@ so that this is the same shape as our ``N`` array. This ``gene_to_data`` map is 
 
     gene_to_data = [0, 0, 1, 1]
 
-The convention in Valinor is that these index arrays should always map *from* parameters *to* the data array (not the other way around), so should **always** be the same length as the total number of data points (here, ``len(N)``). These should also **always** correspond to indices that are in the parameter array, so here their maximum must be less than ``len(gene_terms) - 1`` (NumPyro will not check this for you!).
+The convention in Valinor is that these index arrays should always map *from* parameters *to* the data array (not the other way around), so should **always** be the same length as the total number of data points (here, ``len(N)``). These should also **always** correspond to indices that are in the parameter array, so here their maximum must be at most ``len(gene_terms) - 1`` (NumPyro will not check this for you!).
 
 Although seemingly a little convoluted, this allows Valinor to be flexible with respect to the measurements that inform each parameter, and enables complex experimental designs to be handled transparently.
