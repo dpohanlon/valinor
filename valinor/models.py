@@ -56,7 +56,8 @@ def dkoLikelihoodFinal(
 
     theta = 1.0 + guide_eff_1 * guide_eff_2 * guide_eff_12 * (
         jnp.exp(
-            cell_line_growth + (library_bias * gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
+            cell_line_growth
+            + (library_bias * gene_ko_growth_1 + gene_ko_growth_2 + gene_ko_growth_12)
         )
         - 1.0
     )
@@ -149,22 +150,20 @@ def skoLikelihoodFinal(
     """
 
     if alternate:
-
         return dkoLikelihoodFinal(
-            init_theta = init_theta_s,
-            guide_eff_1 = guide_eff_s,
-            guide_eff_2 = 1.0,
-            guide_eff_12  = 1.0,
-            cell_line_growth = cell_line_growth_s,
-            gene_ko_growth_1 = gene_ko_growth_s,
-            gene_ko_growth_2 = 0.0,
-            gene_ko_growth_12 = 0.0,
-            mv = mv,
-            library_bias = library_bias,
+            init_theta=init_theta_s,
+            guide_eff_1=guide_eff_s,
+            guide_eff_2=1.0,
+            guide_eff_12=1.0,
+            cell_line_growth=cell_line_growth_s,
+            gene_ko_growth_1=gene_ko_growth_s,
+            gene_ko_growth_2=0.0,
+            gene_ko_growth_12=0.0,
+            mv=mv,
+            library_bias=library_bias,
         )
 
     else:
-
         return dkoLikelihoodFullFinal(
             init_theta=init_theta_s,
             guide_eff_1=guide_eff_s,
@@ -174,7 +173,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_2=0.0,
             gene_ko_growth_12=0.0,
             mv=mv,
-            library_bias = library_bias,
+            library_bias=library_bias,
         )
 
 
@@ -183,7 +182,6 @@ def controlLikelihoodFinal(
     cell_line_growth_c: float,
     mv: float,
 ) -> Distribution:
-
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
     return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
@@ -192,16 +190,13 @@ def controlLikelihoodFinal(
 def sample_guide_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any], config="partial_pooling"
 ):
-
     mean_l, mean_s = prior_params["guide_eff_mean"]
     std_l, std_s = prior_params["guide_eff_std"]
 
     # guide_eff must still have shape [n_guides, n_cell_lines]
 
     if config == "partial_pooling":
-
         with numpyro.plate("guides", lengths["len_guides"]):
-
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
                 dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
@@ -211,7 +206,6 @@ def sample_guide_distributions(
             )
 
         with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-
             guide_eff = numpyro.sample(
                 "guide_eff",
                 dist.TruncatedNormal(
@@ -227,9 +221,7 @@ def sample_guide_distributions(
             )
 
     elif config == "partial_pooling_low":
-
         with numpyro.plate("guides", lengths["len_guides"], dim=-2):
-
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
                 dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
@@ -239,7 +231,6 @@ def sample_guide_distributions(
             )
 
         with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
-
             guide_eff = numpyro.sample(
                 "guide_eff",
                 dist.TruncatedNormal(
@@ -251,19 +242,15 @@ def sample_guide_distributions(
             )
 
     elif config == "no_pooling":
-
         with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
             with numpyro.plate("guides", lengths["len_guides"]):
-
                 guide_eff = numpyro.sample(
                     "guide_eff",
                     dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
                 )
 
     elif config == "full_pooling":
-
         with numpyro.plate("guides", lengths["len_guides"]):
-
             guide_eff_single = numpyro.sample(
                 "guide_eff_single",
                 dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
@@ -276,7 +263,6 @@ def sample_guide_distributions(
             )
 
     else:
-
         raise ValueError(
             "Guide config must be one of ['partial_pooling', 'no_pooling', 'full_pooling']."
         )
@@ -319,9 +305,7 @@ def sample_cell_line_distributions(
         )
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample(
-            "library_bias", dist.Normal(loc=0, scale=0.1)
-        )
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=0, scale=0.1))
 
     return cell_line_growth, inv_mv_mean, inv_mv_std, library_bias
 
@@ -376,9 +360,7 @@ def sample_dko_distributions(
     init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
 
     if alternate:
-
         with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
-
             pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
             pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
 
@@ -413,11 +395,10 @@ def sample_dko_distributions(
             gene_ko_growth_2,
             gene_ko_growth_12,
             mv,
-            library_bias = 1.0,
+            library_bias=1.0,
         )
 
     else:
-
         lh, theta = dkoLikelihoodFullFinal(
             theta_init[indices["guide_pair_idx"]],
             guide_eff_1,
@@ -427,7 +408,7 @@ def sample_dko_distributions(
             gene_ko_growth_2,
             gene_ko_growth_12,
             mv,
-            library_bias = 1.0,
+            library_bias=1.0,
         )
 
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
@@ -505,11 +486,9 @@ def sample_control_distributions(
     inv_mv_mean,
     inv_mv_std,
 ):
-
     init_c_l, init_c_s = prior_params["init_count_c"]
 
     with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_c"]):
-
         guide_init_count_c = numpyro.sample(
             "guide_init_count_c",
             dist.TruncatedNormal(loc=init_c_l, scale=init_c_s, low=0.0),
@@ -529,7 +508,9 @@ def sample_control_distributions(
 
     init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
 
-    lh_c, theta_c = controlLikelihoodFinal(init_theta_c[indices['guide_pair_c_idx']], cell_line_growth_c, mv_c)
+    lh_c, theta_c = controlLikelihoodFinal(
+        init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
+    )
 
     numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
 
@@ -553,9 +534,12 @@ def valinorHierarchy(
 ) -> None:
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
-    cell_line_growth, inv_mv_mean, inv_mv_std, library_bias = sample_cell_line_distributions(
-        lengths, prior_params
-    )
+    (
+        cell_line_growth,
+        inv_mv_mean,
+        inv_mv_std,
+        library_bias,
+    ) = sample_cell_line_distributions(lengths, prior_params)
 
     if not only_singletons:
         sample_dko_distributions(
