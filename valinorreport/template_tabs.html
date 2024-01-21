@@ -317,7 +317,7 @@
         </div>
       </div>
     </div>
-    <div id="paramfit-content" class="container mt-4" style="display:none;">
+    <div id="paramfit-content" class="container-fluid mt-4" style="display:none;">
       <div class="row">
         <div class="col-md-2 col-sm-12">
           <div class="container-fluid py-5">
@@ -361,27 +361,32 @@
             <div class="row">
               <h4>Priors</h4>
               <!-- {{guide_eff_priors_str}} -->
-              If the priors were not set by the user, the default priors (found in <code>valinor/priors.py</code>) are
-              used.
-              <p>The <b>deviation from prior</b> is calculated by subtracting the fitted &mu; or &sigma; of a guide's
+              <p>
+                If the priors were not set by the user, the default priors (found in <code>valinor/priors.py</code>) are used.
+              </p>
+              <p>
+                The <b>deviation from prior</b> is calculated by subtracting the fitted &mu; or &sigma; of a guide's
                 hyper distribution from the prior mean and devide it by the prior standard deviation.
               </p>
               <img src="plots/parameterfits_guideeffs_metahier_combo.svg" alt="Guide Efficiencies" class="img-fluid">
             </div>
             <div class='row' id="guideeff">
               <h3>Cell line-specific Guide Efficiencies</h3>
-              <p>These cell line-specific guide efficiencies are the second and last layer in the efficiency hierarchy.
+              <p>
+                These cell line-specific guide efficiencies are the second and last layer in the efficiency hierarchy.
                 From the guide-specific hyper distributions, Valinor fits cell line-specific guide efficiencies for each
                 guide which are informed by the respective hyper distributions
               </p>
-              <p>The <b>deviation from guide hyper distribution</b> is calculated by subtracting the fitted guide
+              <p>
+                The <b>deviation from guide hyper distribution</b> is calculated by subtracting the fitted guide
                 efficiency in a cell line by the fitted &mu; and devide it by the &sigma; of the guide-specific hyper
                 distribution. Fitted values that deviate much from the hyper distributions are an indication that there
                 is strong evidence in the data for a different hyper guide efficiency than expected from the priors.
                 Special focus should be on identifying cell lines in which guide efficiencies deviate much from their
                 hyper distributions. This could point to issues with data from that specific cell line.
               </p>
-              <p>If a guide is present in position 1 and 2, hyper- and cell line-specific guide efficiency distributions
+              <p>
+                If a guide is present in position 1 and 2, hyper- and cell line-specific guide efficiency distributions
                 are fitted separately for each position for the same guide. Therefore, the plots show the efficiencies
                 separately for each position.
               </p>
@@ -397,7 +402,7 @@
         </div>
       </div>
     </div>
-    <div id="datastats-content" class="container mt-4" style="display:none;">
+    <div id="datastats-content" class="container-fluid mt-4" style="display:none;">
       <div class="row">
         <div class="col-md-2 col-sm-12">
           <div class="container-fluid py-5">
@@ -447,7 +452,7 @@
         </div>
       </div>
     </div>
-    <div id="diagnosticplots-content" class="container mt-4" style="display:none;">
+    <div id="diagnosticplots-content" class="container-fluid mt-4" style="display:none;">
       <div class="row">
         <div class="col-md-2 col-sm-12">
           <div class="container-fluid py-5">
@@ -552,7 +557,7 @@
         </div>
       </div>
     </div>
-    <div id="hitprioritisation-content" class="container mt-4" style="display:none;">
+    <div id="hitprioritisation-content" class="container-fluid mt-4" style="display:none;">
       <div class="row">
         <div class="col-md-2 col-sm-12">
           <div class="container-fluid py-5">
@@ -616,7 +621,7 @@
         </div>
       </div>
     </div>
-    <div id="genepairview-content" class="container mt-4" style="display:none;">
+    <div id="genepairview-content" class="container-fluid mt-4" style="display:none;">
       <div class="row">
         <div class="col-md-2 col-sm-12">
           <div class="container-fluid py-5">
@@ -708,8 +713,6 @@
     </div>
   </div>
   </div>
-
-
   <hr>
 
   <footer>
@@ -725,38 +728,6 @@
       lossFunction.classList.toggle('hidden');
     }
   </script>
-
-  <!-- <script>
-    // document.addEventListener('DOMContentLoaded', function () {
-    //   // var navbar = document.querySelector('.navbar');
-    //   // var contentPages = document.querySelectorAll('.tab-content');
-
-    //   // // Function to adjust padding-top for each content page
-    //   // var adjustContentPadding = function () {
-    //   //   var height = window.innerWidth < 992 ? navbar.offsetHeight : ''; // Adjust for Bootstrap lg breakpoint
-
-    //   //   contentPages.forEach(function(page) {
-    //   //     page.style.paddingTop = height + 'px';
-    //   //   });
-    //   // };
-
-    //   // // Event listeners for the collapse show/hide
-    //   // document.querySelector('.navbar-collapse').addEventListener('shown.bs.collapse', adjustContentPadding);
-    //   // document.querySelector('.navbar-collapse').addEventListener('hidden.bs.collapse', adjustContentPadding);
-    //   // window.addEventListener('resize', adjustContentPadding); // Adjust on window resize
-
-    //   var navbarToggler = document.querySelector('.navbar-toggler');
-    //   var navbarLinks = document.querySelectorAll('#navbarNav .nav-link');
-
-    //   navbarLinks.forEach(function(link) {
-    //     link.addEventListener('click', function() {
-    //       if (!navbarToggler.classList.contains('collapsed')) {
-    //         navbarToggler.click();
-    //       }
-    //     });
-    //   });
-    // });
-  </script> -->
 
   <script>
     // https://gomakethings.com/how-to-upload-and-process-a-json-file-with-vanilla-js/
