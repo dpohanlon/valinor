@@ -118,21 +118,26 @@ def sample_genepairs(scoreData_combined):
         scoreData_combined (pandas.DataFrame): DataFrame that contains combined singleton and combination data and Valinor outputs.
 
     Returns:
-        set: A set of selected gene pairs, combining top SL pairs and random samples.
+        tuple: A tuple containing a set of selected gene pairs (combining top SL pairs and random samples) and a list containing the number of top SL pairs and randomly selected pairs.
     """
 
     # pick the top SL pairs based on rank
+    # the number of top SL depends on the number of cell lines to not lead to huge data needing to be loaded into the report page
+    n_clns = scoreData_combined["cell_line"].unique().shape[0]
+    ntop = int(400 / n_clns)
+    nrandom = int(1200 / n_clns)
     topsl = (
         scoreData_combined[["genePair", "valinor_score"]]
         .drop_duplicates()
         .sort_values("valinor_score")
-        .genePair[:100]
+        .genePair[:ntop]
         .unique()
     )
     # then randomly select pairs
-    selectpairs = scoreData_combined.genePair.sample(300).unique()
+    selectpairs = scoreData_combined.genePair.sample(nrandom).unique()
     selectpairs = set(np.concatenate((selectpairs, topsl)))
-    return selectpairs
+    nrandom = len(selectpairs.difference(topsl))
+    return (selectpairs, [ntop, nrandom])
 
 
 def create_valinorrun_settings(valinorsettings):
@@ -157,7 +162,7 @@ def create_valinorrun_settings(valinorsettings):
     return valinorrun_settings
 
 
-def create_overview_stats(combs_attr, combs_attr_s):
+def create_overview_stats(combs_attr, combs_attr_s, topslgene_str):
     """
     Creates HTML-formatted overview statistics for combination and singleton datasets.
 
@@ -167,6 +172,7 @@ def create_overview_stats(combs_attr, combs_attr_s):
     Args:
         combs_attr (dict): Dictionary containing statistics for the combination dataset.
         combs_attr_s (dict): Dictionary containing statistics for the singleton dataset.
+        topslgene_str (str): A string informing about the number of selected gene pairs if the --subsetSLpairs was set.
 
     Returns:
         tuple: A tuple of three strings, each containing HTML-formatted statistics for different aspects of the datasets.
@@ -187,6 +193,7 @@ def create_overview_stats(combs_attr, combs_attr_s):
         "{} guide pairs (orientation aware) out of {} guides".format(
             combs_attr["n_guide_pairs"], combs_attr["n_guides"]
         ),
+        topslgene_str,
     ]
     overview_stats_combs = "<br>".join(overview_stats_combs)
 
@@ -235,7 +242,9 @@ def create_file_settings(mergedfile, combs_attr, combs_attr_s, valinorsettings):
     return (input_files, output_files)
 
 
-def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_json):
+def create_startpage_stats(
+    mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_json, topslgene_str
+):
     """
     Generates a dictionary of HTML-formatted statistics for the start page of the Valinor analysis.
 
@@ -248,7 +257,7 @@ def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_
         combs_attr_f (str): File path to the JSON file with combination dataset attributes.
         combs_attr_s_f (str): File path to the JSON file with singleton dataset attributes.
         valinorrun_json (str): File path to the JSON file with Valinor run settings.
-
+        topslgene_str (str): A string informing about the number of selected gene pairs if the --subsetSLpairs was set.
     Returns:
         tuple: A dictionary containing various HTML-formatted statistics for the start page and a dict containing the valinor settins such as pooling etc.
     """
@@ -263,7 +272,7 @@ def create_startpage_stats(mergedfile, combs_attr_f, combs_attr_s_f, valinorrun_
         combs_attr_s_df = json.load(file)
 
     overview_stats, overview_stats_combs, overview_stats_s = create_overview_stats(
-        combs_attr_df, combs_attr_s_df
+        combs_attr_df, combs_attr_s_df, topslgene_str
     )
 
     valinorrun_settings = create_valinorrun_settings(valinorsettings)
@@ -1899,13 +1908,19 @@ def main():
     scoreData_combined = pd.read_parquet(args.combfile)
 
     if args.subsetSLpairs:
-        selectpairs = sample_genepairs(scoreData_combined)
+        selectpairs, npairs = sample_genepairs(scoreData_combined)
 
         source = scoreData_combined.loc[
             scoreData_combined.genePair.isin(selectpairs)
         ].copy()
+
+        topslgene_str = "Report only displays data of subset of gene pairs (--subsetSLpairs flag set): {} gene pairs are displayed in next tabs, {} are top synthetic lethal, {} were randomly selected".format(
+            npairs[0] + npairs[1], npairs[0], npairs[1]
+        )
+
     else:
         source = scoreData_combined.copy()
+        topslgene_str = ""
 
     source.to_csv("input/report_input.csv", index=False)
     source_json = "input/report_input.csv"
@@ -1916,7 +1931,11 @@ def main():
     combs_attr_s_f = "input/combs_attr_s.json"
 
     startpage_stats, valinorsettings = create_startpage_stats(
-        args.combfile, combs_attr_f, combs_attr_s_f, args.valinorConfigFile
+        args.combfile,
+        combs_attr_f,
+        combs_attr_s_f,
+        args.valinorConfigFile,
+        topslgene_str,
     )
 
     # Loss Function

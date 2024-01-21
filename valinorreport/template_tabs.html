@@ -721,6 +721,9 @@
 
   </div><!--/.fluid-container-->
 
+  <!-- Bootstrap 5.3.2 Bundle JS (includes Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
     function toggleLossFunction(id) {
       var lossFunction = document.getElementById(id);
@@ -742,7 +745,7 @@
       (function (vegaEmbed) {
 
         window.alert("Check out the other tabs to see Valinor results.");
-        { { datastats_count_plot } }
+        {{datastats_count_plot}}
 
       })(vegaEmbed);
 
@@ -753,7 +756,7 @@
 
       (function (vegaEmbed) {
 
-        { { datastats_disp_plot } }
+        {{datastats_disp_plot}}
 
       })(vegaEmbed);
 
@@ -764,7 +767,7 @@
 
       (function (vegaEmbed) {
 
-        { { parameterfits_guideeffs_devprior_combo } }
+        {{parameterfits_guideeffs_devprior_combo}}
 
       })(vegaEmbed);
 
@@ -775,7 +778,7 @@
 
       (function (vegaEmbed) {
 
-        { { diagnplots_dlfcval_plot } }
+        {{diagnplots_dlfcval_plot}}
 
       })(vegaEmbed);
 
@@ -786,7 +789,7 @@
 
       (function (vegaEmbed) {
 
-        { { diagnplots_kogrowthstd_plot } }
+        {{diagnplots_kogrowthstd_plot}}
 
       })(vegaEmbed);
 
@@ -797,7 +800,7 @@
 
       (function (vegaEmbed) {
 
-        { { diagnplots_singlelfcval_plot } }
+        {{diagnplots_singlelfcval_plot}}
 
       })(vegaEmbed);
 
@@ -808,7 +811,7 @@
 
       (function (vegaEmbed) {
 
-        { { diagnplots_singleLFCeffic_plot } }
+        {{diagnplots_singleLFCeffic_plot}}
 
       })(vegaEmbed);
 
@@ -819,7 +822,7 @@
 
       (function (vegaEmbed) {
 
-        { { hit_prioritisation_cell_avg_plot } }
+        {{hit_prioritisation_cell_avg_plot}}
 
       })(vegaEmbed);
 
@@ -830,7 +833,7 @@
 
       (function (vegaEmbed) {
 
-        { { hit_prioritisation_lfcvsval_histo } }
+        {{hit_prioritisation_lfcvsval_histo}}
 
       })(vegaEmbed);
 
@@ -841,7 +844,7 @@
 
       (function (vegaEmbed) {
 
-        { { hit_prioritisation_growthdefecscatter } }
+        {{hit_prioritisation_growthdefecscatter}}
 
       })(vegaEmbed);
 
@@ -852,7 +855,7 @@
 
       (function (vegaEmbed) {
 
-        { { genepair_valinorscore_plot } }
+        {{genepair_valinorscore_plot}}
 
       })(vegaEmbed);
 
@@ -863,7 +866,7 @@
 
       (function (vegaEmbed) {
 
-        { { genepair_valinorscorevslfc_plot } }
+        {{genepair_valinorscorevslfc_plot}}
 
       })(vegaEmbed);
 
@@ -874,7 +877,7 @@
 
       (function (vegaEmbed) {
 
-        { { genepair_valscorescombovssingle_plot } }
+        {{genepair_valscorescombovssingle_plot}}
 
       })(vegaEmbed);
 
@@ -885,7 +888,7 @@
 
       (function (vegaEmbed) {
 
-        { { genepair_valscoresinglevslfc_plot } }
+        {{genepair_valscoresinglevslfc_plot}}
 
       })(vegaEmbed);
 
@@ -948,9 +951,6 @@
       document.getElementById('genepairview-content').style.display = page === 'genepairview' ? 'block' : 'none';
     }
   </script>
-
-  <!-- Bootstrap 5.3.2 Bundle JS (includes Popper) -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>
