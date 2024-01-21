@@ -62,6 +62,37 @@
     }
     </style>
 
+  <style>
+    body {
+      font-family: 'Helvetica', sans-serif; /* Change font for the entire page */
+      font-size: 14px; /* Smaller main text */
+    }
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Helvetica', sans-serif; /* Optional: Different font for headings */
+      font-weight: bold; /* Make headings bolder */
+    }
+    h1 {
+      font-size: 2.5rem; /* Larger size for h1 */
+    }
+    h2 {
+      font-size: 1.75rem; /* Larger size for h1 */
+    }
+    h3 {
+      font-size: 1.5rem; /* Larger size for h1 */
+    }
+    h4 {
+      font-size: 1.25rem; /* Larger size for h1 */
+    }
+    h5 {
+      font-size: 1.1rem; /* Larger size for h1 */
+    }
+    h6 {
+      font-size: 1rem; /* Larger size for h1 */
+    }
+    /* Add similar styles for h2, h3, etc., as needed */
+  </style>
+
+
     <!-- Le fav and touch icons -->
     <!-- <link rel="shortcut icon" href="https://getbootstrap.com/2.0.3/assets/ico/favicon.ico"> -->
     <!-- <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -202,10 +233,12 @@
                 </div>
                 <div class="row">
                   <h3>Valinor Loss Function</h3>
-                  This is the actual loss function of your Valinor run:
+                  <p>This is the actual loss function of your Valinor run:</p>
                 </div>
                 <div class="row">
-                  <img src="plots/valinor_loss.svg" alt="Model Loss" class="img-fluid">
+                  <div class="col-8">
+                    <img src="plots/valinor_loss.svg" alt="Model Loss" class="img-fluid">
+                  </div>
                 </div>
                 <div class="row" id="modelfit">
                   <h2>Model Fit</h2>
@@ -241,12 +274,12 @@
                 </div>
                 <div class="row">
                   <div class="col-md-5 col-sm-10">
-                    <h3>Combinations</h3>
+                    <h4>Combinations</h4>
                     <p>These are the counts for combination measurements, i.e. gene pairs of interest.</p>
                     <img src="plots/modelperformance_combo.svg" alt="Model performance on combinations" class="img-fluid">
                   </div>
                   <div class="col-md-5 col-sm-10">
-                    <h3>Singletons</h3>
+                    <h4>Singletons</h4>
                     <p>These are the counts for singleton measurements, i.e. CRISPR constructs that measure single gene KO effects.</p>
                     <img src="plots/modelperformance_single.svg" alt="Model performance on singletons" class="img-fluid">
                   </div>
@@ -259,11 +292,11 @@
                 </div>
                 <div class="row">
                   <div class="col-md-5 col-sm-10">
-                    <h3>Combinations</h3>
+                    <h4>Combinations</h4>
                     <img src="plots/modelperformance_combo_plasmid.svg" alt="Model performance on combinations in plasmid" class="img-fluid">
                   </div>
                   <div class="col-md-5 col-sm-10">
-                    <h3>Singletons</h3>
+                    <h4>Singletons</h4>
                     <img src="plots/modelperformance_single_plasmid.svg" alt="Model performance on singletons in plasmid" class="img-fluid">
                   </div>
                 </div>
