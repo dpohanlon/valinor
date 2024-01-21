@@ -107,7 +107,7 @@
     <div class="tab-content">
         <div id="home-content" class="container-fluid mt-4">
             <div class="row">
-              <div class="col-md-3 col-sm-12">
+              <div class="col-md-2 col-sm-12">
                 <div class="container-fluid py-5">
                   <div class="card">
                     <div class="card-header">
@@ -120,7 +120,8 @@
                   </div>
                 </div>
               </div>
-              <div class="col-md-9 col-sm-12">
+              <div class="col-md-10 col-sm-12">
+                <div class="row">
                 <div class="p-2 mb-4 bg-light rounded-3">
                   <div class="container-fluid py-5">
                     <h1>Valinor Report</h1>
@@ -172,94 +173,102 @@
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div class="row" id="lossfunction">
-              <h2>Loss Function</h2>
-              <p>The loss function serves as a measure of how well the model's predictions align with the data, the goal is to minimize this loss function during the training process. The model should converge to an optimal solution, thus the loss function should converge to a constant value with increasing steps. If the loss still seems to decrease, then the model should be run again with more steps.</p>
-            </div>
-            <div class="row">
-              <div class="col-8">
-                <h3>Examples</h3>
-                <p>Hover over the question mark icons to view examples of good and bad loss functions:</p>
-                <div class="example">
-                  <span class="help-icon" onmouseover="toggleLossFunction('goodLossFunction')">?</span>
-                  <div id="goodLossFunction" class="hidden">
-                    <h4>Good Loss Function</h4>
-                    <img src="plots/good_lossfunction.svg" alt="Good Loss Function" class="img-fluid">
-                    <p>This is an example of a loss function that converges smoothly to a constant value.</p>
+                </div>
+                <div class="row" id="lossfunction">
+                  <h2>Loss Function</h2>
+                  <p>The loss function serves as a measure of how well the model's predictions align with the data, the goal is to minimize this loss function during the training process. The model should converge to an optimal solution, thus the loss function should converge to a constant value with increasing steps. If the loss still seems to decrease, then the model should be run again with more steps.</p>
+                </div>
+                <div class="row">
+                  <div class="col-8">
+                    <h3>Examples</h3>
+                    <p>Hover over the question mark icons to view examples of good and bad loss functions:</p>
+                    <div class="example">
+                      <span class="help-icon" onmouseover="toggleLossFunction('goodLossFunction')">?</span>
+                      <div id="goodLossFunction" class="hidden">
+                        <h4>Good Loss Function</h4>
+                        <img src="plots/good_lossfunction.svg" alt="Good Loss Function" class="img-fluid">
+                        <p>This is an example of a loss function that converges smoothly to a constant value.</p>
+                      </div>
+                    </div>
+                    <div class="example">
+                      <span class="help-icon" onmouseover="toggleLossFunction('badLossFunction')">?</span>
+                      <div id="badLossFunction" class="hidden">
+                        <h4>Bad Loss Function</h4>
+                        <img src="plots/bad_lossfunction.svg" alt="Bad Loss Function" class="img-fluid">
+                        <p>This is an example of a loss function that does not converge and may indicate the need for more training steps.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="example">
-                  <span class="help-icon" onmouseover="toggleLossFunction('badLossFunction')">?</span>
-                  <div id="badLossFunction" class="hidden">
-                    <h4>Bad Loss Function</h4>
-                    <img src="plots/bad_lossfunction.svg" alt="Bad Loss Function" class="img-fluid">
-                    <p>This is an example of a loss function that does not converge and may indicate the need for more training steps.</p>
+                <div class="row">
+                  <h3>Valinor Loss Function</h3>
+                  This is the actual loss function of your Valinor run:
+                </div>
+                <div class="row">
+                  <img src="plots/valinor_loss.svg" alt="Model Loss" class="img-fluid">
+                </div>
+                <div class="row" id="modelfit">
+                  <h2>Model Fit</h2>
+                  <p>It is important to investigate how well Valinor is able to fit the input data (here counts). The histograms compare the distribution of the input counts and the values fitted by Valinor. If the distributions agree well, Valinor was able to fit the data well. If there is strong discrepancy between the distributions this could point that either the model didn't converge yet (run longer) or it is missing some important properties to explain the data, which requires modifications to the model.</p>
+                </div>
+                <div class="row">
+                  <div class="col-8">
+                    <h3>Examples</h3>
+                    <p>Hover over the question mark icons to view examples of good and bad model fits:</p>
+                    <div class="example">
+                      <span class="help-icon" onmouseover="toggleLossFunction('goodModelFit')">?</span>
+                      <div id="goodModelFit" class="hidden">
+                        <h4>Good Model Fit</h4>
+                        <img src="plots/good_modelfit.svg" alt="Good Model Fit" class="img-fluid">
+                        <p>This is an example where the data and model count distributions overlap well.</p>
+                      </div>
+                    </div>
+                    <div class="example">
+                      <span class="help-icon" onmouseover="toggleLossFunction('badModelFit')">?</span>
+                      <div id="badModelFit" class="hidden">
+                        <h4>Bad Model Fit</h4>
+                        <img src="plots/bad_modelfit.svg" alt="Bad Model Fit" class="img-fluid">
+                        <p>This is an example where the data and model count distributions are quite different.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-12">
+                    <h3>End of Experiment Counts</h3>
+                    <p>The histograms show the sequencing counts obtained at the end of the experiment after transducing the cell lines with the CRISPR guides and letting them grow for several days. Valinor uses these counts to estimate synthetic lethality between gene pairs. Therefore, the distribution of counts predicted by Valinor using its fitted parameters should be very similar to the counts in the data.</p>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-5 col-sm-10">
+                    <h3>Combinations</h3>
+                    <p>These are the counts for combination measurements, i.e. gene pairs of interest.</p>
+                    <img src="plots/modelperformance_combo.svg" alt="Model performance on combinations" class="img-fluid">
+                  </div>
+                  <div class="col-md-5 col-sm-10">
+                    <h3>Singletons</h3>
+                    <p>These are the counts for singleton measurements, i.e. CRISPR constructs that measure single gene KO effects.</p>
+                    <img src="plots/modelperformance_single.svg" alt="Model performance on singletons" class="img-fluid">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-12">
+                    <h3>Start of Experiment Counts</h2>
+                    <p>The histograms show the sequencing counts at the beginning of the experiment. These are typically plasmid counts before transducing the cells, or counts obtained by sequencing cell lines directly after transduction.</p>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-5 col-sm-10">
+                    <h3>Combinations</h3>
+                    <img src="plots/modelperformance_combo_plasmid.svg" alt="Model performance on combinations in plasmid" class="img-fluid">
+                  </div>
+                  <div class="col-md-5 col-sm-10">
+                    <h3>Singletons</h3>
+                    <img src="plots/modelperformance_single_plasmid.svg" alt="Model performance on singletons in plasmid" class="img-fluid">
                   </div>
                 </div>
               </div>
-            </div>
-            <div class="row">
-              <h3>Valinor Loss Function</h3>
-              This is the actual loss function of your Valinor run:
-            </div>
-            <div class="row">
-              <img src="plots/valinor_loss.svg" alt="Model Loss">
-            </div>
-            <div class="row" id="modelfit">
-              <h2>Model Fit</h2>
-              <p>It is important to investigate how well Valinor is able to fit the input data (here counts). The histograms compare the distribution of the input counts and the values fitted by Valinor. If the distributions agree well, Valinor was able to fit the data well. If there is strong discrepancy between the distributions this could point that either the model didn't converge yet (run longer) or it is missing some important properties to explain the data, which requires modifications to the model.</p>
-            </div>
-            <div class="row">
-              <div class="col-8">
-                <h3>Examples</h3>
-                <p>Hover over the question mark icons to view examples of good and bad model fits:</p>
-                <div class="example">
-                  <span class="help-icon" onmouseover="toggleLossFunction('goodModelFit')">?</span>
-                  <div id="goodModelFit" class="hidden">
-                    <h4>Good Model Fit</h4>
-                    <img src="plots/good_modelfit.svg" alt="Good Model Fit" class="img-fluid">
-                    <p>This is an example where the data and model count distributions overlap well.</p>
-                  </div>
-                </div>
-                <div class="example">
-                  <span class="help-icon" onmouseover="toggleLossFunction('badModelFit')">?</span>
-                  <div id="badModelFit" class="hidden">
-                    <h4>Bad Model Fit</h4>
-                    <img src="plots/bad_modelfit.svg" alt="Bad Model Fit" class="img-fluid">
-                    <p>This is an example where the data and model count distributions are quite different.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <h3>End of Experiment Counts</h3>
-              <p>The histograms show the sequencing counts obtained at the end of the experiment after transducing the cell lines with the CRISPR guides and letting them grow for several days. Valinor uses these counts to estimate synthetic lethality between gene pairs. Therefore, the distribution of counts predicted by Valinor using its fitted parameters should be very similar to the counts in the data.</p>
-              <div class="col-5">
-                <h3>Combinations</h3>
-                These are the counts for combination measurements, i.e. gene pairs of interest.
-                <img src="plots/modelperformance_combo.svg" alt="Model performance on combinations">
-              </div>
-              <div class="col-5">
-                <h3>Singletons</h3>
-                These are the counts for singleton measurements, i.e. CRISPR constructs that measure single gene KO effects.
-                <img src="plots/modelperformance_single.svg" alt="Model performance on singletons">
-              </div>
-            </div>
-            <div class="row">
-              <h3>Start of Experiment Counts</h2>
-              <p>The histograms show the sequencing counts at the beginning of the experiment. These are typically plasmid counts before transducing the cells, or counts obtained by sequencing cell lines directly after transduction.</p>
-              <div class="col-5">
-                <h3>Combinations</h3>
-                <img src="plots/modelperformance_combo_plasmid.svg" alt="Model performance on combinations in plasmid">
-              </div>
-              <div class="col-5">
-                <h3>Singletons</h3>
-                <img src="plots/modelperformance_single_plasmid.svg" alt="Model performance on singletons in plasmid">
-              </div>
-            </div>
-            
+            </div> 
         </div>
         <div id="paramfit-content" class="container mt-4" style="display:none;">
           <div class="container-fluid">
