@@ -1,6 +1,7 @@
 import argparse
 
 import jax.numpy as jnp
+import numpy as np
 
 from jax import random
 import numpyro
@@ -23,6 +24,8 @@ from valinor.postprocessing import sampleParams, createDataFrame
 from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
+
+import json
 
 
 def get_model_sites(model, *args):
@@ -130,9 +133,12 @@ def runValinor(
             else f"singlesModel_{config['name']}.pq"
         )
 
+    # save the config to a json
+    with open(f"valinorrun_{config['name']}.json", "w") as outfile:
+        json.dump(config, outfile)
+
 
 def makeArgs():
-    # I'd like an argument, please
     argParser = argparse.ArgumentParser()
 
     argParser.add_argument(
