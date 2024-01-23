@@ -341,8 +341,9 @@
                 guide to produce a knockout. These are estimated using hierarchical priors, thereby making use of the
                 information in the whole dataset but still allowing for cell line specific variations for each guide.
               </p>
-              <p>These plots will only display data if columns such as `guide_1_eff_mean` are in the Valinor output. If
-                they can't be found in the output these plots will be empty.</p>
+              <p>
+                These plots will only display data if Valinor was run with <code>guide_config == partial_pooling</code>. Otherwise these plots will be empty. Guide efficiencies are taken from the <code>combsModel.pq</code> file.
+              </p>
             </div>
             <div class="row" id="guideeffhier">
               <h3>Hyper Distributions of Guide Efficiencies</h3>
@@ -479,6 +480,7 @@
                 uncertainty in this value. A very negative <i>Valinor Score</i> means that Valinor detected strong
                 synthetic lethality with high certainity. A positive <i>Valinor Score</i> points towards a rescue
                 relationship.</p>
+              <p>Most of these plots will only display data if Valinor was run on both combinations and singleton measurements. If the experiment didn't include singleton experiments, then most of the plots here won't display anything.</p>
             </div>
             <div class="row" id="diagnplotDlfcVal">
               <h2>dLFC vs. Valinor Score</h2>
@@ -545,6 +547,7 @@
                   have a very negative or positive LFC in a given cell line but are estimated to have a very low
                   efficiency could point to issues with the consistencies of measurements between guides targeting the
                   same gene.</p>
+                <p>Guide efficiencies are taken from the <code>singlesModel.pq</code> file.</p>
                 <div id="diagnplots_singleLFCeffic_plot"></div>
                 <script>
                   form.addEventListener('submit', function (event) { handleSubmit(event, DiagnPlotsSingleLfcEffic); });

@@ -34,6 +34,8 @@ naming_cols = {
     "guide2": "Guide 2",
     "guide_eff_1_mean": "Efficiency guide 1",
     "guide_eff_2_mean": "Efficiency guide 2",
+    "guide_eff_s_mean_s_1": "Efficiency guide 1",
+    "guide_eff_s_mean_s_2": "Efficiency guide 2",
     "guide_eff_mean_1_mean": "Mean of hyper distribution",
     "guide_eff_std_1_mean": "Standard deviation of hyper distribution",
     "gene_ko_growth_1_mean": "Estimated gene 1 effect",
@@ -813,8 +815,8 @@ def produce_diagnplots_singletons(
         "cell_line:O",
         "valinor_score_s_s_1:Q",
         "lfc_s_1:Q",
-        "gene_ko_growth_1_mean:Q",
-        "gene_ko_growth_1_std:Q",
+        "ko_growth_s_mean_s_1:Q",
+        "ko_growth_s_std_s_1:Q",
     ]
     # Map original field names to custom labels for display
     tooltip_display = [
@@ -830,17 +832,17 @@ def produce_diagnplots_singletons(
             x=alt.X("valinor_score_s_s_1:Q", title=naming_cols["valinor_score_s_s_1"]),
             y=alt.Y("lfc_s_1:Q", title=naming_cols["lfc_s_1"]),
             color=alt.Color(
-                "gene_ko_growth_1_std:Q",
+                "ko_growth_s_std_s_1:Q",
                 scale=alt.Scale(scheme="blues", reverse=True),
-                legend=alt.Legend(title=naming_cols["gene_ko_growth_1_std"]),
+                legend=alt.Legend(title=naming_cols["ko_growth_s_std_s_1"]),
             ),
             tooltip=tooltip_display,
         )
         .transform_aggregate(
             valinor_score_s_s_1="mean(valinor_score_s_s_1)",
             lfc_s_1="mean(lfc_s_1)",
-            gene_ko_growth_1_std="mean(gene_ko_growth_1_std)",
-            gene_ko_growth_1_mean="mean(gene_ko_growth_1_mean)",
+            ko_growth_s_std_s_1="mean(ko_growth_s_std_s_1)",
+            ko_growth_s_mean_s_1="mean(ko_growth_s_mean_s_1)",
             groupby=["gene1", "cell_line"],
         )
     )
@@ -850,8 +852,8 @@ def produce_diagnplots_singletons(
         "cell_line:O",
         "valinor_score_s_s_2:Q",
         "lfc_s_2:Q",
-        "gene_ko_growth_2_mean:Q",
-        "gene_ko_growth_2_std:Q",
+        "ko_growth_s_mean_s_2:Q",
+        "ko_growth_s_std_s_2:Q",
     ]
     # Map original field names to custom labels for display
     tooltip_display = [
@@ -867,17 +869,17 @@ def produce_diagnplots_singletons(
             x=alt.X("valinor_score_s_s_2:Q", title=naming_cols["valinor_score_s_s_2"]),
             y=alt.Y("lfc_s_2:Q", title=naming_cols["lfc_s_2"]),
             color=alt.Color(
-                "gene_ko_growth_2_std:Q",
+                "ko_growth_s_std_s_2:Q",
                 scale=alt.Scale(scheme="blues", reverse=True),
-                legend=alt.Legend(title=naming_cols["gene_ko_growth_2_std"]),
+                legend=alt.Legend(title=naming_cols["ko_growth_s_std_s_2"]),
             ),
             tooltip=tooltip_display,
         )
         .transform_aggregate(
             valinor_score_s_s_2="mean(valinor_score_s_s_2)",
             lfc_s_2="mean(lfc_s_2)",
-            gene_ko_growth_2_std="mean(gene_ko_growth_2_std)",
-            gene_ko_growth_2_mean="mean(gene_ko_growth_2_mean)",
+            ko_growth_s_std_s_2="mean(ko_growth_s_std_s_2)",
+            ko_growth_s_mean_s_2="mean(ko_growth_s_mean_s_2)",
             groupby=["gene2", "cell_line"],
         )
     )
@@ -911,7 +913,7 @@ def produce_diagnplots_guideeff_vslfc(
         "gene1:O",
         "cell_line:O",
         "lfc_s_1:Q",
-        "guide_eff_1_mean:Q",
+        "guide_eff_s_mean_s_1:Q",
         "valinor_score_s_s_1:Q",
     ]
     # Map original field names to custom labels for display
@@ -924,17 +926,19 @@ def produce_diagnplots_guideeff_vslfc(
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_1:Q", title=naming_cols["lfc_s_1"]),
-            y=alt.Y("guide_eff_1_mean:Q", title=naming_cols["guide_eff_1_mean"]),
+            y=alt.Y(
+                "guide_eff_s_mean_s_1:Q", title=naming_cols["guide_eff_s_mean_s_1"]
+            ),
             color=alt.Color(
-                "guide_eff_1_mean:Q",
+                "guide_eff_s_mean_s_1:Q",
                 scale=alt.Scale(scheme="blues", reverse=False),
-                legend=alt.Legend(title=naming_cols["guide_eff_1_mean"]),
+                legend=alt.Legend(title=naming_cols["guide_eff_s_mean_s_1"]),
             ),
             tooltip=tooltip_display,
         )
         .transform_aggregate(
             lfc_s_1="mean(lfc_s_1)",
-            guide_eff_1_mean="mean(guide_eff_1_mean)",
+            guide_eff_s_mean_s_1="mean(guide_eff_s_mean_s_1)",
             valinor_score_s_s_1="mean(valinor_score_s_s_1)",
             groupby=["guide1", "gene1", "cell_line"],
         )
@@ -945,7 +949,7 @@ def produce_diagnplots_guideeff_vslfc(
         "gene2:O",
         "cell_line:O",
         "lfc_s_2:Q",
-        "guide_eff_2_mean:Q",
+        "guide_eff_s_mean_s_2:Q",
         "valinor_score_s_s_2:Q",
     ]
     # Map original field names to custom labels for display
@@ -959,17 +963,19 @@ def produce_diagnplots_guideeff_vslfc(
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_2:Q", title=naming_cols["lfc_s_2"]),
-            y=alt.Y("guide_eff_2_mean:Q", title=naming_cols["guide_eff_2_mean"]),
+            y=alt.Y(
+                "guide_eff_s_mean_s_2:Q", title=naming_cols["guide_eff_s_mean_s_2"]
+            ),
             color=alt.Color(
-                "guide_eff_2_mean:Q",
+                "guide_eff_s_mean_s_2:Q",
                 scale=alt.Scale(scheme="blues", reverse=False),
-                legend=alt.Legend(title=naming_cols["guide_eff_2_mean"]),
+                legend=alt.Legend(title=naming_cols["guide_eff_s_mean_s_2"]),
             ),
             tooltip=tooltip_display,
         )
         .transform_aggregate(
             lfc_s_2="mean(lfc_s_2)",
-            guide_eff_2_mean="mean(guide_eff_2_mean)",
+            guide_eff_s_mean_s_2="mean(guide_eff_s_mean_s_2)",
             valinor_score_s_s_2="mean(valinor_score_s_s_2)",
             groupby=["guide2", "gene2", "cell_line"],
         )

@@ -267,6 +267,8 @@ def average_NE_singletons(df_singles):
             {
                 "lfc": "mean",
                 "SingletonGene": "first",
+                "guide_eff_s_mean": "mean",
+                "guide_eff_s_std": "mean",
                 "ko_growth_s_mean": "mean",
                 "ko_growth_s_std": "mean",
                 "valinor_score_s": "mean",
