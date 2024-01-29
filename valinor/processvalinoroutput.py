@@ -612,6 +612,33 @@ def process_valinor_pred(
     return scoreData_combined
 
 
+def run_processvalinor(
+    valinorPriorFile,
+    data_combo,
+    data_single,
+    val_combo,
+    val_single,
+    report_folder,
+    output_file,
+):
+    if valinorPriorFile:
+        with open(valinorPriorFile, "r") as file:
+            prior_params = json.load(file)
+    else:
+        prior_params = defaultPriors()
+
+    scoreData_combined = process_valinor_pred(
+        data_combo,
+        data_single,
+        val_combo,
+        val_single,
+        report_folder,
+        prior_params,
+    )
+
+    scoreData_combined.to_parquet(output_file)
+
+
 def main():
     """
     Main function to process model and data files for the Valinor model.
@@ -644,22 +671,15 @@ def main():
 
     args = parser.parse_args()
 
-    if args.valinorPriorFile:
-        with open(args.valinorPriorFile, "r") as file:
-            prior_params = json.load(file)
-    else:
-        prior_params = defaultPriors()
-
-    scoreData_combined = process_valinor_pred(
+    run_processvalinor(
+        args.valinorPriorFile,
         args.data_combo,
         args.data_single,
         args.val_combo,
         args.val_single,
         args.report_folder,
-        prior_params,
+        args.output_file,
     )
-
-    scoreData_combined.to_parquet(args.output_file)
 
 
 if __name__ == "__main__":

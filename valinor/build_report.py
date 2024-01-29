@@ -12,6 +12,7 @@ import os
 import re
 import argparse
 import json
+from valinor.processvalinoroutput import *
 
 alt.data_transformers.disable_max_rows()
 
@@ -441,13 +442,13 @@ def produce_paramfit_guideff_hyper(source, valinorsettings):
 
 
 def produce_paramfit_guideff(
-    source_json,
+    source_csv,
 ):
     selection = alt.selection_single(fields=["cell_line"], bind="legend", empty="none")
 
     # Base chart with only the outline (using mark_line)
     base_line = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
             unique_dev_prior_guide_eff_1_mean="mean(dev_prior_guide_eff_1_mean)",
             groupby=["guide1", "cell_line"],
@@ -473,7 +474,7 @@ def produce_paramfit_guideff(
 
     # Additional chart for the filled area when selected
     base_area = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
             unique_dev_prior_guide_eff_1_mean="mean(dev_prior_guide_eff_1_mean)",
             groupby=["guide1", "cell_line"],
@@ -500,7 +501,7 @@ def produce_paramfit_guideff(
 
     # Base chart with only the outline (using mark_line)
     base_line2 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
             unique_dev_prior_guide_eff_2_mean="mean(dev_prior_guide_eff_2_mean)",
             groupby=["guide1", "cell_line"],
@@ -530,7 +531,7 @@ def produce_paramfit_guideff(
 
     # Additional chart for the filled area when selected
     base_area2 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .transform_aggregate(  # this is just so unique values for guides are used and they are not counted multiple times based on how often a guide occurrs in a combination
             unique_dev_prior_guide_eff_2_mean="mean(dev_prior_guide_eff_2_mean)",
             groupby=["guide1", "cell_line"],
@@ -574,7 +575,7 @@ def produce_paramfit_guideff(
 
 
 def produce_datastats_countdistr(
-    source_json,
+    source_csv,
 ):
     # plot distribution of counts
     # color by cell lines
@@ -582,7 +583,7 @@ def produce_datastats_countdistr(
     selection = alt.selection_single(fields=["cell_line"], bind="legend")
 
     base = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_bar(opacity=0.3, binSpacing=0)
         .encode(
             alt.Color(
@@ -608,7 +609,7 @@ def produce_datastats_countdistr(
 
 def produce_datastats_overdisp(
     source,
-    source_json,
+    source_csv,
 ):
     # use the overdispersion calculated from the replicate data rather than the mv parameter fitted by Valinor
     selection = alt.selection_single(fields=["cell_line"], bind="legend")
@@ -623,7 +624,7 @@ def produce_datastats_overdisp(
     )
 
     base_line = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .transform_density(
             density="overdispersion",
             groupby=["cell_line"],
@@ -646,7 +647,7 @@ def produce_datastats_overdisp(
     )
 
     base_area = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .transform_density(
             density="overdispersion",
             groupby=["cell_line"],
@@ -673,7 +674,7 @@ def produce_datastats_overdisp(
 
 
 def produce_diagnplots_dlfc_valscore(
-    source_json,
+    source_csv,
 ):
     cell_line_selection = alt.selection_single(fields=["cell_line"], bind="legend")
 
@@ -694,7 +695,7 @@ def produce_diagnplots_dlfc_valscore(
     ]
 
     chart = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("valinor_score:Q", title=naming_cols["valinor_score"]),
@@ -743,7 +744,7 @@ def produce_diagnplots_dlfc_valscore(
 
 
 def produce_diagnplots_kogrowths(
-    source_json,
+    source_csv,
 ):
     cell_line_selection = alt.selection_single(fields=["cell_line"], bind="legend")
 
@@ -764,7 +765,7 @@ def produce_diagnplots_kogrowths(
     ]
 
     chart = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .transform_aggregate(
             gene_ko_growth_12_mean="mean(gene_ko_growth_12_mean)",
@@ -808,7 +809,7 @@ def produce_diagnplots_kogrowths(
 
 
 def produce_diagnplots_singletons(
-    source_json,
+    source_csv,
 ):
     tooltip = [
         "gene1:O",
@@ -826,7 +827,7 @@ def produce_diagnplots_singletons(
 
     # Main Chart
     main_chart = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("valinor_score_s_s_1:Q", title=naming_cols["valinor_score_s_s_1"]),
@@ -863,7 +864,7 @@ def produce_diagnplots_singletons(
 
     # Main Chart for Gene 2
     main_chart_gene2 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("valinor_score_s_s_2:Q", title=naming_cols["valinor_score_s_s_2"]),
@@ -906,7 +907,7 @@ def produce_diagnplots_singletons(
 
 
 def produce_diagnplots_guideeff_vslfc(
-    source_json,
+    source_csv,
 ):
     tooltip = [
         "guide1:O",
@@ -922,7 +923,7 @@ def produce_diagnplots_guideeff_vslfc(
         for field in tooltip
     ]
     chart1 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_1:Q", title=naming_cols["lfc_s_1"]),
@@ -959,7 +960,7 @@ def produce_diagnplots_guideeff_vslfc(
     ]
 
     chart2 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("lfc_s_2:Q", title=naming_cols["lfc_s_2"]),
@@ -996,7 +997,7 @@ def produce_diagnplots_guideeff_vslfc(
 
 def produce_hitprior_lfc_vs_valscore_avg(
     source,
-    source_json,
+    source_csv,
 ):
     tmp = source.groupby(["genePair"])[["valinor_score", "lfc"]].mean()
     x_diff = (tmp["valinor_score"].max() - tmp["valinor_score"].min()) / 10
@@ -1022,7 +1023,7 @@ def produce_hitprior_lfc_vs_valscore_avg(
     ]
 
     base = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=60, color="black")
         .encode(
             x=alt.X(
@@ -1108,7 +1109,7 @@ def produce_hitprior_lfc_vs_valscore_avg(
 
 def produce_hitprior_lfc_vs_valscore_hist(
     source,
-    source_json,
+    source_csv,
 ):
     tmp = source.groupby(["genePair", "cell_line"])[["valinor_score", "lfc"]].mean()
     x_diff = (tmp["valinor_score"].max() - tmp["valinor_score"].min()) / 10
@@ -1146,7 +1147,7 @@ def produce_hitprior_lfc_vs_valscore_hist(
 
     # Create scatterplot
     scatter = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=60, color="black")
         .encode(
             x=alt.X(
@@ -1173,7 +1174,7 @@ def produce_hitprior_lfc_vs_valscore_hist(
     )
     # Create histogram
     histogram = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_bar()
         .encode(
             x=alt.X("count(cell_line):Q", title="Count of cell lines"),
@@ -1249,7 +1250,7 @@ def produce_hitprior_lfc_vs_valscore_hist(
 
 
 def produce_hitprior_kogrowths(
-    source_json,
+    source_csv,
 ):
     # Create a selection_interval for selecting rectangular area in scatterplot
     brush = alt.selection_interval()  # empty='none'
@@ -1272,7 +1273,7 @@ def produce_hitprior_kogrowths(
 
     # Create scatterplot
     scatter1 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=60, color="black")
         .encode(
             x=alt.X(
@@ -1317,7 +1318,7 @@ def produce_hitprior_kogrowths(
     ]
 
     scatter2 = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=60, color="black")
         .encode(
             x=alt.X(
@@ -1361,7 +1362,7 @@ def produce_hitprior_kogrowths(
 
 def produce_geneview_valscore_rank(
     source,
-    source_json,
+    source_csv,
 ):
     min_valinor_score = source.valinor_score.min()
     max_valinor_score = source.valinor_score.max()
@@ -1385,7 +1386,7 @@ def produce_geneview_valscore_rank(
     sym_valinor_score = np.max([-1 * min_valinor_score, max_valinor_score])
 
     base = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=60)
         .encode(
             x=alt.X(
@@ -1414,7 +1415,7 @@ def produce_geneview_valscore_rank(
 
 
 def produce_geneview_valscore_lfc(
-    source_json,
+    source_csv,
 ):
     single = alt.selection_single()
 
@@ -1435,7 +1436,7 @@ def produce_geneview_valscore_lfc(
     ]
 
     base = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("valinor_score:Q", title=naming_cols["valinor_score"]),
@@ -1485,7 +1486,7 @@ def produce_geneview_valscore_lfc(
 
 
 def produce_geneview_growth_lfc(
-    source_json,
+    source_csv,
 ):
     single = alt.selection_single()
 
@@ -1505,7 +1506,7 @@ def produce_geneview_growth_lfc(
     ]
 
     base = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("valinor_score:Q", title=naming_cols["valinor_score"]),
@@ -1557,7 +1558,7 @@ def produce_geneview_growth_lfc(
 
 
 def produce_geneview_valscore_lfc_single(
-    source_json,
+    source_csv,
 ):
     single = alt.selection_single()
 
@@ -1579,7 +1580,7 @@ def produce_geneview_valscore_lfc_single(
     ]
 
     base = (
-        alt.Chart(source_json)
+        alt.Chart(source_csv)
         .mark_circle(size=100)
         .encode(
             x=alt.X("valinor_score_s_s_1:Q", title=naming_cols["valinor_score_s_s_1"]),
@@ -1744,7 +1745,7 @@ def populate_genelist(source):
     # Populate gene pair list
     html_pairs_list = []
 
-    for p in source.sort_values("genePair")["genePair"].unique():
+    for p in sorted(source["genePair"].unique()):
         html_pairs_list.append(f'<option value="{p}" label = "{p}">')
 
     html_pairs = "\n".join(html_pairs_list)
@@ -1752,89 +1753,89 @@ def populate_genelist(source):
 
 
 def create_report(
-    source_json,
+    source_csv,
     startpage_stats,
     # guide_eff_priors_str,
     html_pairs,
 ):
-    # postprocess the saved html to it works in the final report
+    # postprocess the saved html dso it works in the final report
     # not really elegant constantly writing and loading files
     # but not sure how to do it in place
     hit_prioritisation_cell_avg_plot = postprocess_altairhtml(
         "altair_snippets/hit_prioritisation_cell_avg.html",
-        source_json,
+        source_csv,
         "hit_prioritisation_cell_avg_plot",
     )
     hit_prioritisation_lfcvsval_histo = postprocess_altairhtml(
         "altair_snippets/hit_prioritisation_lfcvsval_histo.html",
-        source_json,
+        source_csv,
         "hit_prioritisation_lfcvsval_histo",
     )
     hit_prioritisation_growthdefecscatter = postprocess_altairhtml(
         "altair_snippets/hit_prioritisation_growthdefecscatter.html",
-        source_json,
+        source_csv,
         "hit_prioritisation_growthdefecscatter",
     )
 
     parameterfits_guideeffs_devprior_combo = postprocess_altairhtml(
         "altair_snippets/parameterfits_guideeffs_devprior_combo.html",
-        source_json,
+        source_csv,
         "parameterfits_guideeffs_devprior_combo",
     )
 
     datastats_count_plot = postprocess_altairhtml(
         "altair_snippets/data_stats_counts.html",
-        source_json,
+        source_csv,
         "datastats_count_plot",
     )
     datastats_disp_plot = postprocess_altairhtml(
         "altair_snippets/data_stats_dispersion.html",
-        source_json,
+        source_csv,
         "datastats_disp_plot",
     )
 
     diagnplots_dlfcval_plot = postprocess_altairhtml(
         "altair_snippets/diagnostic_plots_dLFCvsValinor.html",
-        source_json,
+        source_csv,
         "diagnplots_dlfcval_plot",
     )
     diagnplots_kogrowthstd_plot = postprocess_altairhtml(
         "altair_snippets/diagnostic_plots_kogrowhstd.html",
-        source_json,
+        source_csv,
         "diagnplots_kogrowthstd_plot",
     )
     diagnplots_singlelfcval_plot = postprocess_altairhtml(
         "altair_snippets/diagnostic_plots_singleLFCvsvalscore.html",
-        source_json,
+        source_csv,
         "diagnplots_singlelfcval_plot",
     )
     diagnplots_singleLFCeffic_plot = postprocess_altairhtml(
         "altair_snippets/diagnostic_plots_singleLFCvsefficiency.html",
-        source_json,
+        source_csv,
         "diagnplots_singleLFCeffic_plot",
     )
 
     genepair_valinorscore_plot = postprocess_altairhtml(
         "altair_snippets/gene_pair_valscore_percln.html",
-        source_json,
+        source_csv,
         "genepair_valinorscore_plot",
         select_on="genePair",
     )
     genepair_valinorscorevslfc_plot = postprocess_altairhtml(
         "altair_snippets/gene_pair_valscorevslfc.html",
-        source_json,
+        source_csv,
         "genepair_valinorscorevslfc_plot",
         select_on="genePair",
     )
     genepair_valscorescombovssingle_plot = postprocess_altairhtml(
         "altair_snippets/gene_pair_valscorescombovssingle.html",
-        source_json,
+        source_csv,
         "genepair_valscorescombovssingle_plot",
         select_on="genePair",
     )
     genepair_valscoresinglevslfc_plot = postprocess_altairhtml(
         "altair_snippets/gene_pair_valscoresinglevslfc.html",
-        source_json,
+        source_csv,
         "genepair_valscoresinglevslfc_plot",
         select_on="genePair",
     )
@@ -1882,10 +1883,12 @@ def create_necessary_folders(folders):
             os.makedirs(folder)
 
 
-def main():
+def run():
     parser = argparse.ArgumentParser(description="Process some files.")
     parser.add_argument(
-        "--combfile", help="processed table combining data and Valinor output"
+        "--combfile",
+        default=None,
+        help="processed table combining data and Valinor output, if not supplied this will be created here",
     )
 
     parser.add_argument("--valinorLossFile", help="SVG file that shows the loss curve")
@@ -1902,7 +1905,38 @@ def main():
         help="Don't export all the data but only a subset containing the most synthetic lethal pairs and several more randomly sampled ones.",
     )
 
+    parser.add_argument("--val_combo", default=None, help="Path to the val_combo file.")
+    parser.add_argument(
+        "--val_single", default=None, help="Path to the val_single file."
+    )
+    parser.add_argument(
+        "--data_combo", default=None, help="Path to the data_combo file."
+    )
+    parser.add_argument(
+        "--data_single", default=None, help="Path to the data_single file."
+    )
+    parser.add_argument("--output_file", default=None, help="Processed output file.")
+    parser.add_argument(
+        "--valinorPriorFile",
+        help="Optional: JSON that contains the priors used to run valinor",
+    )
+
+    parser.add_argument(
+        "--report_folder",
+        help="Optional: if given this will produce files necessary for the report in the given location",
+    )
+
     args = parser.parse_args()
+
+    run_processvalinor(
+        args.valinorPriorFile,
+        args.data_combo,
+        args.data_single,
+        args.val_combo,
+        args.val_single,
+        args.report_folder,
+        args.output_file,
+    )
 
     folders = [
         "input",
@@ -1929,7 +1963,7 @@ def main():
         topslgene_str = ""
 
     source.to_csv("input/report_input.csv", index=False)
-    source_json = "input/report_input.csv"
+    source_csv = "input/report_input.csv"
 
     ## HOME
     # Overview stats
@@ -1952,47 +1986,47 @@ def main():
     produce_modelfit_examples()
 
     produce_paramfit_guideff_hyper(source, valinorsettings)
-    produce_paramfit_guideff(source_json)
+    produce_paramfit_guideff(source_csv)
 
     ## DATA STATS
     # Count distributions
-    produce_datastats_countdistr(source_json)
+    produce_datastats_countdistr(source_csv)
     # Count overdispersion
-    produce_datastats_overdisp(source, source_json)
+    produce_datastats_overdisp(source, source_csv)
 
     ## DIAGNOSTIC PLOTS
     # dLFC vs. Valinor Score
-    produce_diagnplots_dlfc_valscore(source_json)
+    produce_diagnplots_dlfc_valscore(source_csv)
     # ko_growth_12 vs. gene_ko_growth_12_std
-    produce_diagnplots_kogrowths(source_json)
+    produce_diagnplots_kogrowths(source_csv)
     # singleton LFC vs. singleton gene effect
-    produce_diagnplots_singletons(source_json)
+    produce_diagnplots_singletons(source_csv)
     # guide eff vs. guide lfc Singletons
-    produce_diagnplots_guideeff_vslfc(source_json)
+    produce_diagnplots_guideeff_vslfc(source_csv)
 
     ## HIT PRIORITISATION
     # LFC vs. Valinor Score - genePair averaged
-    produce_hitprior_lfc_vs_valscore_avg(source, source_json)
+    produce_hitprior_lfc_vs_valscore_avg(source, source_csv)
     # LFC vs. Valinor score - Number of cell lines
-    produce_hitprior_lfc_vs_valscore_hist(source, source_json)
+    produce_hitprior_lfc_vs_valscore_hist(source, source_csv)
     # growth 1 vs. growth 12 vs. growth 2
-    produce_hitprior_kogrowths(source_json)
+    produce_hitprior_kogrowths(source_csv)
 
     ## GENE PAIR VIEW
     # Valinor score per cell line
-    produce_geneview_valscore_rank(source, source_json)
+    produce_geneview_valscore_rank(source, source_csv)
     # Combination Valinor score vs. LFCs
-    produce_geneview_valscore_lfc(source_json)
+    produce_geneview_valscore_lfc(source_csv)
     # growth 12 vs singleton growth
-    produce_geneview_growth_lfc(source_json)
+    produce_geneview_growth_lfc(source_csv)
     # Singleton Valinor Scores vs. LFCs
-    produce_geneview_valscore_lfc_single(source_json)
+    produce_geneview_valscore_lfc_single(source_csv)
 
     ## MAKE REPORT
     html_pairs = populate_genelist(source)
 
     create_report(
-        source_json,
+        source_csv,
         startpage_stats,
         # guide_eff_priors_str,
         html_pairs,
@@ -2000,4 +2034,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run()
