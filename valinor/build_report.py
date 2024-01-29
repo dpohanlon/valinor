@@ -1915,7 +1915,9 @@ def run():
     parser.add_argument(
         "--data_single", default=None, help="Path to the data_single file."
     )
-    parser.add_argument("--output_file", default=None, help="Processed output file.")
+    parser.add_argument(
+        "--output_file", default=None, help="Name of processed output file."
+    )
     parser.add_argument(
         "--valinorPriorFile",
         help="Optional: JSON that contains the priors used to run valinor",
@@ -1923,20 +1925,36 @@ def run():
 
     parser.add_argument(
         "--report_folder",
-        help="Optional: if given this will produce files necessary for the report in the given location",
+        help="This will produce files necessary for the report in the given location",
     )
 
     args = parser.parse_args()
 
-    run_processvalinor(
-        args.valinorPriorFile,
-        args.data_combo,
-        args.data_single,
-        args.val_combo,
-        args.val_single,
-        args.report_folder,
-        args.output_file,
-    )
+    if args.combfile is None:
+        if (
+            (args.data_combo is None)
+            | (args.data_single is None)
+            | (args.val_combo is None)
+            | (args.val_single is None)
+            | (args.report_folder is None)
+            | (args.output_file is None)
+        ):
+            raise ValueError(
+                "To create the report, the valinor output needs to be processed first. Please provide: --data_combo, --data_single, --val_combo, --val_single, --report_folder, --output_file"
+            )
+        else:
+            scoreData_combined = run_processvalinor(
+                args.valinorPriorFile,
+                args.data_combo,
+                args.data_single,
+                args.val_combo,
+                args.val_single,
+                args.report_folder
+            )
+
+            scoreData_combined.to_parquet(args.output_file)
+    else:
+        scoreData_combined = pd.read_parquet(args.combfile)
 
     folders = [
         "input",
@@ -1944,8 +1962,6 @@ def run():
         "altair_snippets",
     ]
     create_necessary_folders(folders)
-
-    scoreData_combined = pd.read_parquet(args.combfile)
 
     if args.subsetSLpairs:
         selectpairs, npairs = sample_genepairs(scoreData_combined)

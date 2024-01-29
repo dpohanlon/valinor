@@ -6,8 +6,27 @@ import numpy as np
 import os
 import argparse
 import json
-from priors import defaultPriors
-from plotting import *
+
+from valinor.priors import defaultPriors
+from valinor.plotting import *
+
+__all__ = [
+    "find_1_to_1_mappings",
+    "rename_gene_columns",
+    "load_datasets",
+    "merge_data_scores",
+    "calc_valinor_score",
+    "calc_overdisp",
+    "average_NE_singletons",
+    "combine_single_combo",
+    "calc_deltaLFC",
+    "average_replicates",
+    "create_overview_stats",
+    "calc_LFC",
+    "calc_guide_eff_deviation",
+    "process_valinor_pred",
+    "run_processvalinor",
+]
 
 
 def find_1_to_1_mappings(df, base_column):
@@ -618,8 +637,7 @@ def run_processvalinor(
     data_single,
     val_combo,
     val_single,
-    report_folder,
-    output_file,
+    report_folder
 ):
     if valinorPriorFile:
         with open(valinorPriorFile, "r") as file:
@@ -636,7 +654,7 @@ def run_processvalinor(
         prior_params,
     )
 
-    scoreData_combined.to_parquet(output_file)
+    return(scoreData_combined)
 
 
 def main():
@@ -671,15 +689,16 @@ def main():
 
     args = parser.parse_args()
 
-    run_processvalinor(
+    scoreData_combined = run_processvalinor(
         args.valinorPriorFile,
         args.data_combo,
         args.data_single,
         args.val_combo,
         args.val_single,
-        args.report_folder,
-        args.output_file,
+        args.report_folder
     )
+
+    scoreData_combined.to_parquet(args.output_file)
 
 
 if __name__ == "__main__":

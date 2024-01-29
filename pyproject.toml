@@ -30,3 +30,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 valinor = "valinor.run_valinor:run"
+valinorreport = "valinor.build_report:run"
