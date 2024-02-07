@@ -76,7 +76,9 @@ def getContextMatrix(
     return mat
 
 
-def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_context, scale = 0.1):
+def generate_context_matrices(
+    num_genes, num_contexts, fraction_gene_pairs_in_context, scale=0.1
+):
     """
     Generate context matrices for gene interactions.
 
@@ -123,7 +125,9 @@ def generate_context_matrices(num_genes, num_contexts, fraction_gene_pairs_in_co
     return context_matrices
 
 
-def assign_contexts_to_cell_lines(total_cell_lines, num_contexts, unique_contexts=False):
+def assign_contexts_to_cell_lines(
+    total_cell_lines, num_contexts, unique_contexts=False
+):
     """
     Assign contexts to cell lines. Each cell line can have multiple contexts, or each context can be unique to a cell line.
 
@@ -141,7 +145,9 @@ def assign_contexts_to_cell_lines(total_cell_lines, num_contexts, unique_context
     if unique_contexts:
         # Ensure that the number of contexts is not greater than the number of cell lines
         if num_contexts > total_cell_lines:
-            raise ValueError("Number of contexts cannot be greater than the number of cell lines for unique assignment.")
+            raise ValueError(
+                "Number of contexts cannot be greater than the number of cell lines for unique assignment."
+            )
 
         # Shuffle the contexts and assign each to a different cell line
         contexts = np.random.permutation(num_contexts)
@@ -164,9 +170,9 @@ def negativeBinomial(mean, variance=None, size=None):
     mean[mean < 1e-8] = 10.0
 
     if variance is None:
-        variance = 1.5 * mean
+        variance = 20.0 * mean
 
-    n_nb = -(mean ** 2 / (mean - variance))
+    n_nb = -(mean**2 / (mean - variance))
     p_nb = 1.0 - (mean / (variance + 1e-8))
 
     p_nb = np.clip(p_nb, 0, 1)
@@ -201,16 +207,13 @@ def genCellLine(
 
     if not (gi_contexts == None):
 
-        newSyn = np.random.normal(
-            0, fluctuateStd, size = prototypeDKO.synergies.shape
-        )
+        newSyn = np.random.normal(0, fluctuateStd, size=prototypeDKO.synergies.shape)
 
     else:
 
         newSyn = prototypeDKO.synergies + np.random.normal(
             0, fluctuateStd, len(prototypeDKO.synergies)
         )
-
 
         newSyn[resampleIdx, :][:, resampleIdx] = np.random.normal(
             0.0, 0.1, size=(len(resampleIdx), len(resampleIdx))
@@ -415,7 +418,7 @@ def addReplicates(df, nReplicates, returnCounts=False):
         else:
             # replicate["value"] = np.random.poisson(replicate["value"])
             replicate["value"] = negativeBinomial(
-                replicate["value"].values, 10.0 * replicate["value"].values
+                replicate["value"].values, 20.0 * replicate["value"].values
             )
 
         copies.append(replicate)
@@ -920,15 +923,8 @@ class DoubleKO(object):
         plt.clf()
 
 
-def makeDataset(outDir):
+def makeDataset(nCellLines, nGenes, nContexts, nReplicates, nCalib, outDir):
     returnCounts = True
-    # nCellLines = 10
-    # nGenes = 100
-    # nCellLines = 22
-    # nGenes = 444
-    nCellLines = 5
-    nGenes = 100
-    nContexts = 5
     nVariantFrac = 0.10
 
     t = time.time()
@@ -951,8 +947,10 @@ def makeDataset(outDir):
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale = 0.1)
-    cell_line_to_contexts = assign_contexts_to_cell_lines(nCellLines, nContexts, unique_contexts = True)
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.1)
+    cell_line_to_contexts = assign_contexts_to_cell_lines(
+        nCellLines, nContexts, unique_contexts=True
+    )
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
@@ -966,7 +964,9 @@ def makeDataset(outDir):
     plt.savefig("contexts1.pdf")
     plt.clf()
 
-    pickle.dump((cell_line_to_contexts, context_matrices), open('gi_contexts.pkl', 'wb'))
+    pickle.dump(
+        (cell_line_to_contexts, context_matrices), open("gi_contexts.pkl", "wb")
+    )
 
     contexts = getContextMatrix(
         nCellLines, nGenes, nContexts, nVariantFrac, variance=0.1
@@ -988,14 +988,15 @@ def makeDataset(outDir):
     # plt.clf()
 
     sgRNAEfficiencies1 = np.clip(
-        # np.random.normal(0.65, 0.02, size=nGenes * 1),
-        np.random.normal(0.95, 0.02, size=nGenes * 1),
+        np.random.normal(0.90, 0.10, size=nGenes * 1),
+        # np.random.normal(0.95, 0.02, size=nGenes * 1),
         0,
         1,
     )
 
     sgRNAEfficiencies2 = np.clip(
-        np.random.normal(0.95, 0.02, size=nGenes * 1),
+        np.random.normal(0.90, 0.10, size=nGenes * 1),
+        # np.random.normal(0.95, 0.02, size=nGenes * 1),
         0,
         1,
     )
@@ -1044,7 +1045,7 @@ def makeDataset(outDir):
 
     # if not returnCounts:
     print("adding combo replicates", time.time() - t)
-    dfCombs = addReplicates(dfCombs, 3, returnCounts=returnCounts)
+    dfCombs = addReplicates(dfCombs, nReplicates, returnCounts=returnCounts)
 
     # So the replicates can be projected out
     # Sloooow
@@ -1074,7 +1075,7 @@ def makeDataset(outDir):
 
     # if not returnCounts:
     print("adding singleton replicates", time.time() - t)
-    dfSgl = addReplicates(dfSgl, 3, returnCounts=returnCounts)
+    dfSgl = addReplicates(dfSgl, nReplicates, returnCounts=returnCounts)
 
     dfSgl["cell_line_index"] = dfCombs["cell_line"]
     # The same by our new definition
@@ -1088,8 +1089,6 @@ def makeDataset(outDir):
     dfSgl.to_parquet(f"{outDir}/dfSgl_ace.pq")
 
     # Offsets to test calibration
-
-    nCalib = 100  # Number of genes for calibration
 
     # The true offset, not one approximated by essentiality close to zero
     offsets = np.concatenate(
@@ -1155,6 +1154,53 @@ if __name__ == "__main__":
         help="Output directory for the simulated data.",
     )
 
+    argParser.add_argument(
+        "--nGenes",
+        type=int,
+        dest="nGenes",
+        default=100,
+        help="Number of genes (to form all-to-all pairs).",
+    )
+
+    argParser.add_argument(
+        "--nCellLines",
+        type=int,
+        dest="nCellLines",
+        default=10,
+        help="Total number of cell lines.",
+    )
+
+    argParser.add_argument(
+        "--nContexts",
+        type=int,
+        dest="nContexts",
+        default=5,
+        help="Total number of cell line contexts.",
+    )
+
+    argParser.add_argument(
+        "--nReplicates",
+        type=int,
+        dest="nReplicates",
+        default=3,
+        help="Total number of replicates per guide pair.",
+    )
+
+    argParser.add_argument(
+        "--nCalib",
+        type=int,
+        dest="nCalib",
+        default=100,
+        help="Number of negative control (null calibration) genes.",
+    )
+
     args = argParser.parse_args()
 
-    makeDataset(outDir=args.out_dir)
+    makeDataset(
+        nGenes=args.nGenes,
+        nCellLines=args.nCellLines,
+        nContexts=args.nContexts,
+        nReplicates=args.nReplicates,
+        nCalib=args.nCalib,
+        outDir=args.out_dir,
+    )
