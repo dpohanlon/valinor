@@ -428,13 +428,15 @@ def addReplicates(df, nReplicates, returnCounts=False):
     return newDF
 
 
-def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
+def makeSingletonsDF(dkos, offsets=None, returnCounts=False, ncGenes=3):
     # TO DO: Use a separate make cell lines function, like for combinations
 
     dfs = []
 
     for i, dko in tqdm(enumerate(dkos)):
-        singletonDKO, values = makeSingletons(dko, returnCounts=returnCounts)
+        singletonDKO, values = makeSingletons(
+            dko, returnCounts=returnCounts, ncGenes=ncGenes
+        )
 
         if returnCounts:
             (
@@ -493,17 +495,21 @@ def makeSingletonsDF(dkos, offsets=None, returnCounts=False):
     return newDF
 
 
-def makeSingletons(dko, returnCounts=False):
+def makeSingletons(dko, returnCounts=False, ncGenes=3):
     singletonDKO = copy.copy(dko)
 
-    singletonDKO.synergies = np.zeros((singletonDKO.nGenes, 3))
+    singletonDKO.synergies = np.zeros((singletonDKO.nGenes, ncGenes))
 
     singletonDKO.essentialities = singletonDKO.combinedEssentiality(
-        singletonDKO.geneEssentiality, singletons=True
+        singletonDKO.geneEssentiality,
+        singletons=True,
+        ncGenes=ncGenes,
     )
 
     singletonDKO.efficiencies = singletonDKO.combinedEfficiencies(
-        singletonDKO.sgRNAEfficiencies, singletons=True
+        singletonDKO.sgRNAEfficiencies,
+        singletons=True,
+        ncGenes=ncGenes,
     )
 
     # Efficiency for guide pair term, sample separately for
@@ -514,7 +520,7 @@ def makeSingletons(dko, returnCounts=False):
             0.02,
             size=(
                 singletonDKO.nGenes * singletonDKO.nGuidesPerGene,
-                3 * singletonDKO.nGuidesPerGene,
+                ncGenes * singletonDKO.nGuidesPerGene,
             ),
         ),
         0,
@@ -532,11 +538,13 @@ def makeSingletons(dko, returnCounts=False):
             sgRNAEssentialities_s,
             init_counts_s,
             lfcs_s,
-        ) = singletonDKO.getLFCs(singletons=True, returnCounts=returnCounts)
+        ) = singletonDKO.getLFCs(
+            singletons=True, returnCounts=returnCounts, ncGenes=ncGenes
+        )
 
     else:
         lfcs_s, sgRNAEssentialities_s = singletonDKO.getLFCs(
-            singletons=True, returnCounts=returnCounts
+            singletons=True, returnCounts=returnCounts, ncGenes=ncGenes
         )
 
     geneIdx = singletonDKO.rnaIdx.reshape(-1, 2)
@@ -552,7 +560,10 @@ def makeSingletons(dko, returnCounts=False):
 
     rnasLib = np.array(range(0, dko.nGenes * dko.nGuidesPerGene))
     rnasSgl = np.array(
-        range(dko.nGenes * dko.nGuidesPerGene, dko.nGenes * dko.nGuidesPerGene + 6)
+        range(
+            dko.nGenes * dko.nGuidesPerGene,
+            dko.nGenes * dko.nGuidesPerGene + ncGenes * 2,
+        )
     )  # 3 NE * 2 sgrna
 
     rna1 = np.repeat(
@@ -699,13 +710,14 @@ class DoubleKO(object):
         pairEfficiency,
         synergies,
         singletons=False,
+        ncGenes=3,
     ):
         essEffSingle = geneEssentiality[self.rnaIdxToGeneIdx] * sgRNAEfficiencies
 
         essEffOuter = (
             np.add.outer(essEffSingle, essEffSingle)
             if not singletons
-            else np.add.outer(essEffSingle, np.zeros(3 * self.nGuidesPerGene))
+            else np.add.outer(essEffSingle, np.zeros(ncGenes * self.nGuidesPerGene))
         )
         pairTerm = (
             pairEfficiency * synergies[self.rnaIdx[:, :, 0], self.rnaIdx[:, :, 1]].T
@@ -715,10 +727,12 @@ class DoubleKO(object):
 
     # Something like: (1 - eff_1 - eff_2 - eff_12) * g0 + (eff_1 - eff_12) * g1 + (eff_2 - eff_12) * g2 + eff_12 * g2
 
-    def combinedEssentiality(self, essentiality, synergies=None, singletons=False):
+    def combinedEssentiality(
+        self, essentiality, synergies=None, singletons=False, ncGenes=3
+    ):
         essentialityMatrix = np.add.outer(
             essentiality,
-            essentiality if not singletons else np.zeros(3),
+            essentiality if not singletons else np.zeros(ncGenes),
         )
 
         # Try an absolute value for synergy, so that the result is
@@ -730,10 +744,12 @@ class DoubleKO(object):
 
         return np.clip(essentialityMatrix + synergies, None, 1)
 
-    def combinedEfficiencies(self, efficiency, effComboFactor=None, singletons=False):
+    def combinedEfficiencies(
+        self, efficiency, effComboFactor=None, ncGenes=3, singletons=False
+    ):
         efficiencyMatrix = np.outer(
             efficiency,
-            efficiency if not singletons else np.ones(3 * self.nGuidesPerGene),
+            efficiency if not singletons else np.ones(ncGenes * self.nGuidesPerGene),
         )
 
         # Include a factor that either improves or reduces sgRNA efficiency
@@ -744,7 +760,7 @@ class DoubleKO(object):
 
         return np.clip(efficiencyMatrix * effComboFactor, 0, 1)
 
-    def getLFCs(self, poisson=False, singletons=False, returnCounts=False):
+    def getLFCs(self, poisson=False, singletons=False, returnCounts=False, ncGenes=3):
         # Map vectors of length nGenes * nGuidesPerGene to the vector of length nGenes
         self.rnaIdxToGeneIdx = np.repeat(
             range(self.nGenes), self.nGuidesPerGene
@@ -758,7 +774,7 @@ class DoubleKO(object):
 
         if singletons:
             self.rnaIdxToNEGeneIdx = np.repeat(
-                range(3), self.nGuidesPerGene  # 3 non-essentials
+                range(ncGenes), self.nGuidesPerGene  # 3 non-essentials
             )  # [0, 0, 1, 1, 2, 2, ...]
 
             self.rnaIdx = np.dstack(
@@ -796,6 +812,7 @@ class DoubleKO(object):
                 self.pairEfficiency,
                 self.synergies,
                 singletons,
+                ncGenes=ncGenes,
             ).ravel()
             if self.splitEfficiencies
             else self.efficiencies * sgRNAEssentialities
@@ -923,7 +940,7 @@ class DoubleKO(object):
         plt.clf()
 
 
-def makeDataset(nCellLines, nGenes, nContexts, nReplicates, nCalib, outDir):
+def makeDataset(nCellLines, nGenes, nContexts, nReplicates, nCalib, ncGenes, outDir):
     returnCounts = True
     nVariantFrac = 0.10
 
@@ -1066,6 +1083,7 @@ def makeDataset(nCellLines, nGenes, nContexts, nReplicates, nCalib, outDir):
         dkos,
         # offsets=offsets,
         returnCounts=returnCounts,
+        ncGenes=ncGenes,
     )
 
     # Offset so they don't clash with the combs
@@ -1191,7 +1209,15 @@ if __name__ == "__main__":
         type=int,
         dest="nCalib",
         default=100,
-        help="Number of negative control (null calibration) genes.",
+        help="Number of negative control (null calibration) pairs.",
+    )
+
+    argParser.add_argument(
+        "--ncGenes",
+        type=int,
+        dest="ncGenes",
+        default=3,
+        help="Number of negative control (null calibration) genes in singletons.",
     )
 
     args = argParser.parse_args()
@@ -1202,5 +1228,6 @@ if __name__ == "__main__":
         nContexts=args.nContexts,
         nReplicates=args.nReplicates,
         nCalib=args.nCalib,
+        ncGenes=args.ncGenes,
         outDir=args.out_dir,
     )
