@@ -221,31 +221,27 @@ def genCellLine(
 
     newSyn = np.tril(newSyn) + np.tril(newSyn, -1).T
 
-    if np.random.randint(0, 2) == 1:
-        # if 1:
+    newRNAEfficiencies = np.clip(
+        prototypeDKO.sgRNAEfficiencies
+        + np.random.normal(0, 0.01, len(prototypeDKO.sgRNAEfficiencies)),
+        0,
+        1,
+    )
 
-        newRNAEfficiencies = np.clip(
-            prototypeDKO.sgRNAEfficiencies
-            + np.random.normal(0, 0.01, len(prototypeDKO.sgRNAEfficiencies)),
-            0,
-            1,
-        )
-
-    else:
-        sgRNAEfficiencies1 = np.clip(
-            np.random.normal(0.65, 0.02, size=nGenes * 1),
-            0,
-            1,
-        )
-
-        sgRNAEfficiencies2 = np.clip(
-            np.random.normal(0.95, 0.02, size=nGenes * 1),
-            0,
-            1,
-        )
-        newRNAEfficiencies = np.vstack(
-            (sgRNAEfficiencies1, sgRNAEfficiencies2)
-        ).reshape((-1,), order="F")
+    # sgRNAEfficiencies1 = np.clip(
+    #     np.random.normal(0.65, 0.02, size=nGenes * 1),
+    #     0,
+    #     1,
+    # )
+    #
+    # sgRNAEfficiencies2 = np.clip(
+    #     np.random.normal(0.95, 0.02, size=nGenes * 1),
+    #     0,
+    #     1,
+    # )
+    # newRNAEfficiencies = np.vstack(
+    #     (sgRNAEfficiencies1, sgRNAEfficiencies2)
+    # ).reshape((-1,), order="F")
 
     newPairEfficiency = np.clip(
         prototypeDKO.pairEfficiency
@@ -263,6 +259,7 @@ def genCellLine(
         pairEfficiency=newPairEfficiency,
         gi_contexts=gi_contexts,
         gi_context_lists=gi_context_lists,
+        nGuidesPerGene=prototypeDKO.nGuidesPerGene,
     )
 
     return newDKO
@@ -294,6 +291,7 @@ def addCellLines(
             gi_contexts=gi_contexts,
             gi_context_lists=gi_context_lists[i],
         )
+
         df = populateCombinationDF(dko, returnCounts=returnCounts)
 
         if not (offsets is None):
@@ -562,7 +560,7 @@ def makeSingletons(dko, returnCounts=False, ncGenes=3):
     rnasSgl = np.array(
         range(
             dko.nGenes * dko.nGuidesPerGene,
-            dko.nGenes * dko.nGuidesPerGene + ncGenes * 2,
+            dko.nGenes * dko.nGuidesPerGene + ncGenes * dko.nGuidesPerGene,
         )
     )  # 3 NE * 2 sgrna
 
@@ -762,9 +760,12 @@ class DoubleKO(object):
 
     def getLFCs(self, poisson=False, singletons=False, returnCounts=False, ncGenes=3):
         # Map vectors of length nGenes * nGuidesPerGene to the vector of length nGenes
+
         self.rnaIdxToGeneIdx = np.repeat(
             range(self.nGenes), self.nGuidesPerGene
         )  # [0, 0, 1, 1, 2, 2, ...]
+
+        print(self.nGuidesPerGene, self.rnaIdxToGeneIdx.shape)
 
         # Map matrices of size (nGenes, nGenes)
         # to matrices of shape (nGenes * nGuidesPerGene, nGenes * nGuidesPerGene)
@@ -803,7 +804,7 @@ class DoubleKO(object):
         ].T
 
         # d_sg = self.nInitialCells * (1.0 - self.efficiencies * sgRNAEssentialities)
-
+        print(self.sgRNAEfficiencies.shape, self.geneEssentiality.shape)
         d_sg = self.nInitialCells * (
             1.0
             - self.combinedEssEff(
@@ -940,7 +941,9 @@ class DoubleKO(object):
         plt.clf()
 
 
-def makeDataset(nCellLines, nGenes, nContexts, nReplicates, nCalib, ncGenes, outDir):
+def makeDataset(
+    nCellLines, nGenes, nContexts, nReplicates, nCalib, ncGenes, nGuidesPerGene, outDir
+):
     returnCounts = True
     nVariantFrac = 0.10
 
@@ -1004,32 +1007,33 @@ def makeDataset(nCellLines, nGenes, nContexts, nReplicates, nCalib, ncGenes, out
     # plt.savefig("contexts.pdf")
     # plt.clf()
 
-    sgRNAEfficiencies1 = np.clip(
-        np.random.normal(0.90, 0.10, size=nGenes * 1),
-        # np.random.normal(0.95, 0.02, size=nGenes * 1),
-        0,
-        1,
-    )
-
-    sgRNAEfficiencies2 = np.clip(
-        np.random.normal(0.90, 0.10, size=nGenes * 1),
-        # np.random.normal(0.95, 0.02, size=nGenes * 1),
-        0,
-        1,
-    )
-
-    sgRNAEfficiencies = np.concatenate((sgRNAEfficiencies1, sgRNAEfficiencies2))
-
-    sgRNAEfficiencies = np.vstack((sgRNAEfficiencies1, sgRNAEfficiencies2)).reshape(
-        (-1,), order="F"
-    )
+    # sgRNAEfficiencies1 = np.clip(
+    #     np.random.normal(0.90, 0.10, size=nGenes * 1),
+    #     # np.random.normal(0.95, 0.02, size=nGenes * 1),
+    #     0,
+    #     1,
+    # )
+    #
+    # sgRNAEfficiencies2 = np.clip(
+    #     np.random.normal(0.90, 0.10, size=nGenes * 1),
+    #     # np.random.normal(0.95, 0.02, size=nGenes * 1),
+    #     0,
+    #     1,
+    # )
+    #
+    # sgRNAEfficiencies = np.concatenate((sgRNAEfficiencies1, sgRNAEfficiencies2))
+    #
+    # sgRNAEfficiencies = np.vstack((sgRNAEfficiencies1, sgRNAEfficiencies2)).reshape(
+    #     (-1,), order="F"
+    # )
 
     dko = DoubleKO(
         nGenes=nGenes,
         context=contexts[0],
         gi_contexts=context_matrices,
         gi_context_lists=cell_line_to_contexts[0],
-        sgRNAEfficiencies=sgRNAEfficiencies,
+        # sgRNAEfficiencies=sgRNAEfficiencies,
+        nGuidesPerGene=nGuidesPerGene,
     )
 
     # sns.heatmap(dko.synergies[:10, :10], cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.17, vmax = 0.17)
@@ -1220,6 +1224,14 @@ if __name__ == "__main__":
         help="Number of negative control (null calibration) genes in singletons.",
     )
 
+    argParser.add_argument(
+        "--nGuidesPerGene",
+        type=int,
+        dest="nGuidesPerGene",
+        default=2,
+        help="Number of sgRNA guides per gene.",
+    )
+
     args = argParser.parse_args()
 
     makeDataset(
@@ -1229,5 +1241,6 @@ if __name__ == "__main__":
         nReplicates=args.nReplicates,
         nCalib=args.nCalib,
         ncGenes=args.ncGenes,
+        nGuidesPerGene=args.nGuidesPerGene,
         outDir=args.out_dir,
     )
