@@ -38,7 +38,11 @@ from valinor_simulation.contexts import (
     generate_context_matrices,
     assign_contexts_to_cell_lines,
 )
-from valinor_simulation.utils import negativeBinomial, genePairStr, populateCombinationDF
+from valinor_simulation.utils import (
+    negativeBinomial,
+    genePairStr,
+    populateCombinationDF,
+)
 from valinor_simulation.singletons import makeSingletonsDF, makeSingletons
 
 # Extend the ACE parameterisation to double KO
@@ -76,11 +80,9 @@ def genCellLine(
     # If we're adding more context, don't include the prototype context GIs!
 
     if not (gi_contexts == None):
-
         newSyn = np.random.normal(0, fluctuateStd, size=prototypeDKO.synergies.shape)
 
     else:
-
         newSyn = prototypeDKO.synergies + np.random.normal(
             0, fluctuateStd, len(prototypeDKO.synergies)
         )
@@ -425,8 +427,7 @@ def makeDataset(
     dfOffsets.to_parquet(f"{outDir}/dfOffsets_ace.pq")
 
 
-if __name__ == "__main__":
-
+def run():
     argParser = argparse.ArgumentParser()
 
     argParser.add_argument(
@@ -514,3 +515,7 @@ if __name__ == "__main__":
         od=args.od,
         outDir=args.out_dir,
     )
+
+
+if __name__ == "__main__":
+    run()
