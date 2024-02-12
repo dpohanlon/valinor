@@ -165,19 +165,19 @@ def assign_contexts_to_cell_lines(
     return cell_line_to_contexts
 
 
-def negativeBinomial(mean, variance=None, size=None):
+def negativeBinomial(mean, variance=None, od=10, size=None):
     # Minimum observable
-    mean[mean < 1e-8] = 10.0
+    mean[mean < 1e-8] = 1
 
     if variance is None:
-        variance = 20.0 * mean
+        variance = od * mean
 
     n_nb = -(mean**2 / (mean - variance))
     p_nb = 1.0 - (mean / (variance + 1e-8))
 
     p_nb = np.clip(p_nb, 0, 1)
 
-    return np.random.negative_binomial(np.maximum(1e-4, n_nb), 1.0 - p_nb, size=size)
+    return np.random.negative_binomial(np.maximum(1e-6, n_nb), 1.0 - p_nb, size=size)
 
 
 def genCellLine(
@@ -403,7 +403,7 @@ def populateCombinationDF(dko, returnCounts=False):
     return dfCombs
 
 
-def addReplicates(df, nReplicates, returnCounts=False):
+def addReplicates(df, nReplicates, od=20, returnCounts=False):
     copies = []
     for i in tqdm(range(nReplicates)):
         replicate = df.copy()
@@ -415,9 +415,7 @@ def addReplicates(df, nReplicates, returnCounts=False):
 
         else:
             # replicate["value"] = np.random.poisson(replicate["value"])
-            replicate["value"] = negativeBinomial(
-                replicate["value"].values, 20.0 * replicate["value"].values
-            )
+            replicate["value"] = negativeBinomial(replicate["value"].values, od)
 
         copies.append(replicate)
 
@@ -552,8 +550,6 @@ def makeSingletons(dko, returnCounts=False, ncGenes=3):
     gene1 = singletonDKO.rnaIdx[:, :, 0].T.ravel()
     gene2 = singletonDKO.rnaIdx[:, :, 1].T.ravel()
 
-    # pprint(list(zip(gene1, gene2)))
-
     # LFC RNA indices
 
     rnasLib = np.array(range(0, dko.nGenes * dko.nGuidesPerGene))
@@ -603,6 +599,8 @@ class DoubleKO(object):
         synergies=None,
         sgRNAEfficiencies=None,
         pairEfficiency=None,
+        od=20,
+        od_init=2,
     ):
         np.random.seed(seed)
 
@@ -613,6 +611,9 @@ class DoubleKO(object):
         # Efficiencies multiplied by each term, like in GEMINI, rather than
         # an overall efficiency factor
         self.splitEfficiencies = splitEfficiencies
+
+        self.od = od
+        self.od_init = od_init
 
         # Start with everything at the gene level
 
@@ -765,8 +766,6 @@ class DoubleKO(object):
             range(self.nGenes), self.nGuidesPerGene
         )  # [0, 0, 1, 1, 2, 2, ...]
 
-        print(self.nGuidesPerGene, self.rnaIdxToGeneIdx.shape)
-
         # Map matrices of size (nGenes, nGenes)
         # to matrices of shape (nGenes * nGuidesPerGene, nGenes * nGuidesPerGene)
         self.rnaIdx = np.dstack(np.meshgrid(self.rnaIdxToGeneIdx, self.rnaIdxToGeneIdx))
@@ -793,7 +792,7 @@ class DoubleKO(object):
 
         # Initial read counts
         x_sg = (
-            negativeBinomial(gamma * self.nInitialCells)
+            negativeBinomial(gamma * self.nInitialCells, od=self.od_init)
             if not poisson
             else np.random.poisson(gamma * self.nInitialCells)
         )
@@ -804,7 +803,7 @@ class DoubleKO(object):
         ].T
 
         # d_sg = self.nInitialCells * (1.0 - self.efficiencies * sgRNAEssentialities)
-        print(self.sgRNAEfficiencies.shape, self.geneEssentiality.shape)
+
         d_sg = self.nInitialCells * (
             1.0
             - self.combinedEssEff(
@@ -822,7 +821,7 @@ class DoubleKO(object):
 
         # Final read counts
         y_sg = (
-            negativeBinomial(gamma_prime * d_sg.ravel())
+            negativeBinomial(gamma_prime * d_sg.ravel(), od=self.od)
             if not poisson
             else np.random.poisson(gamma_prime * d_sg.ravel())
         )
@@ -863,8 +862,12 @@ class DoubleKO(object):
                 np.random.normal(0.7, posControlEssWidth, size=n), None, 1.0
             )
 
-            y_neg = negativeBinomial((1 - negControlEss) * nControlInitialCells)
-            y_pos = negativeBinomial((1 - posControlEss) * nControlInitialCells)
+            y_neg = negativeBinomial(
+                (1 - negControlEss) * nControlInitialCells, od=self.od
+            )
+            y_pos = negativeBinomial(
+                (1 - posControlEss) * nControlInitialCells, od=self.od
+            )
 
             y_neg[y_neg == 0] = 1
             y_pos[y_pos == 0] = 1
@@ -942,7 +945,15 @@ class DoubleKO(object):
 
 
 def makeDataset(
-    nCellLines, nGenes, nContexts, nReplicates, nCalib, ncGenes, nGuidesPerGene, outDir
+    nCellLines,
+    nGenes,
+    nContexts,
+    nReplicates,
+    nCalib,
+    ncGenes,
+    nGuidesPerGene,
+    od,
+    outDir,
 ):
     returnCounts = True
     nVariantFrac = 0.10
@@ -1034,6 +1045,7 @@ def makeDataset(
         gi_context_lists=cell_line_to_contexts[0],
         # sgRNAEfficiencies=sgRNAEfficiencies,
         nGuidesPerGene=nGuidesPerGene,
+        od=od,
     )
 
     # sns.heatmap(dko.synergies[:10, :10], cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.17, vmax = 0.17)
@@ -1066,7 +1078,7 @@ def makeDataset(
 
     # if not returnCounts:
     print("adding combo replicates", time.time() - t)
-    dfCombs = addReplicates(dfCombs, nReplicates, returnCounts=returnCounts)
+    dfCombs = addReplicates(dfCombs, nReplicates, od=od, returnCounts=returnCounts)
 
     # So the replicates can be projected out
     # Sloooow
@@ -1232,6 +1244,14 @@ if __name__ == "__main__":
         help="Number of sgRNA guides per gene.",
     )
 
+    argParser.add_argument(
+        "--od",
+        type=int,
+        dest="od",
+        default=20,
+        help="Final count overdispersion.",
+    )
+
     args = argParser.parse_args()
 
     makeDataset(
@@ -1242,5 +1262,6 @@ if __name__ == "__main__":
         nCalib=args.nCalib,
         ncGenes=args.ncGenes,
         nGuidesPerGene=args.nGuidesPerGene,
+        od=args.od,
         outDir=args.out_dir,
     )
