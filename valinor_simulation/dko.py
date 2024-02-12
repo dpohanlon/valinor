@@ -15,7 +15,7 @@ import seaborn as sns
 
 import numpy as np
 
-from utils import negativeBinomial
+from valinor_simulation.utils import negativeBinomial
 
 
 class DoubleKO(object):

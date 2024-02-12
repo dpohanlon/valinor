@@ -32,14 +32,14 @@ import time
 
 import pickle
 
-from dko import DoubleKO
-from contexts import (
+from valinor_simulation.dko import DoubleKO
+from valinor_simulation.contexts import (
     getContextMatrix,
     generate_context_matrices,
     assign_contexts_to_cell_lines,
 )
-from utils import negativeBinomial, genePairStr, populateCombinationDF
-from singletons import makeSingletonsDF, makeSingletons
+from valinor_simulation.utils import negativeBinomial, genePairStr, populateCombinationDF
+from valinor_simulation.singletons import makeSingletonsDF, makeSingletons
 
 # Extend the ACE parameterisation to double KO
 
