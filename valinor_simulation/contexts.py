@@ -54,7 +54,6 @@ def generate_context_matrices(
                 gene_pairs_to_modify.append(pair)
 
         for pair in gene_pairs_to_modify:
-
             # Generate a random multiplier between 0 and scale for the interaction
             # multiplier = np.random.uniform(0, scale)
 

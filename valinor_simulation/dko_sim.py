@@ -216,6 +216,7 @@ def makeDataset(
     nGuidesPerGene,
     od,
     outDir,
+    name,
 ):
     returnCounts = True
     nVariantFrac = 0.10
@@ -248,17 +249,17 @@ def makeDataset(
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
     plt.xlabel("Gene")
-    plt.savefig("contexts0.pdf")
+    plt.savefig(f"contexts0_{name}.pdf")
     plt.clf()
 
     sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
     plt.xlabel("Gene")
-    plt.savefig("contexts1.pdf")
+    plt.savefig(f"contexts1_{name}.pdf")
     plt.clf()
 
     pickle.dump(
-        (cell_line_to_contexts, context_matrices), open("gi_contexts.pkl", "wb")
+        (cell_line_to_contexts, context_matrices), open(f"gi_contexts_{name}.pkl", "wb")
     )
 
     contexts = getContextMatrix(
@@ -301,7 +302,11 @@ def makeDataset(
     )
 
     dko.plot(
-        lfcs, sgRNAEssentialities, init_counts=init_counts, final_counts=final_counts
+        lfcs,
+        sgRNAEssentialities,
+        init_counts=init_counts,
+        final_counts=final_counts,
+        name=name,
     )
 
     dfCombs = populateCombinationDF(dko, returnCounts=returnCounts)
@@ -334,7 +339,7 @@ def makeDataset(
     dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
     dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
 
-    dfCombs.to_parquet(f"{outDir}/dfCombs_ace.pq")
+    dfCombs.to_parquet(f"{outDir}/dfCombs_{name}.pq")
 
     print("making singletons", time.time() - t)
     dfSgl = makeSingletonsDF(
@@ -362,7 +367,7 @@ def makeDataset(
     dfSgl = dfSgl.sort_values(
         ["guide1_index_s", "guide2_index_s", "cell_line"]
     ).reset_index()
-    dfSgl.to_parquet(f"{outDir}/dfSgl_ace.pq")
+    dfSgl.to_parquet(f"{outDir}/dfSgl_{name}.pq")
 
     # Offsets to test calibration
 
@@ -378,7 +383,7 @@ def makeDataset(
     )
 
     plt.hist(calibData.ravel(), bins=100)
-    plt.savefig("calib.pdf")
+    plt.savefig(f"calib_{name}.pdf")
     plt.clf()
 
     # Offset according to singletons (and therefore also combinations)
@@ -400,7 +405,7 @@ def makeDataset(
 
     dfCalib["cell_line_index"] = dfCalib["cell_line"]
 
-    dfCalib.to_parquet(f"{outDir}/dfCalib_ace.pq")
+    dfCalib.to_parquet(f"{outDir}/dfCalib_{name}.pq")
 
     offsetsCounts = np.zeros(len(offsets))
     for i, dko in enumerate(dkos):
@@ -415,7 +420,7 @@ def makeDataset(
             "offsetsCounts": offsetsCounts.ravel(),
         }
     )
-    dfOffsets.to_parquet(f"{outDir}/dfOffsets_ace.pq")
+    dfOffsets.to_parquet(f"{outDir}/dfOffsets_{name}.pq")
 
 
 def run():
@@ -427,6 +432,14 @@ def run():
         dest="out_dir",
         default=".",
         help="Output directory for the simulated data.",
+    )
+
+    argParser.add_argument(
+        "--name",
+        type=str,
+        dest="name",
+        default="sim",
+        help="Name for output files.",
     )
 
     argParser.add_argument(
@@ -505,6 +518,7 @@ def run():
         nGuidesPerGene=args.nGuidesPerGene,
         od=args.od,
         outDir=args.out_dir,
+        name=args.name,
     )
 
 

@@ -325,13 +325,13 @@ class DoubleKO(object):
 
         return lfcs
 
-    def plot(self, lfcs, sgRNAEssentialities, init_counts, final_counts):
+    def plot(self, lfcs, sgRNAEssentialities, init_counts, final_counts, name=""):
         sns.histplot(self.efficiencies.ravel(), kde=True)
-        plt.savefig("efficiencies.pdf")
+        plt.savefig(f"efficiencies_{name}.pdf")
         plt.clf()
 
         sns.histplot(sgRNAEssentialities.ravel(), kde=True)
-        plt.savefig("essentialities.pdf")
+        plt.savefig(f"essentialities_{name}.pdf")
         plt.clf()
 
         # DANGER ZONE
@@ -343,13 +343,13 @@ class DoubleKO(object):
 
         sns.histplot(plotLfcs, kde=True)
         plt.xlabel("value")
-        plt.savefig("ace_DKO_lfcs.pdf")
+        plt.savefig(f"ace_DKO_lfcs_{name}.pdf")
         plt.clf()
 
         plt.plot(plotLfcs, plotSGRNAEssentialities, ".", markersize=1.0, alpha=0.25)
         plt.xlabel("value")
         plt.ylabel("Combined essentiality")
-        plt.savefig("lfc_ess.pdf")
+        plt.savefig(f"lfc_ess_{name}.pdf")
         plt.clf()
 
         highEss = plotLfcs[
@@ -364,7 +364,7 @@ class DoubleKO(object):
         sns.kdeplot(lowEss, label="Low essentiality")
         plt.xlabel("value")
         plt.legend(loc=0)
-        plt.savefig("lfcSlice.pdf")
+        plt.savefig(f"lfcSlice_{name}.pdf")
         plt.clf()
 
         highEss -= np.mean(highEss)
@@ -374,5 +374,5 @@ class DoubleKO(object):
         sns.kdeplot(lowEss, label="Low essentiality (mean subtracted)")
         plt.xlabel("value")
         plt.legend(loc=0)
-        plt.savefig("lfcSliceShifted.pdf")
+        plt.savefig(f"lfcSliceShifted_{name}.pdf")
         plt.clf()
