@@ -259,7 +259,8 @@ def makeDataset(
     plt.clf()
 
     pickle.dump(
-        (cell_line_to_contexts, context_matrices), open(f"gi_contexts_{name}.pkl", "wb")
+        (cell_line_to_contexts, context_matrices),
+        open(f"{outDir}/gi_contexts_{name}.pkl", "wb"),
     )
 
     contexts = getContextMatrix(
