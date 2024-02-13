@@ -100,26 +100,16 @@ def genCellLine(
         1,
     )
 
-    # sgRNAEfficiencies1 = np.clip(
-    #     np.random.normal(0.65, 0.02, size=nGenes * 1),
-    #     0,
-    #     1,
-    # )
-    #
-    # sgRNAEfficiencies2 = np.clip(
-    #     np.random.normal(0.95, 0.02, size=nGenes * 1),
-    #     0,
-    #     1,
-    # )
-    # newRNAEfficiencies = np.vstack(
-    #     (sgRNAEfficiencies1, sgRNAEfficiencies2)
-    # ).reshape((-1,), order="F")
-
     newPairEfficiency = np.clip(
         prototypeDKO.pairEfficiency
         + np.random.normal(0, 0.01, len(prototypeDKO.pairEfficiency)),
         0,
         1,
+    )
+
+    # Fluctuate OD by 10%
+    newOD = np.clip(
+        prototypeDKO.od + np.random.normal(0, prototypeDKO.od / 10.0), 1, np.inf
     )
 
     newDKO = DoubleKO(
@@ -132,6 +122,7 @@ def genCellLine(
         gi_contexts=gi_contexts,
         gi_context_lists=gi_context_lists,
         nGuidesPerGene=prototypeDKO.nGuidesPerGene,
+        od=newOD,
     )
 
     return newDKO
