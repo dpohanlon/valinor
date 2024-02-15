@@ -120,6 +120,7 @@ def genCellLine(
         sgRNAEfficiencies=newRNAEfficiencies,
         pairEfficiency=newPairEfficiency,
         gi_contexts=gi_contexts,
+        nInitialCells=prototypeDKO.nInitialCellsV,
         gi_context_lists=gi_context_lists,
         nGuidesPerGene=prototypeDKO.nGuidesPerGene,
         od=newOD,
@@ -189,6 +190,7 @@ def addReplicates(df, nReplicates, od=20, returnCounts=False):
     copies = []
     for i in tqdm(range(nReplicates)):
         replicate = df.copy()
+        replicate["replicate"] = i
 
         if not returnCounts:
             std = np.sqrt(1.0 / np.random.gamma(2, 5, size=len(replicate)))
@@ -196,8 +198,7 @@ def addReplicates(df, nReplicates, od=20, returnCounts=False):
             replicate["value"] = np.random.normal(replicate["value"].values, std)
 
         else:
-
-            replicate["value"] = negativeBinomial(replicate["value"].values, od = od)
+            replicate["value"] = negativeBinomial(replicate["value"].values, od=od)
 
         copies.append(replicate)
 
@@ -214,6 +215,7 @@ def makeDataset(
     nCalib,
     ncGenes,
     nGuidesPerGene,
+    nInitialCells,
     od,
     outDir,
     name,
@@ -266,7 +268,11 @@ def makeDataset(
     )
 
     contexts = getContextMatrix(
-        nCellLines, nGenes, nContexts, nVariantFrac, variance=0.1,
+        nCellLines,
+        nGenes,
+        nContexts,
+        nVariantFrac,
+        variance=0.1,
     )
 
     contextsPlot = contexts.copy()
@@ -286,6 +292,7 @@ def makeDataset(
 
     dko = DoubleKO(
         nGenes=nGenes,
+        nInitialCells=nInitialCells,
         context=contexts[0],
         gi_contexts=context_matrices,
         gi_context_lists=cell_line_to_contexts[0],
@@ -335,7 +342,6 @@ def makeDataset(
     dfCombs = dfCombs.sort_values(
         ["guide_pair_index", "guide1_index", "cell_line"]
     ).reset_index()
-
 
     # The same by our new definition
     dfCombs["gene_unq_pair_index"] = dfCombs["gene_pair_index"]
@@ -503,6 +509,14 @@ def run():
     )
 
     argParser.add_argument(
+        "--nInitialCells",
+        type=int,
+        dest="nInitialCells",
+        default=3000,
+        help="Number of cells with plasmid sequences.",
+    )
+
+    argParser.add_argument(
         "--od",
         type=int,
         dest="od",
@@ -519,6 +533,7 @@ def run():
         nReplicates=args.nReplicates,
         nCalib=args.nCalib,
         ncGenes=args.ncGenes,
+        nInitialCells=args.nInitialCells,
         nGuidesPerGene=args.nGuidesPerGene,
         od=args.od,
         outDir=args.out_dir,
