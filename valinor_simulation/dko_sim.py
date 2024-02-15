@@ -196,8 +196,8 @@ def addReplicates(df, nReplicates, od=20, returnCounts=False):
             replicate["value"] = np.random.normal(replicate["value"].values, std)
 
         else:
-            # replicate["value"] = np.random.poisson(replicate["value"])
-            replicate["value"] = negativeBinomial(replicate["value"].values, od)
+
+            replicate["value"] = negativeBinomial(replicate["value"].values, od = od)
 
         copies.append(replicate)
 
@@ -223,6 +223,8 @@ def makeDataset(
 
     t = time.time()
 
+    nContexts = min(nContexts, nCellLines)
+
     # ms = getGIContextMatrix(num_genes = nGenes, num_contexts = nContexts, total_cell_lines = nCellLines, fraction_gene_pairs_in_context = 0.01)
     #
     # print(ms[0])
@@ -243,7 +245,7 @@ def makeDataset(
 
     context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.1)
     cell_line_to_contexts = assign_contexts_to_cell_lines(
-        nCellLines, nContexts, unique_contexts=True
+        nCellLines, nContexts, unique_contexts=False
     )
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
@@ -264,7 +266,7 @@ def makeDataset(
     )
 
     contexts = getContextMatrix(
-        nCellLines, nGenes, nContexts, nVariantFrac, variance=0.1
+        nCellLines, nGenes, nContexts, nVariantFrac, variance=0.1,
     )
 
     contextsPlot = contexts.copy()
@@ -274,7 +276,7 @@ def makeDataset(
     # otherwise?
 
     # Make a symmetric range about 0
-    maxVal = np.max(np.abs(contextsPlot.ravel()))
+    # maxVal = np.max(np.abs(contextsPlot.ravel()))
 
     # sns.heatmap(contextsPlot, cmap=sns.color_palette("vlag", as_cmap=True), vmin = -maxVal, vmax = maxVal)
     # plt.ylabel("Cell line")
@@ -333,6 +335,7 @@ def makeDataset(
     dfCombs = dfCombs.sort_values(
         ["guide_pair_index", "guide1_index", "cell_line"]
     ).reset_index()
+
 
     # The same by our new definition
     dfCombs["gene_unq_pair_index"] = dfCombs["gene_pair_index"]
