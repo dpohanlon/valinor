@@ -69,6 +69,9 @@ def populateCombinationDF(dko, returnCounts=False):
     gene_pairs = [genePairStr(g1, g2) for g1, g2 in geneIdx]
     guide_pairs = [genePairStr(g1, g2) for g1, g2 in rnaIdx]
 
+    # Where orientation matters
+    guide_pairs_o = [str(g1) + '~' + str(g2) for g1, g2 in rnaIdx]
+
     # Remove pairs where g1 = g2
 
     sameGenes = np.array(
@@ -77,17 +80,23 @@ def populateCombinationDF(dko, returnCounts=False):
 
     gene_pairs = np.array(gene_pairs)[sameGenes == False]
     guide_pairs = np.array(guide_pairs)[sameGenes == False]
+    guide_pairs_o = np.array(guide_pairs_o)[sameGenes == False]
 
     unique_gene_pairs = list(np.unique(gene_pairs))
     unique_guide_pairs = list(np.unique(guide_pairs))
+    unique_guide_pairs_o = list(np.unique(guide_pairs_o))
 
     unique_gene_pairs = {unique_gene_pairs[i]: i for i in range(len(unique_gene_pairs))}
     unique_guide_pairs = {
         unique_guide_pairs[i]: i for i in range(len(unique_guide_pairs))
     }
+    unique_guide_pairs_o = {
+        unique_guide_pairs_o[i]: i for i in range(len(unique_guide_pairs_o))
+    }
 
     gene_pair_index = [unique_gene_pairs[g] for g in gene_pairs]
     guide_pair_index = [unique_guide_pairs[g] for g in guide_pairs]
+    guide_pair_o_index = [unique_guide_pairs_o[g] for g in guide_pairs_o]
 
     dfCombs = pd.DataFrame(
         {
@@ -109,6 +118,7 @@ def populateCombinationDF(dko, returnCounts=False):
     dfCombs = dfCombs.query("same_genes == False").copy()
     dfCombs["gene_pair_index"] = gene_pair_index
     dfCombs["guide_pair_index"] = guide_pair_index
+    dfCombs["guide_pair_o_index"] = guide_pair_o_index
     dfCombs["GuidePair"] = guide_pair_index
 
     return dfCombs
