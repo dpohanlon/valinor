@@ -206,6 +206,63 @@ def addReplicates(df, nReplicates, od=20, returnCounts=False):
 
     return newDF
 
+def set_random_elements_to_zero(arr, num_zeros):
+    """Sets a specified number of random elements in a NumPy array to zero.
+
+    Args:
+        arr: The NumPy array.
+        num_zeros: The number of elements to set to zero.
+
+    Returns:
+        A tuple containing:
+          - The modified NumPy array.
+          - A list of tuples, where each tuple represents the (i, j) indices
+            of the elements set to zero.
+    """
+
+    N = arr.shape[0]  # Get the size of the array
+
+    # Generate random indices within the bounds of the array
+    zero_indices = np.random.randint(0, N, size=(num_zeros, 2))
+
+    # Set the elements at the random indices to zero
+    for i, j in zero_indices:
+        arr[i, j] = 0
+
+    return arr, zero_indices.tolist()
+
+def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts):
+
+    # Last context matrix per cell line always be the unique one when saved
+
+    contextSynVal = 0.05
+
+    uniqueN = int(uniqueFrac * nGenes * nGenes)
+    # mask for these in context matrices, set all others for this gene to be zero
+
+    uniqueContextsMask, uniqueContextIds = set_random_elements_to_zero(np.ones((nGenes, nGenes)), uniqueN)
+
+    # Clear contexts otherwise
+
+    for context in context_matrices:
+        context *= uniqueContextsMask
+
+    giPerCellLine = uniqueN // nCellLines
+
+    for  c in range(nCellLines):
+
+        pairsThisCellLine = np.array(uniqueContextIds[c * giPerCellLine : (c + 1) * giPerCellLine])
+        row_indices, col_indices = np.array(pairsThisCellLine).T
+
+        uniqueContext = np.zeros((nGenes, nGenes))
+        uniqueContext[row_indices, col_indices] = contextSynVal
+
+        # Append this to the set of context GIs and
+
+        context_matrices.append(uniqueContext)
+        cell_line_to_contexts[c] = list(cell_line_to_contexts[c]) + [len(context_matrices) - 1]
+
+    return context_matrices, cell_line_to_contexts
 
 def makeDataset(
     nCellLines,
@@ -217,6 +274,7 @@ def makeDataset(
     nGuidesPerGene,
     nInitialCells,
     od,
+    uniqueFrac,
     outDir,
     name,
 ):
@@ -249,6 +307,10 @@ def makeDataset(
     cell_line_to_contexts = assign_contexts_to_cell_lines(
         nCellLines, nContexts, unique_contexts=False
     )
+
+    if uniqueFrac != None:
+
+        context_matrices, cell_line_to_contexts = populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts)
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
@@ -361,7 +423,7 @@ def makeDataset(
 
     # Offset so they don't clash with the combs
     dfSgl["guide_pair_index"] = (
-        dfSgl["guide_pair_index"] + np.max(dfCombs["guide_pair_index"]) + 1
+        dfSgl["guide_pair_index"] + np.max(dfCombs["guide_pair_o_index"]) + 1
     )
 
     # if not returnCounts:
@@ -524,6 +586,14 @@ def run():
         help="Final count overdispersion.",
     )
 
+    argParser.add_argument(
+        "--uniqueFrac",
+        type=float,
+        dest="uniqueFrac",
+        default=None, # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
+        help="Fraction of GI unique pairs per cell line.",
+    )
+
     args = argParser.parse_args()
 
     makeDataset(
@@ -536,6 +606,7 @@ def run():
         nInitialCells=args.nInitialCells,
         nGuidesPerGene=args.nGuidesPerGene,
         od=args.od,
+        uniqueFrac = args.uniqueFrac,
         outDir=args.out_dir,
         name=args.name,
     )
