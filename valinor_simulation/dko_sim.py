@@ -231,11 +231,9 @@ def set_random_elements_to_zero(arr, num_zeros):
 
     return arr, zero_indices.tolist()
 
-def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts):
+def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts, contextSynVal = 0.1):
 
     # Last context matrix per cell line always be the unique one when saved
-
-    contextSynVal = 0.05
 
     uniqueN = int(uniqueFrac * nGenes * nGenes)
     # mask for these in context matrices, set all others for this gene to be zero
@@ -254,8 +252,10 @@ def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, c
         pairsThisCellLine = np.array(uniqueContextIds[c * giPerCellLine : (c + 1) * giPerCellLine])
         row_indices, col_indices = np.array(pairsThisCellLine).T
 
+        # Symmetric (to avoid dropping after 'symmetrisation'!)
         uniqueContext = np.zeros((nGenes, nGenes))
         uniqueContext[row_indices, col_indices] = contextSynVal
+        uniqueContext[col_indices, row_indices] = contextSynVal
 
         # Append this to the set of context GIs and
 
@@ -275,6 +275,7 @@ def makeDataset(
     nInitialCells,
     od,
     uniqueFrac,
+    contextSynVal,
     outDir,
     name,
 ):
@@ -310,7 +311,7 @@ def makeDataset(
 
     if uniqueFrac != None:
 
-        context_matrices, cell_line_to_contexts = populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts)
+        context_matrices, cell_line_to_contexts = populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts, contextSynVal)
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
@@ -594,6 +595,14 @@ def run():
         help="Fraction of GI unique pairs per cell line.",
     )
 
+    argParser.add_argument(
+        "--contextSynVal",
+        type=float,
+        dest="contextSynVal",
+        default=0.1,
+        help="Synergy parameter for context unique pairs.",
+    )
+
     args = argParser.parse_args()
 
     makeDataset(
@@ -607,6 +616,7 @@ def run():
         nGuidesPerGene=args.nGuidesPerGene,
         od=args.od,
         uniqueFrac = args.uniqueFrac,
+        contextSynVal = args.contextSynVal,
         outDir=args.out_dir,
         name=args.name,
     )
