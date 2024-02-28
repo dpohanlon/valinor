@@ -9,7 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.9"
 h5py = "^3.9.0"
-jax = "^0.4.14"
+jax = "^0.4.14, <0.4.24"
 numpy = "^1.25.2"
 pandas = "^2.0.3"
 numpyro = "^0.12.1"
