@@ -8,9 +8,9 @@ import argparse
 def testWithCLI():
     # cwd: valinor
 
-    args = "--combinationsFile tests/data/dfCombs_ace.pq "
-    args += "--singletonsFile tests/data/dfSgl_ace.pq "
-    args += "--controlsFile tests/data/dfCalib_ace.pq "
+    args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    args += "--controlsFile tests/data/dfCalib_sim.pq "
     args += "--epochs 10 "
     args += "--nSamples 10 "
     args += "-n cliTest "
@@ -20,9 +20,9 @@ def testWithCLI():
 def testWithCLIPriors():
     # cwd: valinor
 
-    args = "--combinationsFile tests/data/dfCombs_ace.pq "
-    args += "--singletonsFile tests/data/dfSgl_ace.pq "
-    args += "--controlsFile tests/data/dfCalib_ace.pq "
+    args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    args += "--controlsFile tests/data/dfCalib_sim.pq "
     args += "--epochs 10 "
     args += "--nSamples 10 "
     args += "-n cliTest "
