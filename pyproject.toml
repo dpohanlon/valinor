@@ -2,7 +2,7 @@
 name = "valinor"
 version = "0.1.0"
 description = ""
-authors = ["Daniel O'Hanlon <dpohanlon@gmail.com>"]
+authors = ["Daniel O'Hanlon <dpohanlon@gmail.com>", "Paula Weidemüller <pweide@ebi.ac.uk>"]
 license = "MIT"
 readme = "README.md"
 
@@ -11,7 +11,8 @@ include = ["valinor/valinorreport/template_tabs.html", "valinor/valinorreport/fa
 [tool.poetry.dependencies]
 python = "^3.9"
 h5py = "^3.9.0"
-jax = "^0.4.14"
+jax = "^0.4.14, <0.4.24"
+jaxlib = "^0.4.14, <0.4.24"
 numpy = "^1.25.2"
 pandas = "<2.0"
 numpyro = "^0.12.1"
@@ -32,3 +33,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 valinor = "valinor.run_valinor:run"
 valinorreport = "valinor.build_report:run"
+valinor_sim = "valinor_simulation.dko_sim:run"
