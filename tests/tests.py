@@ -17,6 +17,18 @@ def testWithCLI():
 
     sp.check_call(f"valinor {args}", shell=True)
 
+def testWithCLIPriors():
+    # cwd: valinor
+
+    args = "--combinationsFile tests/data/dfCombs_ace.pq "
+    args += "--singletonsFile tests/data/dfSgl_ace.pq "
+    args += "--controlsFile tests/data/dfCalib_ace.pq "
+    args += "--epochs 10 "
+    args += "--nSamples 10 "
+    args += "-n cliTest "
+    args += "--priorsFile tests/priors.yaml "
+
+    sp.check_call(f"valinor {args}", shell=True)
 
 def testGenerateData():
     # Call the simulator to generate some data for our tests
@@ -27,7 +39,6 @@ def testGenerateData():
     args = "--out-dir tests/data "
 
     sp.check_call(f"valinor_sim {args}", shell=True)
-
 
 if __name__ == "__main__":
     argParser = argparse.ArgumentParser()
@@ -47,3 +58,4 @@ if __name__ == "__main__":
 
     else:
         testWithCLI()
+        testWithCLIPriors()

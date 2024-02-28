@@ -63,7 +63,9 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 
 
 def sampleParams(
-    samples: Dict[str, np.ndarray], indices: Dict[str, np.ndarray], alternate: bool = False,
+    samples: Dict[str, np.ndarray],
+    indices: Dict[str, np.ndarray],
+    alternate: bool = False,
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Sample parameters based on the provided samples and indices.
@@ -104,6 +106,10 @@ def sampleParams(
             :, indices["cell_line_s_idx"]
         ]
 
+        singlesParams["library_bias_s"] = samples["library_bias"][
+            :, indices["cell_line_s_idx"]
+        ]
+
         singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
             :, indices["gene_s_idx"]
         ]
@@ -122,13 +128,36 @@ def sampleParams(
             singlesParams["cell_growth_s"],
             singlesParams["ko_growth_s"],
             singlesParams["mv_s"],
-            alternate
+            singlesParams["library_bias_s"],
+            alternate,
         )[0].sample(random.PRNGKey(42))
 
         params["singles"] = singlesParams
 
     if controls:
-        pass
+        controlsParams = {}
+
+        controlsParams["init_count_c"] = samples["guide_init_count_c"][
+            :, indices["guide_pair_c_idx"]
+        ]
+
+        controlsParams["cell_growth_c"] = samples["cell_line_growth"][
+            :, indices["cell_line_c_idx"]
+        ]
+
+        controlsParams["mv_c"] = 1.0 / samples["inv_mv_c"]
+
+        controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
+            controlsParams["init_count_c"]
+        )[0].sample(random.PRNGKey(42))
+
+        controlsParams["samples_c"] = models.controlLikelihoodFinal(
+            controlsParams["init_count_c"],
+            controlsParams["cell_growth_c"],
+            controlsParams["mv_c"],
+        )[0].sample(random.PRNGKey(42))
+
+        params["controls"] = controlsParams
 
     combsParams = {}
 
@@ -139,10 +168,14 @@ def sampleParams(
         :, indices["cell_line_idx"]
     ]
 
-    combsParams["guide_eff_1"] = samples["guide_eff"][ # Check whether this should be specified given the hierarchy, ordering, etc
+    combsParams["guide_eff_1"] = samples[
+        "guide_eff"
+    ][  # Check whether this should be specified given the hierarchy, ordering, etc
         :, indices["guide_1_idx"], indices["cell_line_idx"]
     ]
-    combsParams["guide_eff_2"] = samples["guide_eff"][ # Check whether this should be specified given the hierarchy, ordering, etc
+    combsParams["guide_eff_2"] = samples[
+        "guide_eff"
+    ][  # Check whether this should be specified given the hierarchy, ordering, etc
         :, indices["guide_2_idx"], indices["cell_line_idx"]
     ]
     # combsParams["guide_eff_1"] = samples[
@@ -155,7 +188,7 @@ def sampleParams(
     # ][  # Check whether this should be specified given the hierarchy, ordering, etc
     #     :, indices["guide_2_idx"]
     # ]
-    combsParams["guide_eff_12"] = samples["guide_eff_12"]
+    # combsParams["guide_eff_12"] = samples["guide_eff_12"]
 
     combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
         :, indices["gene_1_idx"]
@@ -175,17 +208,35 @@ def sampleParams(
 
     finalLH = models.dkoLikelihoodFinal if alternate else models.dkoLikelihoodFullFinal
 
-    combsParams["samples"] = finalLH(
-        combsParams["init_count"],
-        combsParams["guide_eff_1"],
-        combsParams["guide_eff_2"],
-        combsParams["guide_eff_12"],
-        combsParams["cell_line_growth"],
-        combsParams["gene_ko_growth_1"],
-        combsParams["gene_ko_growth_2"],
-        combsParams["gene_ko_growth_12"],
-        combsParams["mv"],
-    )[0].sample(random.PRNGKey(42))
+    if alternate:
+        combsParams["guide_eff_12"] = samples["guide_eff_12"]
+
+        combsParams["samples"] = models.dkoLikelihoodFinal(
+            combsParams["init_count"],
+            combsParams["guide_eff_1"],
+            combsParams["guide_eff_2"],
+            combsParams["guide_eff_12"],
+            combsParams["cell_line_growth"],
+            combsParams["gene_ko_growth_1"],
+            combsParams["gene_ko_growth_2"],
+            combsParams["gene_ko_growth_12"],
+            combsParams["mv"],
+            1.0,
+        )[0].sample(random.PRNGKey(42))
+
+    else:
+        combsParams["samples"] = models.dkoLikelihoodFullFinal(
+            combsParams["init_count"],
+            combsParams["guide_eff_1"],
+            combsParams["guide_eff_2"],
+            # combsParams["guide_eff_12"],
+            combsParams["cell_line_growth"],
+            combsParams["gene_ko_growth_1"],
+            combsParams["gene_ko_growth_2"],
+            combsParams["gene_ko_growth_12"],
+            combsParams["mv"],
+            1.0,
+        )[0].sample(random.PRNGKey(42))
 
     params["combs"] = combsParams
 

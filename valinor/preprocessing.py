@@ -16,6 +16,7 @@ from typing import Dict, List, Tuple, Any
 
 def prepareData(
     data_files: Dict[str, str],
+    priors: Dict[str, float],
     only_singletons: bool = False,
     singletons: bool = True,
     controls: bool = True,
@@ -38,17 +39,38 @@ def prepareData(
     finalCounts = getFinalCounts(datasets)
     initialCounts = getInitialCounts(datasets)
 
-    meanOD, stdOD = calculateOverdispersion(datasets["combinations"] if not (datasets["combinations"] is None) else datasets["singletons"])
+    meanOD, stdOD = calculateOverdispersion(
+        datasets["combinations"]
+        if not (datasets["combinations"] is None)
+        else datasets["singletons"]
+    )
 
     prior_params = defaultPriors()
+
+    # Update with our input overriding values
+    if (priors != None) and (len(priors) > 0):
+        for k in prior_params.keys():
+            prior_params[k] = priors.get(k, prior_params[k])
+
     prior_params["od_means"] = meanOD
     prior_params["od_stds"] = stdOD
 
-    prior_params["init_count"] = (np.mean(datasets["combinations"]['plasmid']), np.std(datasets["combinations"]['plasmid']),)
+    prior_params["init_count"] = (
+        np.mean(datasets["combinations"]["plasmid"]),
+        np.std(datasets["combinations"]["plasmid"]),
+    )
 
     if not (datasets["singletons"] is None):
+        prior_params["init_count_s"] = (
+            np.mean(datasets["singletons"]["plasmid"]),
+            np.std(datasets["singletons"]["plasmid"]),
+        )
 
-        prior_params["init_count_s"] = (np.mean(datasets["singletons"]['plasmid']), np.std(datasets["singletons"]['plasmid']),)
+    if not (datasets["controls"] is None):
+        prior_params["init_count_c"] = (
+            np.mean(datasets["controls"]["plasmid"]),
+            np.std(datasets["controls"]["plasmid"]),
+        )
 
     # These args can be `None`
     indices = getIndices(
@@ -57,7 +79,7 @@ def prepareData(
 
     lengths = calculateLengths(indices, singletons=singletons, neg_controls=controls)
 
-    checkBounds(indices, lengths, singletons = singletons, neg_controls = controls)
+    checkBounds(indices, lengths, singletons=singletons, neg_controls=controls)
 
     return (
         lengths,
