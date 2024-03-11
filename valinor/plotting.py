@@ -16,13 +16,17 @@ rcParams.update({"figure.autolayout": True})
 import numpy as np
 
 
-def plotLossCurve(loss, log=True, name=None):
+def plotLossCurve(loss, log=True, name=None, outputDir=""):
     plt.plot(np.log(loss))
     plt.ylabel("ELBO")
     plt.xlabel("Steps")
-    plt.savefig("valinor_loss.pdf" if name == None else f"valinor_loss_{name}.pdf")
+    plt.savefig(
+        f"{outputDir}valinor_loss.pdf"
+        if name == None
+        else f"{outputDir}valinor_loss_{name}.pdf"
+    )
     plt.clf()
 
 
-def plotDiagPlots(svi_result, name=None):
-    plotLossCurve(svi_result.losses, name=name)
+def plotDiagPlots(svi_result, name=None, outputDir=""):
+    plotLossCurve(svi_result.losses, name=name, outputDir=outputDir)
