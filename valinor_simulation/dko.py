@@ -75,7 +75,7 @@ class DoubleKO(object):
 
         if geneEssentiality is None:
             # We could even populate this with real data from the essentiality scores
-            self.geneEssentiality = np.random.normal(0.05, 0.1, size=self.nGenes)
+            self.geneEssentiality = np.random.normal(0.05, 0.2, size=self.nGenes)
 
         else:
             self.geneEssentiality = geneEssentiality
