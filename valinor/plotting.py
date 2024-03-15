@@ -87,24 +87,27 @@ def produce_modelfit_plot(df, outputfolder, type="combo"):
     """
     sample_name = "samples" if type == "combo" else "samples_s"
     figname = (
-        "modelperformance_combo.svg"
+        "modelperformance_combo"
         if type == "combo"
-        else "modelperformance_single.svg"
+        else "modelperformance_single"
     )
     model_val = df[sample_name].values
     data_val = df["value"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(outputfolder + figname, bbox_inches="tight")
+    fig.savefig(outputfolder + figname + '.svg', bbox_inches="tight")
+    fig.savefig(outputfolder + figname + '.png', bbox_inches="tight", dpi=200)
+
     plt.close(fig)
 
     init_count_name = "init_count_mean" if type == "combo" else "init_count_s_mean"
     figname = (
-        "modelperformance_combo_plasmid.svg"
+        "modelperformance_combo_plasmid"
         if type == "combo"
-        else "modelperformance_single_plasmid.svg"
+        else "modelperformance_single_plasmid"
     )
     model_val = df[init_count_name].values
     data_val = df["plasmid"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(outputfolder + figname, bbox_inches="tight")
+    fig.savefig(outputfolder + figname + '.svg', bbox_inches="tight")
+    fig.savefig(outputfolder + figname + '.png', bbox_inches="tight", dpi=200)
     plt.close(fig)
