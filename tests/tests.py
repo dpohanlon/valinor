@@ -96,7 +96,7 @@ class ValinorReportTest(unittest.TestCase):
     def testWithCLIReport(self):
         # cwd: valinor
 
-        args += "--val_combo combsModel_cliTest.pq "
+        args = "--val_combo combsModel_cliTest.pq "
         args += "--val_single singlesModel_cliTest.pq "
         args += "--data_combo tests/data/dfCombs_sim.pq "
         args += "--data_single tests/data/dfSgl_sim.pq "
