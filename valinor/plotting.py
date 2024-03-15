@@ -19,19 +19,24 @@ fontsizes = [18, 16, 14]
 
 
 def plotLossCurve(loss, log=True, name=None, outputDir=""):
+
     plt.plot(np.log(loss))
     plt.ylabel("ELBO")
     plt.xlabel("Steps")
+
+    outputDir = "" if outputDir == "" else outputDir.strip("/") + "/"
+
     plt.savefig(
         f"{outputDir}valinor_loss.pdf"
         if name == None
         else f"{outputDir}valinor_loss_{name}.pdf"
     )
     plt.savefig(
-        "{outputDir}valinor_loss.svg"
+        f"{outputDir}valinor_loss.svg"
         if name == None
         else f"{outputDir}valinor_loss_{name}.svg"
     )
+
     plt.clf()
 
 
