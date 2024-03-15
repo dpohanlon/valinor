@@ -159,12 +159,6 @@ def create_missing_cols(df_combo, df_single):
             for a, p in df_combo[["guide1", "guide2"]].values
         ]
 
-    print(
-        df_combo.sample(20)[
-            ["genePair", "genePairUnoriented", "GuidePair", "GuidePairUnoriented"]
-        ]
-    )
-
     # create dictionary to map from gene1_uniq_index to gene1 name
     geneuniqidx2gene = (
         df_combo[["gene1_unq_index", "gene1"]]
@@ -542,7 +536,6 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
     Returns:
         tuple: A tuple containing two dictionaries, one for combination data stats (combs_attr) and one for singleton data stats (combs_attr_s).
     """
-    print(sorted(data.columns))
     av_replic_percln = "{:.2f}".format(
         data.groupby("cell_line")["replicate"].nunique().mean()
     )

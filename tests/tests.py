@@ -45,14 +45,6 @@ import os
 
 
 #     sp.check_call(f"valinor_sim {args}", shell=True)
-def list_directory_contents(path):
-    # Get a list of files and directories in the specified path
-    contents = os.listdir(path)
-    # Print the contents
-    print(">>>")
-    for item in contents:
-        print(item)
-    print("<<<<<<<<<<<<<<<<<<<<<<<<")
 
 
 class Test01ValinorSim(unittest.TestCase):
