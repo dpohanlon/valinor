@@ -6,6 +6,8 @@ import argparse
 
 import unittest
 
+import os
+
 
 # def testWithCLI():
 #     # cwd: valinor
@@ -41,13 +43,22 @@ import unittest
 
 #     args = "--out-dir tests/data "
 
+
 #     sp.check_call(f"valinor_sim {args}", shell=True)
+def list_directory_contents(path):
+    # Get a list of files and directories in the specified path
+    contents = os.listdir(path)
+    # Print the contents
+    print(">>>")
+    for item in contents:
+        print(item)
+    print("<<<<<<<<<<<<<<<<<<<<<<<<")
 
 
-class ValinorSimTest(unittest.TestCase):
-    # @classmethod
-    # def setUpClass(cls):
-    #     print("Setting up simulation data test class...")
+class Test01ValinorSim(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        print("Setting up simulation data test class...")
 
     def testGenerateData(self):
         # Call the simulator to generate some data for our tests
@@ -60,11 +71,11 @@ class ValinorSimTest(unittest.TestCase):
         sp.check_call(f"valinor_sim {args}", shell=True)
 
 
-class ValinorTest(unittest.TestCase):
-    # @classmethod
-    # def setUpClass(cls):
-    #     # This method runs once before the first test of this class
-    #     print("Setting up Valinor test class...")
+class Test02Valinor(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # This method runs once before the first test of this class
+        print("Setting up Valinor test class...")
 
     def testWithCLI(self):
         # cwd: valinor
@@ -92,9 +103,23 @@ class ValinorTest(unittest.TestCase):
         sp.check_call(f"valinor {args}", shell=True)
 
 
-class ValinorReportTest(unittest.TestCase):
+class Test03ValinorReport(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # This method runs once before the first test of this class
+        print("Setting up Valinor test REPORT class...")
+
     def testWithCLIReport(self):
         # cwd: valinor
+
+        directory_path = "."  # Replace with your directory path
+        list_directory_contents(directory_path)
+
+        directory_path = "tests/"  # Replace with your directory path
+        list_directory_contents(directory_path)
+
+        directory_path = "tests/data/"  # Replace with your directory path
+        list_directory_contents(directory_path)
 
         args = "--val_combo combsModel_cliTest.pq "
         args += "--val_single singlesModel_cliTest.pq "
@@ -112,11 +137,10 @@ class ValinorReportTest(unittest.TestCase):
 if __name__ == "__main__":
     # unittest test runner will automatically find all classes that inherit from unittest.TestCase in the module
     suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(ValinorSimTest))
-    suite.addTest(unittest.makeSuite(ValinorTest))
-    suite.addTest(unittest.makeSuite(ValinorReportTest))
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    for test_class in [Test01ValinorSim, Test02Valinor, Test03ValinorReport]:
+        tests = unittest.defaultTestLoader.loadTestsFromTestCase(test_class)
+        suite.addTests(tests)
+    unittest.TextTestRunner().run(suite)
     # argParser = argparse.ArgumentParser()
 
     # argParser.add_argument(
