@@ -104,15 +104,6 @@ class Test03ValinorReport(unittest.TestCase):
     def testWithCLIReport(self):
         # cwd: valinor
 
-        directory_path = "."  # Replace with your directory path
-        list_directory_contents(directory_path)
-
-        directory_path = "tests/"  # Replace with your directory path
-        list_directory_contents(directory_path)
-
-        directory_path = "tests/data/"  # Replace with your directory path
-        list_directory_contents(directory_path)
-
         args = "--val_combo combsModel_cliTest.pq "
         args += "--val_single singlesModel_cliTest.pq "
         args += "--data_combo tests/data/dfCombs_sim.pq "
