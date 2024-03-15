@@ -4,41 +4,110 @@ import subprocess as sp
 
 import argparse
 
+import unittest
 
-def testWithCLI():
-    # cwd: valinor
 
-    args = "--combinationsFile tests/data/dfCombs_sim.pq "
-    args += "--singletonsFile tests/data/dfSgl_sim.pq "
-    args += "--controlsFile tests/data/dfCalib_sim.pq "
-    args += "--epochs 10 "
-    args += "--nSamples 10 "
-    args += "-n cliTest "
+# def testWithCLI():
+#     # cwd: valinor
 
-    sp.check_call(f"valinor {args}", shell=True)
+#     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+#     args += "--singletonsFile tests/data/dfSgl_sim.pq "
+#     args += "--controlsFile tests/data/dfCalib_sim.pq "
+#     args += "--epochs 10 "
+#     args += "--nSamples 10 "
+#     args += "-n cliTest "
 
-def testWithCLIPriors():
-    # cwd: valinor
+#     sp.check_call(f"valinor {args}", shell=True)
 
-    args = "--combinationsFile tests/data/dfCombs_sim.pq "
-    args += "--singletonsFile tests/data/dfSgl_sim.pq "
-    args += "--controlsFile tests/data/dfCalib_sim.pq "
-    args += "--epochs 10 "
-    args += "--nSamples 10 "
-    args += "-n cliTest "
-    args += "--priorsFile tests/priors.yaml "
+#     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+#     args += "--singletonsFile tests/data/dfSgl_sim.pq "
+#     args += "--controlsFile tests/data/dfCalib_sim.pq "
+#     args += "--epochs 10 "
+#     args += "--nSamples 10 "
+#     args += "-n cliTest "
+#     args += "--priorsFile tests/priors.yaml "
 
-    sp.check_call(f"valinor {args}", shell=True)
+#     sp.check_call(f"valinor {args}", shell=True)
 
-def testGenerateData():
-    # Call the simulator to generate some data for our tests
+# def testWithCLIReport():
+#     # cwd: valinor
 
-    if not os.path.isdir("tests/data"):
-        os.mkdir("tests/data")
 
-    args = "--out-dir tests/data "
+# def testGenerateData():
+#     # Call the simulator to generate some data for our tests
 
-    sp.check_call(f"valinor_sim {args}", shell=True)
+#     if not os.path.isdir("tests/data"):
+#         os.mkdir("tests/data")
+
+#     args = "--out-dir tests/data "
+
+#     sp.check_call(f"valinor_sim {args}", shell=True)
+
+
+class TestCLI(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        # This method runs once before the first test of this class
+        print("Setting up class...")
+        # run setup that is common to all tests in this class, such as generating required data
+        cls.testGenerateData()
+
+    @classmethod
+    def testGenerateData():
+        # Call the simulator to generate some data for our tests
+
+        if not os.path.isdir("tests/data"):
+            os.mkdir("tests/data")
+
+        args = "--out-dir tests/data "
+
+        sp.check_call(f"valinor_sim {args}", shell=True)
+
+    def setUp(self):
+        # This method runs before each test method
+        print("Setting up for a test...")
+        self.testWithCLI()
+
+    def testWithCLI():
+        # cwd: valinor
+
+        args = "--combinationsFile tests/data/dfCombs_sim.pq "
+        args += "--singletonsFile tests/data/dfSgl_sim.pq "
+        args += "--controlsFile tests/data/dfCalib_sim.pq "
+        args += "--epochs 10 "
+        args += "--nSamples 10 "
+        args += "-n cliTest "
+
+        sp.check_call(f"valinor {args}", shell=True)
+
+    def testWithCLIPriors():
+        # cwd: valinor
+
+        args = "--combinationsFile tests/data/dfCombs_sim.pq "
+        args += "--singletonsFile tests/data/dfSgl_sim.pq "
+        args += "--controlsFile tests/data/dfCalib_sim.pq "
+        args += "--epochs 10 "
+        args += "--nSamples 10 "
+        args += "-n cliTest "
+        args += "--priorsFile tests/priors.yaml "
+
+        sp.check_call(f"valinor {args}", shell=True)
+
+    def testWithCLIReport(self):
+        # cwd: valinor
+
+        args += "--val_combo combsModel_cliTest.pq "
+        args += "--val_single singlesModel_cliTest.pq "
+        args += "--data_combo tests/data/dfCombs_sim.pq "
+        args += "--data_single tests/data/dfSgl_sim.pq "
+        args += "--output_file tests/valinoroutput_processed_cliTest.pq "
+        args += "--report_folder tests/valinorreport_cliTest "
+        args += "--valinorLossFile valinor_loss_cliTest.svg "
+        args += "--valinorConfigFile valinorrun_cliTest.json "
+        args += "--subsetSLpairs"
+
+        sp.check_call(f"valinorreport {args}", shell=True)
+
 
 if __name__ == "__main__":
     argParser = argparse.ArgumentParser()
