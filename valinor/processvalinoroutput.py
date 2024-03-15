@@ -103,6 +103,112 @@ def rename_gene_columns(df):
     return cols_rename
 
 
+def pairUnoriented(gset, g1, g2):
+
+    p = g1 + "_" + g2
+    rp = g2 + "_" + g1
+
+    if p in gset:
+        return p
+    elif rp in gset:
+        return rp
+    else:
+        gset.add(p)
+        return p
+
+
+def set_dtypes(df):
+    dtypes_toset = {
+        "gene1": "str",
+        "gene2": "str",
+        "cell_line": "str",
+        "guide1": "str",
+        "guide2": "str",
+        "replicate": "str",
+        "SingletonGene": "str",
+        "SingletonGuide": "str",
+        "GuidePair": "str",
+        "genePair": "str",
+    }
+    dtypes_toset = {i: j for i, j in dtypes_toset.items() if i in df.columns}
+    df = df.astype(dtypes_toset)
+    return df
+
+
+def create_missing_cols(df_combo, df_single):
+    genePairSet = set()
+    guidePairSet = set()
+
+    if "genePair" not in df_combo.columns:
+        df_combo["genePair"] = df_combo["gene1"] + "_" + df_combo["gene2"]
+    if "genePairUnoriented" not in df_combo.columns:
+        df_combo["genePairUnoriented"] = [
+            pairUnoriented(genePairSet, a, p)
+            for a, p in df_combo[["gene1", "gene2"]].values
+        ]
+    # if guide1 and guide2 columns are not set, then just use the guide index columns
+    if "guide1" not in df_combo.columns:
+        df_combo["guide1"] = df_combo["guide1_index"].astype(str)
+        df_combo["guide2"] = df_combo["guide2_index"].astype(str)
+        df_combo["GuidePair"] = df_combo["guide1"] + "_" + df_combo["guide2"]
+    if "GuidePair" not in df_combo.columns:
+        df_combo["GuidePair"] = df_combo["guide1"] + "_" + df_combo["guide2"]
+    if "GuidePairUnoriented" not in df_combo.columns:
+        df_combo["GuidePairUnoriented"] = [
+            pairUnoriented(guidePairSet, a, p)
+            for a, p in df_combo[["guide1", "guide2"]].values
+        ]
+
+    print(
+        df_combo.sample(20)[
+            ["genePair", "genePairUnoriented", "GuidePair", "GuidePairUnoriented"]
+        ]
+    )
+
+    # create dictionary to map from gene1_uniq_index to gene1 name
+    geneuniqidx2gene = (
+        df_combo[["gene1_unq_index", "gene1"]]
+        .drop_duplicates()
+        .set_index("gene1_unq_index")["gene1"]
+        .to_dict()
+    )
+    a = (
+        df_combo[["gene2_unq_index", "gene2"]]
+        .drop_duplicates()
+        .set_index("gene2_unq_index")["gene2"]
+        .to_dict()
+    )
+    geneuniqidx2gene = {**geneuniqidx2gene, **a}
+
+    guideidx2guide = (
+        df_combo[["guide1_index", "guide1"]]
+        .drop_duplicates()
+        .set_index("guide1_index")["guide1"]
+        .to_dict()
+    )
+    a = (
+        df_combo[["guide2_index", "guide2"]]
+        .drop_duplicates()
+        .set_index("guide2_index")["guide2"]
+        .to_dict()
+    )
+    guideidx2guide = {**guideidx2guide, **a}
+
+    if "SingletonGene" not in df_single.columns:
+        df_single["SingletonGene"] = df_single["gene1_unq_index"].map(
+            lambda x: geneuniqidx2gene[x]
+        )
+    if "SingletonGuide" not in df_single.columns:
+        df_single["SingletonGuide"] = df_single["guide1_index"].map(
+            lambda x: guideidx2guide[x]
+        )
+
+    if "GuidePair" not in df_single.columns:
+        df_single["GuidePair"] = df_single["guide_pair_index"].astype(str)
+
+    return (df_combo, df_single)
+
+
 def load_datasets(data_combo, data_single, val_combo, val_single):
     """
     Loads and processes the datasets for the Valinor model.
@@ -122,8 +228,10 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
     """
 
     score = pd.read_parquet(val_combo)
+    score = set_dtypes(score)
 
     score_s = pd.read_parquet(val_single) if val_single else None
+    score_s = set_dtypes(score_s)
 
     dataset_name = "combs"
     data = (
@@ -131,6 +239,7 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
         if "h5" in data_combo
         else pd.read_parquet(data_combo)
     )
+    data = set_dtypes(data)
 
     dataset_name = "singles"
     if data_single:
@@ -141,12 +250,14 @@ def load_datasets(data_combo, data_single, val_combo, val_single):
         )
     else:
         data_s = None
+    data_s = set_dtypes(data_s)
 
     # sometimes there are no gene1 or gene2 columns but there are named after e.g. the promoter U6/H1 or Cas9 enzyme Pyogenes/Aureus
     # find the columns that correspond to gene1/gene2 and rename them
     # in the singleton file there will be a SingletonGene and SingletonGuide column, so this conversion is not necessary
     cols_rename = rename_gene_columns(data)
     data = data.rename(columns=cols_rename)
+    data, data_s = create_missing_cols(data, data_s)
 
     return (data, data_s, score, score_s)
 
@@ -431,7 +542,7 @@ def create_overview_stats(data, data_s, data_combo, data_single, val_combo, val_
     Returns:
         tuple: A tuple containing two dictionaries, one for combination data stats (combs_attr) and one for singleton data stats (combs_attr_s).
     """
-
+    print(sorted(data.columns))
     av_replic_percln = "{:.2f}".format(
         data.groupby("cell_line")["replicate"].nunique().mean()
     )
@@ -632,12 +743,7 @@ def process_valinor_pred(
 
 
 def run_processvalinor(
-    valinorPriorFile,
-    data_combo,
-    data_single,
-    val_combo,
-    val_single,
-    report_folder
+    valinorPriorFile, data_combo, data_single, val_combo, val_single, report_folder
 ):
     if valinorPriorFile:
         with open(valinorPriorFile, "r") as file:
@@ -654,7 +760,7 @@ def run_processvalinor(
         prior_params,
     )
 
-    return(scoreData_combined)
+    return scoreData_combined
 
 
 def main():
@@ -695,7 +801,7 @@ def main():
         args.data_single,
         args.val_combo,
         args.val_single,
-        args.report_folder
+        args.report_folder,
     )
 
     scoreData_combined.to_parquet(args.output_file)
