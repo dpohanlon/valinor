@@ -8,9 +8,9 @@ import argparse
 def testWithCLI():
     # cwd: valinor
 
-    args = "--combinationsFile tests/data/dfCombs_ace.pq "
-    args += "--singletonsFile tests/data/dfSgl_ace.pq "
-    args += "--controlsFile tests/data/dfCalib_ace.pq "
+    args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    args += "--controlsFile tests/data/dfCalib_sim.pq "
     args += "--epochs 10 "
     args += "--nSamples 10 "
     args += "-n cliTest "
@@ -20,9 +20,9 @@ def testWithCLI():
 def testWithCLIPriors():
     # cwd: valinor
 
-    args = "--combinationsFile tests/data/dfCombs_ace.pq "
-    args += "--singletonsFile tests/data/dfSgl_ace.pq "
-    args += "--controlsFile tests/data/dfCalib_ace.pq "
+    args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    args += "--controlsFile tests/data/dfCalib_sim.pq "
     args += "--epochs 10 "
     args += "--nSamples 10 "
     args += "-n cliTest "
@@ -30,17 +30,15 @@ def testWithCLIPriors():
 
     sp.check_call(f"valinor {args}", shell=True)
 
-def generateData():
+def testGenerateData():
     # Call the simulator to generate some data for our tests
 
     if not os.path.isdir("tests/data"):
         os.mkdir("tests/data")
 
-    args = "simulation/dkoSim.py "
-    args += "--out-dir tests/data "
+    args = "--out-dir tests/data "
 
-    sp.check_call(f"python {args}", shell=True)
-
+    sp.check_call(f"valinor_sim {args}", shell=True)
 
 if __name__ == "__main__":
     argParser = argparse.ArgumentParser()
@@ -56,7 +54,7 @@ if __name__ == "__main__":
     args = argParser.parse_args()
 
     if args.generate_input:
-        generateData()
+        testGenerateData()
 
     else:
         testWithCLI()

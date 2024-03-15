@@ -132,3 +132,5 @@ dmypy.json
 *.pdf
 *.pq
 *.h5
+*.png
+*.pkl
