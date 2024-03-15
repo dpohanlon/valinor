@@ -77,11 +77,15 @@ def runValinor(
         guide_config=config["guide_config"],
     )
 
-    plotDiagPlots(svi_result, name=config["name"])
+    outputDir = ""
+    if config["outputDir"] != outputDir:
+        outputDir = f"{config['outputDir'].strip('/')}/"
+
+    plotDiagPlots(svi_result, name=config["name"], outputDir=outputDir)
 
     params = svi_result.params
 
-    saveModelParams(params, config["paramsFileName"])
+    saveModelParams(params, f'{outputDir}{config["paramsFileName"]}')
 
     # Run selected post-processing, save samples, make plots, etc
 
@@ -122,15 +126,17 @@ def runValinor(
 
     combsDF = createDataFrame(sampledParams["combs"])
     combsDF.to_parquet(
-        "combsModel.pq" if config["name"] is None else f"combsModel_{config['name']}.pq"
+        f"{outputDir}combsModel.pq"
+        if config["name"] is None
+        else f"{outputDir}combsModel_{config['name']}.pq"
     )
 
     if config["no_singletons"] == False:
         singlesDF = createDataFrame(sampledParams["singles"])
         singlesDF.to_parquet(
-            "singlesModel.pq"
+            f"{outputDir}singlesModel.pq"
             if config["name"] is None
-            else f"singlesModel_{config['name']}.pq"
+            else f"{outputDir}singlesModel_{config['name']}.pq"
         )
 
     # save the config to a json
@@ -183,6 +189,10 @@ def makeArgs():
 
     argParser.add_argument(
         "-n", type=str, dest="name", default=None, help="Output name."
+    )
+
+    argParser.add_argument(
+        "-o", type=str, dest="outputDir", default="", help="Output directory."
     )
 
     argParser.add_argument(
