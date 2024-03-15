@@ -44,16 +44,12 @@ import unittest
 #     sp.check_call(f"valinor_sim {args}", shell=True)
 
 
-class TestCLI(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        # This method runs once before the first test of this class
-        print("Setting up class...")
-        # run setup that is common to all tests in this class, such as generating required data
-        cls.testGenerateData()
+class ValinorSimTest(unittest.TestCase):
+    # @classmethod
+    # def setUpClass(cls):
+    #     print("Setting up simulation data test class...")
 
-    @classmethod
-    def testGenerateData():
+    def testGenerateData(self):
         # Call the simulator to generate some data for our tests
 
         if not os.path.isdir("tests/data"):
@@ -63,12 +59,14 @@ class TestCLI(unittest.TestCase):
 
         sp.check_call(f"valinor_sim {args}", shell=True)
 
-    def setUp(self):
-        # This method runs before each test method
-        print("Setting up for a test...")
-        self.testWithCLI()
 
-    def testWithCLI():
+class ValinorTest(unittest.TestCase):
+    # @classmethod
+    # def setUpClass(cls):
+    #     # This method runs once before the first test of this class
+    #     print("Setting up Valinor test class...")
+
+    def testWithCLI(self):
         # cwd: valinor
 
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
@@ -80,7 +78,7 @@ class TestCLI(unittest.TestCase):
 
         sp.check_call(f"valinor {args}", shell=True)
 
-    def testWithCLIPriors():
+    def testWithCLIPriors(self):
         # cwd: valinor
 
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
@@ -93,6 +91,8 @@ class TestCLI(unittest.TestCase):
 
         sp.check_call(f"valinor {args}", shell=True)
 
+
+class ValinorReportTest(unittest.TestCase):
     def testWithCLIReport(self):
         # cwd: valinor
 
@@ -110,21 +110,28 @@ class TestCLI(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    argParser = argparse.ArgumentParser()
+    # unittest test runner will automatically find all classes that inherit from unittest.TestCase in the module
+    suite = unittest.TestSuite()
+    suite.addTest(unittest.makeSuite(ValinorSimTest))
+    suite.addTest(unittest.makeSuite(ValinorTest))
+    suite.addTest(unittest.makeSuite(ValinorReportTest))
+    runner = unittest.TextTestRunner()
+    runner.run(suite)
+    # argParser = argparse.ArgumentParser()
 
-    argParser.add_argument(
-        "--generate-input",
-        action="store_true",
-        dest="generate_input",
-        default=False,
-        help="Generate a simulated input dataset for integration testing.",
-    )
+    # argParser.add_argument(
+    #     "--generate-input",
+    #     action="store_true",
+    #     dest="generate_input",
+    #     default=False,
+    #     help="Generate a simulated input dataset for integration testing.",
+    # )
 
-    args = argParser.parse_args()
+    # args = argParser.parse_args()
 
-    if args.generate_input:
-        testGenerateData()
+    # if args.generate_input:
+    #     testGenerateData()
 
-    else:
-        testWithCLI()
-        testWithCLIPriors()
+    # else:
+    #     testWithCLI()
+    #     testWithCLIPriors()
