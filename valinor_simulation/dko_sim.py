@@ -206,6 +206,7 @@ def addReplicates(df, nReplicates, od=20, returnCounts=False):
 
     return newDF
 
+
 def set_random_elements_to_zero(arr, num_zeros):
     """Sets a specified number of random elements in a NumPy array to zero.
 
@@ -231,14 +232,23 @@ def set_random_elements_to_zero(arr, num_zeros):
 
     return arr, zero_indices.tolist()
 
-def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts, contextSynVal = 0.1):
 
+def populate_unique_contexts(
+    uniqueFrac,
+    nGenes,
+    nCellLines,
+    context_matrices,
+    cell_line_to_contexts,
+    contextSynVal=0.1,
+):
     # Last context matrix per cell line always be the unique one when saved
 
     uniqueN = int(uniqueFrac * nGenes * nGenes)
     # mask for these in context matrices, set all others for this gene to be zero
 
-    uniqueContextsMask, uniqueContextIds = set_random_elements_to_zero(np.ones((nGenes, nGenes)), uniqueN)
+    uniqueContextsMask, uniqueContextIds = set_random_elements_to_zero(
+        np.ones((nGenes, nGenes)), uniqueN
+    )
 
     # Clear contexts otherwise
 
@@ -247,9 +257,10 @@ def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, c
 
     giPerCellLine = uniqueN // nCellLines
 
-    for  c in range(nCellLines):
-
-        pairsThisCellLine = np.array(uniqueContextIds[c * giPerCellLine : (c + 1) * giPerCellLine])
+    for c in range(nCellLines):
+        pairsThisCellLine = np.array(
+            uniqueContextIds[c * giPerCellLine : (c + 1) * giPerCellLine]
+        )
         row_indices, col_indices = np.array(pairsThisCellLine).T
 
         # Symmetric (to avoid dropping after 'symmetrisation'!)
@@ -260,9 +271,12 @@ def populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, c
         # Append this to the set of context GIs and
 
         context_matrices.append(uniqueContext)
-        cell_line_to_contexts[c] = list(cell_line_to_contexts[c]) + [len(context_matrices) - 1]
+        cell_line_to_contexts[c] = list(cell_line_to_contexts[c]) + [
+            len(context_matrices) - 1
+        ]
 
     return context_matrices, cell_line_to_contexts
+
 
 def makeDataset(
     nCellLines,
@@ -310,8 +324,23 @@ def makeDataset(
     )
 
     if uniqueFrac != None:
+        uniqueN = int(uniqueFrac * nGenes * nGenes)
+        giPerCellLine = uniqueN // nCellLines
 
-        context_matrices, cell_line_to_contexts = populate_unique_contexts(uniqueFrac, nGenes, nCellLines, context_matrices, cell_line_to_contexts, contextSynVal)
+        if giPerCellLine > 0:
+            context_matrices, cell_line_to_contexts = populate_unique_contexts(
+                uniqueFrac,
+                nGenes,
+                nCellLines,
+                context_matrices,
+                cell_line_to_contexts,
+                contextSynVal,
+            )
+
+        else:
+            print(
+                "WARNING: Context specific GI selected, but this would end up being fewer than one pair per cell line! \nNot generating unique GI pairs (increase uniqueFrac)."
+            )
 
     sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
     plt.ylabel("Gene")
@@ -411,6 +440,10 @@ def makeDataset(
     dfCombs["cell_line_index"] = dfCombs["cell_line"]
     dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
     dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
+
+    sns.kdeplot(dfCombs, x="syn", clip=(-0.2, 0.2))
+    plt.savefig("syn.pdf")
+    plt.clf()
 
     dfCombs.to_parquet(f"{outDir}/dfCombs_{name}.pq")
 
@@ -591,7 +624,7 @@ def run():
         "--uniqueFrac",
         type=float,
         dest="uniqueFrac",
-        default=None, # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
+        default=None,  # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
         help="Fraction of GI unique pairs per cell line.",
     )
 
@@ -615,8 +648,8 @@ def run():
         nInitialCells=args.nInitialCells,
         nGuidesPerGene=args.nGuidesPerGene,
         od=args.od,
-        uniqueFrac = args.uniqueFrac,
-        contextSynVal = args.contextSynVal,
+        uniqueFrac=args.uniqueFrac,
+        contextSynVal=args.contextSynVal,
         outDir=args.out_dir,
         name=args.name,
     )

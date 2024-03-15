@@ -57,7 +57,7 @@ def generate_context_matrices(
             # Generate a random multiplier between 0 and scale for the interaction
             # multiplier = np.random.uniform(0, scale)
 
-            multiplier = np.random.normal(scale, scale / 5)
+            multiplier = np.random.normal(scale, scale)  # Set this more intelligently?
             multiplier *= np.random.choice([1, -1])
 
             context_matrix[pair[0], pair[1]] = multiplier

@@ -18,7 +18,7 @@ import numpy as np
 fontsizes = [18, 16, 14]
 
 
-def plotLossCurve(loss, log=True, name=None):
+def plotLossCurve(loss, log=True, name=None, outputDir=""):
     plt.plot(np.log(loss))
     plt.ylabel("ELBO")
     plt.xlabel("Steps")

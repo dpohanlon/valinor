@@ -70,7 +70,7 @@ def populateCombinationDF(dko, returnCounts=False):
     guide_pairs = [genePairStr(g1, g2) for g1, g2 in rnaIdx]
 
     # Where orientation matters
-    guide_pairs_o = [str(g1) + '~' + str(g2) for g1, g2 in rnaIdx]
+    guide_pairs_o = [str(g1) + "~" + str(g2) for g1, g2 in rnaIdx]
 
     # Remove pairs where g1 = g2
 
