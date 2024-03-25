@@ -321,10 +321,10 @@ def normReps(data):
     return normedData
 
 
-def loadData(countsFile, library, nonEssentials):
+def loadData(countsFile, library, controls):
 
     # inputs
-    # non essentials list nonEssentials
+    # non essentials list controls
     # controls annotation (0 0 and 0 gene)
 
     data = pd.read_csv(countsFile, low_memory=False)
@@ -347,11 +347,6 @@ def loadData(countsFile, library, nonEssentials):
 
     dataM = pd.melt(data, id_vars=id_vars)
 
-    #  Done beforehand - inserted into cell_line, replicate
-    reps = dataM["variable"].apply(getReplicates)
-
-    dataM[["cell_line", "replicate"]] = pd.DataFrame(reps.tolist(), index=dataM.index)
-
     dataM["lfc_scaled"] = calculateScaledLFC(dataM)
 
     dataM["lfc_norm_scaled"] = calculateScaledLFC(
@@ -372,42 +367,22 @@ def loadData(countsFile, library, nonEssentials):
 
     dataM = dataM[dataM["gene1"] != dataM["gene2"]]
 
-    controlsM = dataM[dataM["Note1"] == "NegativeControls"]
+    controlsM = dataM[dataM["controls"] == 1]
 
-    # Really gotta be careful about these for different input files, and they differ A LOT
+    singlesM = dataM[dataM["singles"] == 1]
 
-    singlesM = dataM[
-        dataM["Note2"].isin(
-            [
-                "AnchorSingletons",
-                "LibrarySingletons",
-                "GIControlsSingletons",
-                "GISingletons",
-            ]
-        )
-    ]
-
-    dataM = dataM[
-        dataM["Note2"].isin(
-            [
-                "AnchorCombinations",
-                "LibraryCombinations",
-                "GIControlsCombinations",
-                "GICombinations",
-            ]
-        )
-    ]
+    dataM = dataM[dataM["combinations"] == 1]
 
     singlesM["SingletonPosition"] = [
-        "1" if x[0] not in nonEssentials else "2"
+        "1" if x[0] not in controls else "2"
         for x in singlesM[["gene1", "gene2"]].values
     ]
     singlesM["SingletonGene"] = [
-        x[0] if x[0] not in nonEssentials else x[1]
+        x[0] if x[0] not in controls else x[1]
         for x in singlesM[["gene1", "gene2"]].values
     ]
     singlesM["SingletonGuide"] = [
-        x[2] if x[0] not in nonEssentials else x[3]
+        x[2] if x[0] not in controls else x[3]
         for x in singlesM[["gene1", "gene2", "guide1", "guide2"]].values
     ]
     singlesM["SingletonGuide_o"] = (
@@ -545,9 +520,11 @@ def processInputs(countsFiles, outDir, libraries, name):
             library,
         )
 
-        d.to_parquet(f"{outDir}/encore-{library}-combs.pq")
-        s.to_parquet(f"{outDir}/encore-{library}-singles.pq")
-        c.to_parquet(f"{outDir}/encore-{library}-controls.pq")
+        if len(library) > 1:
+
+            d.to_parquet(f"{outDir}/encore-{library}-combs.pq")
+            s.to_parquet(f"{outDir}/encore-{library}-singles.pq")
+            c.to_parquet(f"{outDir}/encore-{library}-controls.pq")
 
         d["library"] = library
         s["library"] = library
