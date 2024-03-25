@@ -439,15 +439,13 @@ def loadData(
 def calculateScaling(
     data,
     lfcVar="lfc",
-    posControlsID="PositiveControls",
-    negControlsID="NegativeControls",
+    posControlsVar="PositiveControls",
+    negControlsVar="NegativeControls",
+    controlsID="Control",
 ):
 
-    posControls = data[data["Note1"] == "PositiveControls"].copy()
-    posControls["controlGene"] = posControlGene(posControls)
-    posControls = posControls[posControls["controlGene"].isin(bagel_essentials)]
-
-    negControls = data[data["Note1"] == "NegativeControls"]
+    posControls = data[data[controlsID] == posControlsVar].copy()
+    negControls = data[data[controlsID] == negControlsVar].copy()
 
     return np.median(posControls[lfcVar].values), np.median(negControls[lfcVar].values)
 
@@ -457,21 +455,29 @@ def applyScaling(posMedian, negMedian, lfc):
     return (negMedian - lfc) / (posMedian - negMedian)
 
 
-def calculateScaledLFC(data, valueVar="value", plasmidVar="plasmid", lfcVar="lfc"):
+def calculateScaledLFC(
+    data,
+    valueVar="value",
+    plasmidVar="plasmid",
+    lfcVar="lfc",
+    posControlsVar="PositiveControls",
+    negControlsVar="NegativeControls",
+    controlsID="Control",
+):
 
     data[lfcVar] = np.log2((data[valueVar].values + 1) / (data[plasmidVar].values + 1))
 
     posControls = {}
     negControls = {}
 
-    # Scale by CSID rather than CPID (replicate level)
-    for n, g in data.groupby("CSID"):
+    # Assuming cell_lines are experiments
+    for n, g in data.groupby("cell_line"):
         pos, neg = calculateScaling(g)
         posControls[n] = pos
         negControls[n] = neg
 
-    data["negMedian"] = data["CSID"].map(lambda x: negControls[x])
-    data["posMedian"] = data["CSID"].map(lambda x: posControls[x])
+    data["negMedian"] = data["cell_line"].map(lambda x: negControls[x])
+    data["posMedian"] = data["cell_line"].map(lambda x: posControls[x])
 
     lfc_scaled = applyScaling(
         data["posMedian"].values, data["negMedian"].values, data[lfcVar].values
