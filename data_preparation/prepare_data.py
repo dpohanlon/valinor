@@ -321,16 +321,13 @@ def normReps(data):
     return normedData
 
 
-def loadData(
-    countsFile, library, both_orientations, only_anchors, only_GI, filter_paralogs
-):
+def loadData(countsFile, library, nonEssentials):
 
     # inputs
     # non essentials list nonEssentials
-    # plasmid name plasmidLibrary
     # controls annotation (0 0 and 0 gene)
 
-    data = pd.read_csv(countsFile, low_memory=False, sep="\t")
+    data = pd.read_csv(countsFile, low_memory=False)
 
     # Transform and fill entries
 
@@ -340,17 +337,15 @@ def loadData(
     # Also have a passenger vars here?
 
     id_vars = [
-        "sgRNA1_ID",
-        "sgRNA2_ID",
-        f"lib-{plasmidLibrary}",
-        "Gene1",
-        "Gene2",
+        "guide1",
+        "guide2",
+        "plasmid",
+        "gene1",
+        "gene2",
         "sgRNA",
     ]
 
     dataM = pd.melt(data, id_vars=id_vars)
-
-    dataM = dataM.rename(columns={f"lib-{plasmidLibrary}": "plasmid"})
 
     #  Done beforehand - inserted into cell_line, replicate
     reps = dataM["variable"].apply(getReplicates)
@@ -361,15 +356,6 @@ def loadData(
 
     dataM["lfc_norm_scaled"] = calculateScaledLFC(
         dataM, valueVar="value_norm", lfcVar="lfc_norm"
-    )
-
-    dataM = dataM.rename(
-        columns={
-            "sgRNA1_ID": "guide1",
-            "sgRNA2_ID": "guide2",
-            "Gene1": "gene1",
-            "Gene2": "gene2",
-        }
     )
 
     dataM["genePair"] = dataM["gene1"] + "_" + dataM["gene2"]
@@ -411,10 +397,6 @@ def loadData(
             ]
         )
     ]
-
-    if filter_paralogs:
-
-        dataM, singlesM, controlsM = filterParalogs(dataM, singlesM, controlsM)
 
     singlesM["SingletonPosition"] = [
         "1" if x[0] not in nonEssentials else "2"
@@ -638,6 +620,13 @@ if __name__ == "__main__":
         help="Output directory.",
     )
     argParser.add_argument(
+        "-n",
+        type=str,
+        dest="name",
+        default=".",
+        help="Output file name.",
+    )
+    argParser.add_argument(
         "-l",
         "--libraries",
         type=str,
@@ -649,8 +638,4 @@ if __name__ == "__main__":
 
     args = argParser.parse_args()
 
-    processInputs(
-        args.countsFiles,
-        args.outDir,
-        args.libraries,
-    )
+    processInputs(args.countsFiles, args.outDir, args.libraries, args.name)
