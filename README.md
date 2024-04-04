@@ -81,9 +81,9 @@ Create the report: use the `subsetSLpairs` flag if you have many genepairs and m
 ```bash
 cd valinor
 python build_report.py \
-      --combfile ../valinoroutput_processed.pq \
-      --valinorLossFile ../valinor_loss_duspoutput.svg \
-      --valinorConfigFile ../valinorrun_duspoutput.json \
+      --combfile ../valinoroutput_processed_ito.pq \
+      --valinorLossFile ../valinor_loss_ito.svg \
+      --valinorConfigFile ../valinorrun_ito.json \
       --report_folder ../valinorreport \
       --subsetSLpairs
 ```
@@ -93,6 +93,6 @@ Create static plots
 ---
 This script creates some plots to investigate Valinor's output using static images instead of using the report. This is recommended when having a lot of gene pairs and cell lines.
 ```bash
-python produce_plots.py --combfile ../valinoroutput_processed.pq --output_folder ../valinoroutputplots
+python produce_plots.py --combfile ../valinoroutput_processed_ito.pq --output_folder ../valinoroutputplots
 ```
 Plots will be found in the specified `output_folder`. Within that folder there will be a `topSLgenepairs` directory, that contains plots for gene pairs that were among the top 10 most synthetic lethal gene pairs per cell line.
