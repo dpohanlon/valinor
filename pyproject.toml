@@ -11,8 +11,8 @@ include = ["valinor/valinorreport/template_tabs.html","valinor/valinorreport/fav
 [tool.poetry.dependencies]
 python = "^3.9"
 h5py = "^3.9.0"
-jax = "^0.4.14, <0.4.24"
-jaxlib = "^0.4.14, <0.4.24"
+jax = "^0.4.14"
+jaxlib = "^0.4.14"
 numpy = "^1.25.2"
 pandas = "<2.0"
 numpyro = "^0.14.0"
