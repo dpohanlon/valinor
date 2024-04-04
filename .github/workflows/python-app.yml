@@ -28,9 +28,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install nose2
         pip install -e .
-    # - name: Create test data
-    #   run: |
-    #     python tests/tests.py --generate-input
     - name: Test with nose2
       run: |
         nose2
