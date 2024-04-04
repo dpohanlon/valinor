@@ -2,11 +2,11 @@
 name = "valinor"
 version = "0.1.0"
 description = ""
-authors = ["Daniel O'Hanlon <dpohanlon@gmail.com>", "Paula Weidemüller <pweide@ebi.ac.uk>"]
+authors = ["Daniel O'Hanlon <dpohanlon@gmail.com>","Paula Weidemüller <pweide@ebi.ac.uk>"]
 license = "MIT"
 readme = "README.md"
 
-include = ["valinor/valinorreport/template_tabs.html", "valinor/valinorreport/favicon.ico", "valinor/valinorreport/valinor.png", "valinor/valinorreport/valinor_white.png"]
+include = ["valinor/valinorreport/template_tabs.html","valinor/valinorreport/favicon.ico","valinor/valinorreport/valinor.png","valinor/valinorreport/valinor_white.png"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -15,7 +15,7 @@ jax = "^0.4.14, <0.4.24"
 jaxlib = "^0.4.14, <0.4.24"
 numpy = "^1.25.2"
 pandas = "<2.0"
-numpyro = "^0.12.1"
+numpyro = "^0.14.0"
 seaborn = "^0.12.2"
 matplotlib = "^3.7.2"
 tqdm = "^4.65.1"
