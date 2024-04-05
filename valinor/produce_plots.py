@@ -535,11 +535,11 @@ def main():
         )
         plt.close(fig)
 
-        yaxis = {"name": "guide_eff_1_mean", "label": naming_cols["guide_eff_1_mean"]}
         xaxis = {
             "name": "lfc_s_1",
             "label": naming_cols["lfc_s_1"].replace("gene", "guide"),
         }
+        yaxis = {"name": "guide_eff_1_mean", "label": naming_cols["guide_eff_1_mean"]}
         fig, ax = plot_scatter_singleguidelevel(
             scoreData_combined, "guide1", xaxis, yaxis
         )
@@ -566,11 +566,11 @@ def main():
         )
         plt.close(fig)
 
-        xaxis = {"name": "guide_eff_2_mean", "label": naming_cols["guide_eff_2_mean"]}
         xaxis = {
             "name": "lfc_s_2",
             "label": naming_cols["lfc_s_2"].replace("gene", "guide"),
         }
+        yaxis = {"name": "guide_eff_2_mean", "label": naming_cols["guide_eff_2_mean"]}
         fig, ax = plot_scatter_singleguidelevel(
             scoreData_combined, "guide2", xaxis, yaxis
         )
