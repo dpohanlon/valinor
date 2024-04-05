@@ -9,7 +9,7 @@ import unittest
 import os
 
 
-class TestValinorSim(unittest.TestCase):
+class Test01ValinorSim(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         print("Setting up simulation data test class...")
@@ -23,7 +23,7 @@ class TestValinorSim(unittest.TestCase):
         sp.check_call(f"valinor_sim {args}", shell=True)
 
 
-class TestValinor(unittest.TestCase):
+class Test02Valinor(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         print("Setting up Valinor test class...")
@@ -54,7 +54,7 @@ class TestValinor(unittest.TestCase):
         sp.check_call(f"valinor {args}", shell=True)
 
 
-class TestValinorReport(unittest.TestCase):
+class Test03ValinorReport(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         print("Setting up Valinor test REPORT class...")
