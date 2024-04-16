@@ -53,6 +53,19 @@ class Test02Valinor(unittest.TestCase):
 
         sp.check_call(f"valinor {args}", shell=True)
 
+    def testWithZINB(self):
+        # cwd: valinor
+
+        args = "--combinationsFile tests/data/dfCombs_sim.pq "
+        args += "--singletonsFile tests/data/dfSgl_sim.pq "
+        args += "--controlsFile tests/data/dfCalib_sim.pq "
+        args += "--epochs 10 "
+        args += "--nSamples 10 "
+        args += "-n zinbTest "
+        args += "--ZINB"
+
+        sp.check_call(f"valinor {args}", shell=True)
+
 
 class Test03ValinorReport(unittest.TestCase):
     @classmethod

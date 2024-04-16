@@ -10,6 +10,13 @@ from typing import Dict, Any
 import numpy as np
 
 
+def negativeBinomial(mean, od, zi=False):
+    if zi is False:
+        return dist.NegativeBinomial2(mean, od)
+    else:
+        return dist.ZeroInflatedNegativeBinomial2(mean, od, gate=zi)
+
+
 def dkoLikelihoodInitial(init_theta: float) -> Distribution:
     """
     Returns a Poisson distribution with the provided parameter.
@@ -35,6 +42,7 @@ def dkoLikelihoodFinal(
     gene_ko_growth_12: float,
     mv: float,
     library_bias: float,
+    p_zi: float,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -64,7 +72,7 @@ def dkoLikelihoodFinal(
 
     theta *= init_theta
 
-    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
+    return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
 def dkoLikelihoodFullFinal(
@@ -77,6 +85,7 @@ def dkoLikelihoodFullFinal(
     gene_ko_growth_12: float,
     mv: float,
     library_bias: float,
+    p_zi: float,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -109,7 +118,7 @@ def dkoLikelihoodFullFinal(
 
     theta = jax.nn.softplus(theta)
 
-    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
+    return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
@@ -134,6 +143,7 @@ def skoLikelihoodFinal(
     mv: float,
     library_bias: float,
     alternate: bool = False,
+    p_zi=False,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -161,6 +171,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_12=0.0,
             mv=mv,
             library_bias=library_bias,
+            p_zi=p_zi,
         )
 
     else:
@@ -174,6 +185,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_12=0.0,
             mv=mv,
             library_bias=library_bias,
+            p_zi=p_zi,
         )
 
 
@@ -184,7 +196,7 @@ def controlLikelihoodFinal(
 ) -> Distribution:
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
-    return dist.NegativeBinomial2(theta, theta * mv / (1 - mv)), theta
+    return negativeBinomial(theta, theta * mv / (1 - mv)), theta
 
 
 def sample_guide_distributions(
@@ -321,6 +333,7 @@ def sample_dko_distributions(
     inv_mv_mean,
     inv_mv_std,
     alternate: bool = False,
+    p_zi=False,
 ):
     with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
         init_l, init_s = prior_params["init_count"]
@@ -396,6 +409,7 @@ def sample_dko_distributions(
             gene_ko_growth_12,
             mv,
             library_bias=1.0,
+            p_zi=p_zi,
         )
 
     else:
@@ -409,6 +423,7 @@ def sample_dko_distributions(
             gene_ko_growth_12,
             mv,
             library_bias=1.0,
+            p_zi=p_zi,
         )
 
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
@@ -428,6 +443,7 @@ def sample_sko_distributions(
     inv_mv_std,
     library_bias,
     alternate: bool = False,
+    p_zi=False,
 ):
     with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
@@ -466,6 +482,7 @@ def sample_sko_distributions(
         mv_s,
         library_bias_s,
         alternate,
+        p_zi,
     )
 
     numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
@@ -531,6 +548,7 @@ def valinorHierarchy(
     no_controls: bool = True,
     alternate: bool = False,
     guide_config: str = "partial_pooling",
+    zi=False,
 ) -> None:
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
@@ -540,6 +558,13 @@ def valinorHierarchy(
         inv_mv_std,
         library_bias,
     ) = sample_cell_line_distributions(lengths, prior_params)
+
+    if zi != False:
+        # Probability of inflated zeros
+        p_zi = numpyro.sample(
+            "p_zi",
+            dist.TruncatedNormal(loc=0.05, scale=0.1, low=0.0, high=1.0),
+        )
 
     if not only_singletons:
         sample_dko_distributions(
@@ -553,6 +578,7 @@ def valinorHierarchy(
             inv_mv_mean,
             inv_mv_std,
             alternate,
+            p_zi if zi else False,
         )
     if not no_singletons:
         sample_sko_distributions(
@@ -567,6 +593,7 @@ def valinorHierarchy(
             inv_mv_std,
             library_bias,
             alternate,
+            p_zi if zi else False,
         )
     if not no_controls:
         sample_control_distributions(

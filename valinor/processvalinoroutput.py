@@ -104,7 +104,6 @@ def rename_gene_columns(df):
 
 
 def pairUnoriented(gset, g1, g2):
-
     p = g1 + "_" + g2
     rp = g2 + "_" + g1
 
