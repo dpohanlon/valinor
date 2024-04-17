@@ -56,8 +56,11 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
     means, stds = averageOverSamples(paramSamples)
 
     for k in set(paramSamples.keys()) - set(lhSamples):
-        df[f"{k}_mean"] = means[k]
-        df[f"{k}_std"] = stds[k]
+        df[f"{k}_mean"] = means[k] if len(means[k]) > 1 else list(means[k])[0]
+        df[f"{k}_std"] = stds[k] if len(stds[k]) > 1 else list(stds[k])[0]
+
+        df[f"{k}_mean"] = df[f"{k}_mean"].astype(float)
+        df[f"{k}_std"] = df[f"{k}_std"].astype(float)
 
     return df
 
@@ -86,6 +89,8 @@ def sampleParams(
 
     singletons = "guide_init_count_s" in samples
     controls = "guide_init_count_c" in samples
+
+    zi = "p_zi" in samples
 
     if singletons:
         singlesParams = {}
@@ -116,6 +121,9 @@ def sampleParams(
 
         singlesParams["mv_s"] = 1.0 / samples["inv_mv_s"]
 
+        if zi:
+            singlesParams["p_zi"] = samples["p_zi"].reshape(-1, 1)
+
         # Can also add sample_shape if we want to control samples further
 
         singlesParams["samples_s_init"] = models.skoLikelihoodInitial(
@@ -130,6 +138,7 @@ def sampleParams(
             singlesParams["mv_s"],
             singlesParams["library_bias_s"],
             alternate,
+            singlesParams["p_zi"] if zi else zi,
         )[0].sample(random.PRNGKey(42))
 
         params["singles"] = singlesParams
@@ -206,6 +215,9 @@ def sampleParams(
 
     combsParams["mv"] = 1.0 / samples["inv_mv"]
 
+    if zi:
+        combsParams["p_zi"] = samples["p_zi"].reshape(-1, 1)
+
     combsParams["samples_init"] = models.dkoLikelihoodInitial(
         combsParams["init_count"]
     )[0].sample(random.PRNGKey(42))
@@ -226,6 +238,7 @@ def sampleParams(
             combsParams["gene_ko_growth_12"],
             combsParams["mv"],
             1.0,
+            combsParams["p_zi"] if zi else zi,
         )[0].sample(random.PRNGKey(42))
 
     else:
@@ -240,6 +253,7 @@ def sampleParams(
             combsParams["gene_ko_growth_12"],
             combsParams["mv"],
             1.0,
+            combsParams["p_zi"] if zi else zi,
         )[0].sample(random.PRNGKey(42))
 
     params["combs"] = combsParams

@@ -75,6 +75,7 @@ def runValinor(
         alternate=config["alternateLH"],
         stable_update=config["stable_update"],
         guide_config=config["guide_config"],
+        zi=config["zi"],
     )
 
     outputDir = ""
@@ -100,6 +101,7 @@ def runValinor(
         config["no_controls"],
         config["alternateLH"],
         config["guide_config"],
+        config["zi"],
     )
 
     predictive = Predictive(
@@ -120,6 +122,7 @@ def runValinor(
         only_singletons=config["only_singletons"],
         no_controls=config["no_controls"],
         guide_config=config["guide_config"],
+        zi=config["zi"],
     )
 
     sampledParams = sampleParams(samples, indices, config["alternateLH"])
@@ -278,6 +281,13 @@ def makeArgs():
         dest="priorsFile",
         default=None,
         help="Prior parameters file.",
+    )
+
+    argParser.add_argument(
+        "--ZINB",
+        dest="zi",
+        action="store_true",
+        help="Set final distributions to be zero inflated.",
     )
 
     return argParser

@@ -19,7 +19,6 @@ fontsizes = [18, 16, 14]
 
 
 def plotLossCurve(loss, log=True, name=None, outputDir=""):
-
     plt.plot(np.log(loss))
     plt.ylabel("ELBO")
     plt.xlabel("Steps")
@@ -99,16 +98,12 @@ def produce_modelfit_plot(df, outputfolder, type="combo"):
         None: The function saves the plots directly to the specified folder and does not return any value.
     """
     sample_name = "samples" if type == "combo" else "samples_s"
-    figname = (
-        "modelperformance_combo"
-        if type == "combo"
-        else "modelperformance_single"
-    )
+    figname = "modelperformance_combo" if type == "combo" else "modelperformance_single"
     model_val = df[sample_name].values
     data_val = df["value"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(outputfolder + figname + '.svg', bbox_inches="tight")
-    fig.savefig(outputfolder + figname + '.png', bbox_inches="tight", dpi=200)
+    fig.savefig(outputfolder + figname + ".svg", bbox_inches="tight")
+    fig.savefig(outputfolder + figname + ".png", bbox_inches="tight", dpi=200)
 
     plt.close(fig)
 
@@ -121,6 +116,6 @@ def produce_modelfit_plot(df, outputfolder, type="combo"):
     model_val = df[init_count_name].values
     data_val = df["plasmid"].values
     fig, ax = plot_hist({"model": model_val, "data": data_val}, xlabel="Counts")
-    fig.savefig(outputfolder + figname + '.svg', bbox_inches="tight")
-    fig.savefig(outputfolder + figname + '.png', bbox_inches="tight", dpi=200)
+    fig.savefig(outputfolder + figname + ".svg", bbox_inches="tight")
+    fig.savefig(outputfolder + figname + ".png", bbox_inches="tight", dpi=200)
     plt.close(fig)
