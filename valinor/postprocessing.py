@@ -126,7 +126,7 @@ def sampleParams(
         singlesParams["mv_s"] = 1.0 / samples["inv_mv_s"]
 
         if zi:
-            singlesParams["p_zi"] = samples["p_zi"].reshape(-1, 1)
+            singlesParams["p_zi"] = samples["p_zi"][:, indices["cell_line_s_idx"]]
 
         # Can also add sample_shape if we want to control samples further
 
@@ -222,7 +222,7 @@ def sampleParams(
         combsParams["mv"] = 1.0 / samples["inv_mv"]
 
         if zi:
-            combsParams["p_zi"] = samples["p_zi"].reshape(-1, 1)
+            combsParams["p_zi"] = samples["p_zi"][:, indices["cell_line_idx"]]
 
         combsParams["samples_init"] = models.dkoLikelihoodInitial(
             combsParams["init_count"]
