@@ -55,10 +55,11 @@ def prepareData(
     prior_params["od_means"] = meanOD
     prior_params["od_stds"] = stdOD
 
-    prior_params["init_count"] = (
-        np.mean(datasets["combinations"]["plasmid"]),
-        np.std(datasets["combinations"]["plasmid"]),
-    )
+    if not only_singletons:
+        prior_params["init_count"] = (
+            np.mean(datasets["combinations"]["plasmid"]),
+            np.std(datasets["combinations"]["plasmid"]),
+        )
 
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (
@@ -74,12 +75,28 @@ def prepareData(
 
     # These args can be `None`
     indices = getIndices(
-        datasets["combinations"], datasets["singletons"], datasets["controls"]
+        datasets["combinations"],
+        datasets["singletons"],
+        datasets["controls"],
+        only_singletons,
+        singletons,
+        controls,
     )
 
-    lengths = calculateLengths(indices, singletons=singletons, neg_controls=controls)
+    lengths = calculateLengths(
+        indices,
+        singletons=singletons,
+        neg_controls=controls,
+        only_singletons=only_singletons,
+    )
 
-    checkBounds(indices, lengths, singletons=singletons, neg_controls=controls)
+    checkBounds(
+        indices,
+        lengths,
+        singletons=singletons,
+        neg_controls=controls,
+        only_singletons=only_singletons,
+    )
 
     return (
         lengths,

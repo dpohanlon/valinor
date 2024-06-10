@@ -127,12 +127,13 @@ def runValinor(
 
     sampledParams = sampleParams(samples, indices, config["alternateLH"])
 
-    combsDF = createDataFrame(sampledParams["combs"])
-    combsDF.to_parquet(
-        f"{outputDir}combsModel.pq"
-        if config["name"] is None
-        else f"{outputDir}combsModel_{config['name']}.pq"
-    )
+    if config["only_singletons"] == False:
+        combsDF = createDataFrame(sampledParams["combs"])
+        combsDF.to_parquet(
+            f"{outputDir}combsModel.pq"
+            if config["name"] is None
+            else f"{outputDir}combsModel_{config['name']}.pq"
+        )
 
     if config["no_singletons"] == False:
         singlesDF = createDataFrame(sampledParams["singles"])
