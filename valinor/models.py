@@ -116,8 +116,6 @@ def dkoLikelihoodFullFinal(
         p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
     )
 
-    theta = jax.nn.softplus(theta)
-
     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
@@ -319,7 +317,12 @@ def sample_cell_line_distributions(
         # TODO: Make me configurable
         library_bias = numpyro.sample("library_bias", dist.Normal(loc=0, scale=0.1))
 
-    return cell_line_growth, inv_mv_mean, inv_mv_std, library_bias
+        p_zi = numpyro.sample(
+            "p_zi",
+            dist.TruncatedNormal(loc=0.05, scale=0.1, low=0.0, high=1.0),
+        )
+
+    return cell_line_growth, inv_mv_mean, inv_mv_std, library_bias, p_zi
 
 
 def sample_dko_distributions(
@@ -409,7 +412,7 @@ def sample_dko_distributions(
             gene_ko_growth_12,
             mv,
             library_bias=1.0,
-            p_zi=p_zi,
+            p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
 
     else:
@@ -423,7 +426,7 @@ def sample_dko_distributions(
             gene_ko_growth_12,
             mv,
             library_bias=1.0,
-            p_zi=p_zi,
+            p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
 
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
@@ -482,7 +485,7 @@ def sample_sko_distributions(
         mv_s,
         library_bias_s,
         alternate,
-        p_zi,
+        p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
     )
 
     numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
@@ -557,14 +560,8 @@ def valinorHierarchy(
         inv_mv_mean,
         inv_mv_std,
         library_bias,
+        p_zi,
     ) = sample_cell_line_distributions(lengths, prior_params)
-
-    if zi != False:
-        # Probability of inflated zeros
-        p_zi = numpyro.sample(
-            "p_zi",
-            dist.TruncatedNormal(loc=0.05, scale=0.1, low=0.0, high=1.0),
-        )
 
     if not only_singletons:
         sample_dko_distributions(
