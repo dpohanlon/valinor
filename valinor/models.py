@@ -1,5 +1,7 @@
 import numpyro
 import numpyro.distributions as dist
+import numpyro.distributions.transforms as transforms
+
 
 import jax
 import jax.numpy as jnp
@@ -75,6 +77,50 @@ def dkoLikelihoodFinal(
     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
+# def dkoLikelihoodFullFinal(
+#     init_theta: float,
+#     guide_eff_1: float,
+#     guide_eff_2: float,
+#     cell_line_growth: float,
+#     gene_ko_growth_1: float,
+#     gene_ko_growth_2: float,
+#     gene_ko_growth_12: float,
+#     mv: float,
+#     library_bias: float,
+#     p_zi: float,
+# ) -> Distribution:
+#     """
+#     Returns a Negative Binomial distribution calculated from the provided parameters.
+#
+#     Args:
+#         init_theta (float): Initial parameter.
+#         guide_eff_1 (float): Guide efficiency 1.
+#         guide_eff_2 (float): Guide efficiency 2.
+#         cell_line_growth (float): Cell line growth.
+#         gene_ko_growth_1 (float): Gene knockout growth 1.
+#         gene_ko_growth_2 (float): Gene knockout growth 2.
+#         gene_ko_growth_12 (float): Gene knockout growth 12.
+#         mv (float): MV parameter.
+#
+#     Returns:
+#         A Negative Binomial distribution object.
+#     """
+#
+#     p_1 = guide_eff_1 * (1.0 - guide_eff_2)
+#     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
+#     p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
+#
+#     g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
+#     g2 = gene_ko_growth_2 - cell_line_growth
+#     g12 = gene_ko_growth_12 - cell_line_growth
+#
+#     theta = init_theta * (
+#         p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
+#     )
+#
+#     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
+
+
 def dkoLikelihoodFullFinal(
     init_theta: float,
     guide_eff_1: float,
@@ -104,19 +150,33 @@ def dkoLikelihoodFullFinal(
         A Negative Binomial distribution object.
     """
 
-    p_1 = guide_eff_1 * (1.0 - guide_eff_2)
-    p_2 = guide_eff_2 * (1.0 - guide_eff_1)
-    p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
+    # Non-centered parameterization for log p1
+    # tilde_alpha = numpyro.sample('tilde_alpha', dist.Normal(jnp.zeros_like(guide_eff_mean), jnp.ones_like(guide_eff_mean)))
+    # p_1 = guide_eff_mean + guide_eff_std * tilde_alpha
 
-    g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
-    g2 = gene_ko_growth_2 - cell_line_growth
-    g12 = gene_ko_growth_12 - cell_line_growth
+    # transform = transforms.ComposeTransform([transforms.AffineTransform(loc=0, scale=1), transforms.SigmoidTransform()])
+    # transform = transforms.SigmoidTransform()
 
-    theta = init_theta * (
-        p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
+    p_1 = guide_eff_1
+
+    # Non-centered parameterization for g1
+    # tilde_g1 = numpyro.sample('tilde_g1', dist.Normal(jnp.zeros_like(mu_g1), jnp.ones_like(mu_g1)))
+    # g1 = mu_g1 + sigma_g1 * tilde_g1
+
+    g1 = gene_ko_growth_1
+
+    print(g1.shape, p_1.shape, init_theta.shape)
+    print("mv", mv.shape)
+
+    # Define theta
+    theta = init_theta.squeeze() * (p_1.squeeze() * jnp.exp(g1.squeeze()))
+
+    return (
+        negativeBinomial(
+            theta.squeeze(), theta.squeeze() * mv.squeeze() / (1 - mv.squeeze()), p_zi
+        ),
+        theta.squeeze(),
     )
-
-    return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
@@ -206,29 +266,29 @@ def sample_guide_distributions(
     # guide_eff must still have shape [n_guides, n_cell_lines]
 
     if config == "partial_pooling":
-        with numpyro.plate("guides", lengths["len_guides"]):
+
+        with numpyro.plate("guides", lengths["len_guides"]) as g:
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
                 dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
             )
             guide_eff_std = numpyro.sample(
-                "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
+                "guide_eff_std",
+                dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0, high=1.0),
             )
 
-        with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-            guide_eff = numpyro.sample(
-                "guide_eff",
-                dist.TruncatedNormal(
-                    loc=jnp.repeat(
-                        guide_eff_mean[:, None], lengths["len_cell_lines"], axis=1
-                    ),
-                    scale=jnp.repeat(
-                        guide_eff_std[:, None], lengths["len_cell_lines"], axis=1
-                    ),
-                    low=0.0,
-                    high=1.0,
-                ),
-            )
+        with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c:
+            with numpyro.plate("guides_per_cell", lengths["len_guides"]) as g_c:
+
+                tilde_alpha = numpyro.sample("tilde_alpha", dist.Normal(0, 1))
+
+                # Ensure p_1 has the correct shape
+                guide_eff = (
+                    guide_eff_mean[g_c].reshape(-1, 1)
+                    + guide_eff_std[g_c].reshape(-1, 1) * tilde_alpha
+                )
+                sigmoid = transforms.SigmoidTransform()
+                guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
 
     elif config == "partial_pooling_low":
         with numpyro.plate("guides", lengths["len_guides"], dim=-2):
@@ -244,8 +304,8 @@ def sample_guide_distributions(
             guide_eff = numpyro.sample(
                 "guide_eff",
                 dist.TruncatedNormal(
-                    loc=guide_eff_mean.reshape(-1, 1),
-                    scale=guide_eff_std.reshape(-1, 1),
+                    loc=guide_eff_mean.squeeze(),
+                    scale=guide_eff_std.squeeze(),
                     low=0.0,
                     high=1.0,
                 ),
@@ -488,6 +548,12 @@ def sample_sko_distributions(
         p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
     )
 
+    print("lh", lh_s.shape, theta_s.shape)
+    print("init", init_lh_s.shape)
+
+    print("init_d", data["initial"]["singletons"].shape)
+    print("d", data["final"]["singletons"].shape)
+
     numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
 
     numpyro.sample(
@@ -553,7 +619,11 @@ def valinorHierarchy(
     guide_config: str = "partial_pooling",
     zi=False,
 ) -> None:
+    # guide_eff, guide_eff_mean, guide_eff_std = sample_guide_distributions(lengths, prior_params, config=guide_config)
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
+
+    print("g_eff", guide_eff.shape)
+
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
     (
         cell_line_growth,
@@ -562,6 +632,8 @@ def valinorHierarchy(
         library_bias,
         p_zi,
     ) = sample_cell_line_distributions(lengths, prior_params)
+
+    print("g", gene_ko_growth.shape)
 
     if not only_singletons:
         sample_dko_distributions(

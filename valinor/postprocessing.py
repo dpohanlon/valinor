@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 from jax import random
+import jax.numpy as jnp
 
 from valinor import models
 
@@ -65,6 +66,10 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
     return df
 
 
+def sigmoid(x):
+    return 1 / (1 + jnp.exp(-x))
+
+
 # Split up this megafunction
 
 
@@ -103,13 +108,22 @@ def sampleParams(
             :, indices["guide_pair_s_idx"]
         ]
 
-        # TO DO: Add a switch here
-
-        singlesParams["guide_eff_s"] = samples["guide_eff"][
+        singlesParams["tilde_alpha"] = samples["tilde_alpha"][
             :, indices["guide_s_idx"], indices["cell_line_s_idx"]
         ]
 
-        # singlesParams["guide_eff_s"] = samples["guide_eff_s"][:, indices["guide_s_idx"]]
+        singlesParams["guide_eff_mean_s"] = samples["guide_eff_mean"][
+            :, indices["guide_s_idx"]
+        ]
+
+        singlesParams["guide_eff_std_s"] = samples["guide_eff_std"][
+            :, indices["guide_s_idx"]
+        ]
+
+        singlesParams["guide_eff_s"] = sigmoid(
+            singlesParams["guide_eff_mean_s"]
+            + singlesParams["tilde_alpha"] * singlesParams["guide_eff_std_s"]
+        )
 
         singlesParams["cell_growth_s"] = samples["cell_line_growth"][
             :, indices["cell_line_s_idx"]
@@ -133,6 +147,8 @@ def sampleParams(
         singlesParams["samples_s_init"] = models.skoLikelihoodInitial(
             singlesParams["init_count_s"]
         )[0].sample(random.PRNGKey(42))
+
+        # Add mean, std params
 
         singlesParams["samples_s"] = models.skoLikelihoodFinal(
             singlesParams["init_count_s"],

@@ -287,6 +287,7 @@ def makeArgs():
     argParser.add_argument(
         "--ZINB",
         dest="zi",
+        default=False,
         action="store_true",
         help="Set final distributions to be zero inflated.",
     )
