@@ -77,50 +77,6 @@ def dkoLikelihoodFinal(
     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
-# def dkoLikelihoodFullFinal(
-#     init_theta: float,
-#     guide_eff_1: float,
-#     guide_eff_2: float,
-#     cell_line_growth: float,
-#     gene_ko_growth_1: float,
-#     gene_ko_growth_2: float,
-#     gene_ko_growth_12: float,
-#     mv: float,
-#     library_bias: float,
-#     p_zi: float,
-# ) -> Distribution:
-#     """
-#     Returns a Negative Binomial distribution calculated from the provided parameters.
-#
-#     Args:
-#         init_theta (float): Initial parameter.
-#         guide_eff_1 (float): Guide efficiency 1.
-#         guide_eff_2 (float): Guide efficiency 2.
-#         cell_line_growth (float): Cell line growth.
-#         gene_ko_growth_1 (float): Gene knockout growth 1.
-#         gene_ko_growth_2 (float): Gene knockout growth 2.
-#         gene_ko_growth_12 (float): Gene knockout growth 12.
-#         mv (float): MV parameter.
-#
-#     Returns:
-#         A Negative Binomial distribution object.
-#     """
-#
-#     p_1 = guide_eff_1 * (1.0 - guide_eff_2)
-#     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
-#     p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
-#
-#     g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
-#     g2 = gene_ko_growth_2 - cell_line_growth
-#     g12 = gene_ko_growth_12 - cell_line_growth
-#
-#     theta = init_theta * (
-#         p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
-#     )
-#
-#     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
-
-
 def dkoLikelihoodFullFinal(
     init_theta: float,
     guide_eff_1: float,
@@ -150,33 +106,19 @@ def dkoLikelihoodFullFinal(
         A Negative Binomial distribution object.
     """
 
-    # Non-centered parameterization for log p1
-    # tilde_alpha = numpyro.sample('tilde_alpha', dist.Normal(jnp.zeros_like(guide_eff_mean), jnp.ones_like(guide_eff_mean)))
-    # p_1 = guide_eff_mean + guide_eff_std * tilde_alpha
+    p_1 = guide_eff_1 * (1.0 - guide_eff_2)
+    p_2 = guide_eff_2 * (1.0 - guide_eff_1)
+    p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
 
-    # transform = transforms.ComposeTransform([transforms.AffineTransform(loc=0, scale=1), transforms.SigmoidTransform()])
-    # transform = transforms.SigmoidTransform()
+    g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
+    g2 = gene_ko_growth_2 - cell_line_growth
+    g12 = gene_ko_growth_12 - cell_line_growth
 
-    p_1 = guide_eff_1
-
-    # Non-centered parameterization for g1
-    # tilde_g1 = numpyro.sample('tilde_g1', dist.Normal(jnp.zeros_like(mu_g1), jnp.ones_like(mu_g1)))
-    # g1 = mu_g1 + sigma_g1 * tilde_g1
-
-    g1 = gene_ko_growth_1
-
-    print(g1.shape, p_1.shape, init_theta.shape)
-    print("mv", mv.shape)
-
-    # Define theta
-    theta = init_theta.squeeze() * (p_1.squeeze() * jnp.exp(g1.squeeze()))
-
-    return (
-        negativeBinomial(
-            theta.squeeze(), theta.squeeze() * mv.squeeze() / (1 - mv.squeeze()), p_zi
-        ),
-        theta.squeeze(),
+    theta = init_theta * (
+        p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
     )
+
+    return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:

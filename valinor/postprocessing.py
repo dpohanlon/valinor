@@ -199,17 +199,6 @@ def sampleParams(
             :, indices["cell_line_idx"]
         ]
 
-        combsParams["guide_eff_1"] = samples[
-            "guide_eff"
-        ][  # Check whether this should be specified given the hierarchy, ordering, etc
-            :, indices["guide_1_idx"], indices["cell_line_idx"]
-        ]
-        combsParams["guide_eff_2"] = samples[
-            "guide_eff"
-        ][  # Check whether this should be specified given the hierarchy, ordering, etc
-            :, indices["guide_2_idx"], indices["cell_line_idx"]
-        ]
-
         if "guide_eff_mean" in samples.keys():
             combsParams["guide_eff_mean_1"] = samples["guide_eff_mean"][
                 :, indices["guide_1_idx"]
@@ -217,13 +206,31 @@ def sampleParams(
             combsParams["guide_eff_mean_2"] = samples["guide_eff_mean"][
                 :, indices["guide_2_idx"]
             ]
-        if "guide_eff_std" in samples.keys():
+
             combsParams["guide_eff_std_1"] = samples["guide_eff_std"][
                 :, indices["guide_1_idx"]
             ]
             combsParams["guide_eff_std_2"] = samples["guide_eff_std"][
                 :, indices["guide_2_idx"]
             ]
+
+            combsParams["tilde_alpha_1"] = samples["tilde_alpha"][
+                :, indices["guide_1_idx"], indices["cell_line_idx"]
+            ]
+
+            combsParams["tilde_alpha_2"] = samples["tilde_alpha"][
+                :, indices["guide_2_idx"], indices["cell_line_idx"]
+            ]
+
+            combsParams["guide_eff_1"] = sigmoid(
+                combsParams["guide_eff_mean_1"]
+                + combsParams["tilde_alpha_1"] * combsParams["guide_eff_std_1"]
+            )
+
+            combsParams["guide_eff_2"] = sigmoid(
+                combsParams["guide_eff_mean_2"]
+                + combsParams["tilde_alpha_2"] * combsParams["guide_eff_std_2"]
+            )
 
         combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
             :, indices["gene_1_idx"]
