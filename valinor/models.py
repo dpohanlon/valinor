@@ -490,12 +490,6 @@ def sample_sko_distributions(
         p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
     )
 
-    print("lh", lh_s.shape, theta_s.shape)
-    print("init", init_lh_s.shape)
-
-    print("init_d", data["initial"]["singletons"].shape)
-    print("d", data["final"]["singletons"].shape)
-
     numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
 
     numpyro.sample(
@@ -564,8 +558,6 @@ def valinorHierarchy(
     # guide_eff, guide_eff_mean, guide_eff_std = sample_guide_distributions(lengths, prior_params, config=guide_config)
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
 
-    print("g_eff", guide_eff.shape)
-
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
     (
         cell_line_growth,
@@ -574,8 +566,6 @@ def valinorHierarchy(
         library_bias,
         p_zi,
     ) = sample_cell_line_distributions(lengths, prior_params)
-
-    print("g", gene_ko_growth.shape)
 
     if not only_singletons:
         sample_dko_distributions(
