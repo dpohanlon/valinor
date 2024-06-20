@@ -555,7 +555,7 @@ def valinorHierarchy(
     guide_config: str = "partial_pooling",
     zi=False,
 ) -> None:
-    # guide_eff, guide_eff_mean, guide_eff_std = sample_guide_distributions(lengths, prior_params, config=guide_config)
+
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
 
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)

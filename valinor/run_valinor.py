@@ -292,6 +292,14 @@ def makeArgs():
         help="Set final distributions to be zero inflated.",
     )
 
+    argParser.add_argument(
+        "--reindex",
+        dest="reindex",
+        default=False,
+        action="store_true",
+        help="Reindex data types that are only of one class (i.e., only combinations or only singles) in the case where guides are not common.",
+    )
+
     return argParser
 
 
@@ -317,6 +325,7 @@ def run():
         config["only_singletons"],
         not config["no_singletons"],
         not config["no_controls"],
+        config["reindex"],
     )
 
     runValinor(lengths, indices, prior_params, data, config)

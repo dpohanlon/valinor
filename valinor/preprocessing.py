@@ -7,6 +7,7 @@ from valinor.utils import (
     getIndices,
     calculateLengths,
     checkBounds,
+    reindexDF,
 )
 
 from valinor.priors import calculateOverdispersion, defaultPriors
@@ -20,6 +21,7 @@ def prepareData(
     only_singletons: bool = False,
     singletons: bool = True,
     controls: bool = True,
+    reindex: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]:
     """
     Prepares data for the Valinor model.
@@ -72,6 +74,14 @@ def prepareData(
             np.mean(datasets["controls"]["plasmid"]),
             np.std(datasets["controls"]["plasmid"]),
         )
+
+    if reindex:
+        if singletons and not only_singletons:
+            print("Only reindex with a single data type!")
+        elif only_singletons:
+            datasets["singletons"] = reindexDF(datasets["singletons"])
+        else:
+            datasets["combinations"] = reindexDF(datasets["combinations"])
 
     # These args can be `None`
     indices = getIndices(

@@ -119,6 +119,35 @@ def getUniqueGeneGuideIndices(
     )
 
 
+def reindexVar(df, var):
+
+    oldIndicesUnq = df[var].unique()
+    newIndexMap = {oldIndicesUnq[i]: i for i in range(len(oldIndicesUnq))}
+    newIndices = np.array([newIndexMap[v] for v in df[var].values])
+
+    return newIndices
+
+
+def reindexDF(df: pd.DataFrame, singletons=False):
+
+    # Reindexes to avoid cases where guides appear in only the combinations/singles
+    # dataset. Not to be used for a model with matched combinations and singles!
+
+    # But there is still a global guide pair index, so be careful with controls....
+
+    df["guide_pair_index"] = reindexVar(df, "guide_pair_index")
+    df["guide1_index"] = reindexVar(df, "guide1_index")
+    df["gene1_unq_index"] = reindexVar(df, "gene1_unq_index")
+    df["cell_line_index"] = reindexVar(df, "cell_line_index")
+
+    if not singletons:
+
+        df["gene_pair_index"] = reindexVar(df, "gene_pair_index")
+        df["guide2_index"] = reindexVar(df, "guide2_index")
+        df["gene2_unq_index"] = reindexVar(df, "gene2_unq_index")
+
+    return df
+
 def getIndices(
     df: pd.DataFrame,
     dfSingles: Optional[pd.DataFrame] = None,
