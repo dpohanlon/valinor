@@ -77,6 +77,73 @@ def dkoLikelihoodFinal(
     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
 
 
+# def dkoLikelihoodFullFinal(
+#     init_theta: float,
+#     guide_eff_1: float,
+#     guide_eff_2: float,
+#     cell_line_growth: float,
+#     gene_ko_growth_1: float,
+#     gene_ko_growth_2: float,
+#     gene_ko_growth_12: float,
+#     mv: float,
+#     library_bias: float,
+#     p_zi: float,
+# ) -> Distribution:
+#     """
+#     Returns a Negative Binomial distribution calculated from the provided parameters.
+
+#     Args:
+#         init_theta (float): Initial parameter.
+#         guide_eff_1 (float): Guide efficiency 1.
+#         guide_eff_2 (float): Guide efficiency 2.
+#         cell_line_growth (float): Cell line growth.
+#         gene_ko_growth_1 (float): Gene knockout growth 1.
+#         gene_ko_growth_2 (float): Gene knockout growth 2.
+#         gene_ko_growth_12 (float): Gene knockout growth 12.
+#         mv (float): MV parameter.
+
+#     Returns:
+#         A Negative Binomial distribution object.
+#     """
+
+#     # Run without growth here
+#     # Sign correct
+#     # Parameterisation wrong? In each term or for gs?
+
+#     p_1 = guide_eff_1 * (1.0 - guide_eff_2)
+#     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
+
+#     #Plus?
+#     p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
+
+#     # g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
+#     # g2 = gene_ko_growth_2 - cell_line_growth
+#     # g12 = gene_ko_growth_12 - cell_line_growth
+
+#     # g1 = library_bias * (gene_ko_growth_1)
+#     # g2 = gene_ko_growth_2
+#     # g12 = gene_ko_growth_12
+
+#     # theta = init_theta * (
+#     #     p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
+#     # )
+#     #
+
+#     # Calculate growth differences
+#     g1 = library_bias * gene_ko_growth_1
+#     g2 = gene_ko_growth_2
+#     g12 = gene_ko_growth_12
+
+#     # Calculate theta with cell line growth correction applied uniformly
+#     theta = init_theta *  jnp.exp(cell_line_growth) * (
+#         p_1 * jnp.exp(g1) +
+#         p_2 * jnp.exp(g2) +
+#         p_12 * jnp.exp(g1 + g2 + g12) +
+#         # jnp.exp(cell_line_growth)
+#     )
+
+#     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
+
 def dkoLikelihoodFullFinal(
     init_theta: float,
     guide_eff_1: float,
@@ -106,20 +173,23 @@ def dkoLikelihoodFullFinal(
         A Negative Binomial distribution object.
     """
 
+    p_00 = (1.0 - guide_eff_1) * (1.0 - guide_eff_2)
     p_1 = guide_eff_1 * (1.0 - guide_eff_2)
     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
-    p_12 = jnp.clip(1.0 - p_1 * p_2, 0.0, 1.0)
+    p_12 = guide_eff_1 * guide_eff_2
 
-    g1 = library_bias * (gene_ko_growth_1 - cell_line_growth)
-    g2 = gene_ko_growth_2 - cell_line_growth
-    g12 = gene_ko_growth_12 - cell_line_growth
+    g1 = library_bias * gene_ko_growth_1
+    g2 = gene_ko_growth_2
+    g12 = gene_ko_growth_12
 
-    theta = init_theta * (
-        p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
+    theta = init_theta * jnp.exp(cell_line_growth) * (
+        p_00 +
+        p_1 * jnp.exp(g1) +
+        p_2 * jnp.exp(g2) +
+        p_12 * jnp.exp(g1 + g2 + g12)
     )
 
     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
-
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
     """
@@ -196,7 +266,8 @@ def controlLikelihoodFinal(
 ) -> Distribution:
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
-    return negativeBinomial(theta, theta * mv / (1 - mv)), theta
+    # return negativeBinomial(theta, theta * mv / (1 - mv)), theta
+    return dist.Poisson(theta), theta
 
 
 def sample_guide_distributions(
@@ -529,6 +600,8 @@ def sample_control_distributions(
     cell_line_growth_c = cell_line_growth[indices["cell_line_c_idx"]]
 
     init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
+
+    # Could do it with DKO LH, fixing g = 0
 
     lh_c, theta_c = controlLikelihoodFinal(
         init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
