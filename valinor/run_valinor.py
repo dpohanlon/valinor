@@ -84,7 +84,7 @@ def runValinor(
 
     outputDir = ""
     if config["outputDir"] != outputDir:
-        outputDir = f"{config['outputDir'].strip('/')}/"
+        outputDir = f"{config['outputDir'].rstrip('/')}/"
 
     plotDiagPlots(svi_result, name=config["name"], outputDir=outputDir)
 
