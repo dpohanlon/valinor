@@ -148,6 +148,7 @@ def reindexDF(df: pd.DataFrame, singletons=False):
 
     return df
 
+
 def getIndices(
     df: pd.DataFrame,
     dfSingles: Optional[pd.DataFrame] = None,

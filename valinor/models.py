@@ -115,14 +115,14 @@ def dkoLikelihoodFullFinal(
     g2 = gene_ko_growth_2
     g12 = gene_ko_growth_12
 
-    theta = init_theta * jnp.exp(cell_line_growth) * (
-        p_00 +
-        p_1 * jnp.exp(g1) +
-        p_2 * jnp.exp(g2) +
-        p_12 * jnp.exp(g1 + g2 + g12)
+    theta = (
+        init_theta
+        * jnp.exp(cell_line_growth)
+        * (p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12))
     )
 
     return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
+
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
     """
@@ -630,7 +630,7 @@ def valinorHierarchy(
     ) = sample_cell_line_distributions(lengths, prior_params)
 
     # Common to all datasets
-    inv_mv_mean, inv_mv_std, p_zi = sample_mv_cell_line_distributions(lengths, prior_params)
+    inv_mv_mean, inv_mv_std = sample_mv_cell_line_distributions(lengths, prior_params)
 
     if not only_singletons:
 
