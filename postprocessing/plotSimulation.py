@@ -62,9 +62,9 @@ class SimPlotter(object):
         self.singletons = singletons
         self.cutoff = cutoff
 
-        self.modelData = pd.concat((data, modelOutput), axis = 1)
+        self.modelData = pd.concat((data, modelOutput), axis=1)
 
-        self.valueName = 'value'
+        self.valueName = "value"
 
         self.geneTermName = "gene_ko_growth_1_mean"
         self.genePairTermName = "gene_ko_growth_12_mean"
@@ -98,14 +98,14 @@ class SimPlotter(object):
             100,
         )
 
-        plot.hist(dataCounts, bins, histtype="step", label="Data", lw = 2.0)
+        plot.hist(dataCounts, bins, histtype="step", label="Data", lw=2.0)
         plot.hist(
             modelOutput["samples"],
             bins,
             histtype="step",
             label="Model",
             color=colours[2],
-            lw = 2.0
+            lw=2.0,
         )
 
         binsChi2 = np.linspace(minBinAll, maxBinAll, 100)
@@ -122,9 +122,12 @@ class SimPlotter(object):
         if plot is plt:
 
             plot.legend(loc=6, fontsize=18)
-            plot.xlabel('Counts', fontsize=18)
+            plot.xlabel("Counts", fontsize=18)
 
-            plot.xlim(minBinCut if self.cutoff else minBinAll, maxBinCut if self.cutoff else maxBinAll)
+            plot.xlim(
+                minBinCut if self.cutoff else minBinAll,
+                maxBinCut if self.cutoff else maxBinAll,
+            )
 
             plot.savefig(f"{self.location}dataModelHist.pdf")
             plot.savefig(f"{self.location}dataModelHist.png", dpi=300)
@@ -139,70 +142,89 @@ class SimPlotter(object):
                 fontsize=21,
             )
 
-            plot.set_xlim(minBinCut if self.cutoff else minBinAll, maxBinCut if self.cutoff else maxBinAll)
+            plot.set_xlim(
+                minBinCut if self.cutoff else minBinAll,
+                maxBinCut if self.cutoff else maxBinAll,
+            )
 
             plot.tick_params(axis="both", labelsize=18)
             plot.legend(loc=6, fontsize=21)
-            plot.set_xlabel('Counts', fontsize=21)
+            plot.set_xlabel("Counts", fontsize=21)
 
     # Separate code to postprocess model output? Merging, LFC, etc
 
     def calculateLFC(self, data):
 
-        data['lfc'] = np.log2(np.maximum(data['value'], 1) / np.maximum(data['plasmid'], 1))
+        data["lfc"] = np.log2(
+            np.maximum(data["value"], 1) / np.maximum(data["plasmid"], 1)
+        )
 
         return data
 
     def populateContexts(self, data, contextsFile):
 
-        cell_contexts, context_matrices = pickle.load(open(contextsFile, 'rb'))
+        cell_contexts, context_matrices = pickle.load(open(contextsFile, "rb"))
 
         dfs = []
 
         for cl, contexts in cell_contexts.items():
 
-            gi = np.sum([context_matrices[i] for i in contexts], axis = 0)
+            gi = np.sum([context_matrices[i] for i in contexts], axis=0)
 
-            gi_df = pd.DataFrame({
-                'gene1': [i for i in range(gi.shape[0]) for _ in range(gi.shape[1])],
-                'gene2': [j for _ in range(gi.shape[0]) for j in range(gi.shape[1])],
-                'gi': gi.flatten(),
-                'cell_line' : cl
-            })
+            gi_df = pd.DataFrame(
+                {
+                    "gene1": [
+                        i for i in range(gi.shape[0]) for _ in range(gi.shape[1])
+                    ],
+                    "gene2": [
+                        j for _ in range(gi.shape[0]) for j in range(gi.shape[1])
+                    ],
+                    "gi": gi.flatten(),
+                    "cell_line": cl,
+                }
+            )
 
             dfs.append(gi_df)
 
         gi_df = pd.concat(dfs)
 
-        gi_data = data.merge(gi_df, on = ['gene1', 'gene2', 'cell_line'])
-        gi_data['context_gi'] = gi_data['gi'] > 1E-4
+        gi_data = data.merge(gi_df, on=["gene1", "gene2", "cell_line"])
+        gi_data["context_gi"] = gi_data["gi"] > 1e-4
 
         self.data = gi_data
 
         return gi_data
 
-    def findContextGI(self, data, threshold = 0.4, n = 1):
+    def findContextGI(self, data, threshold=0.4, n=1):
 
         # Get gene pairs that have GI and also only appear in one cell line
 
-        n_cl = len(data['cell_line'].unique())
+        n_cl = len(data["cell_line"].unique())
 
-        gi_data_syn = data[np.abs(data['syn']) > threshold]
+        gi_data_syn = data[np.abs(data["syn"]) > threshold]
 
-        gi_data_n = gi_data_syn.groupby('gene_pair')['cell_line'].nunique().reset_index()
-        gi_data_n = gi_data_n[gi_data_n['cell_line'] <= n].rename(columns = {'cell_line' : 'n_cl'})
+        gi_data_n = (
+            gi_data_syn.groupby("gene_pair")["cell_line"].nunique().reset_index()
+        )
+        gi_data_n = gi_data_n[gi_data_n["cell_line"] <= n].rename(
+            columns={"cell_line": "n_cl"}
+        )
 
-        return gi_data_n.merge(gi_data_syn[['gene_pair', 'cell_line']], on = 'gene_pair').drop_duplicates()
+        return gi_data_n.merge(
+            gi_data_syn[["gene_pair", "cell_line"]], on="gene_pair"
+        ).drop_duplicates()
 
-    def find_unique_gi_based_on_zscore(self, data, var_name = 'syn', zscore_threshold=3):
+    def find_unique_gi_based_on_zscore(self, data, var_name="syn", zscore_threshold=3):
         # List to collect rows that meet the criteria
         selected_rows = []
 
         # Group by gene pair
-        for gene_pair, group in tqdm(data.groupby('gene_pair')):
+        for gene_pair, group in tqdm(data.groupby("gene_pair")):
             # For each cell line, calculate the mean and std of other cell lines
             for index, row in group.iterrows():
-                other_syn_values = group[group['cell_line'] != row['cell_line']][var_name]
+                other_syn_values = group[group["cell_line"] != row["cell_line"]][
+                    var_name
+                ]
 
                 if len(other_syn_values) > 0:
                     mean_other_syn = other_syn_values.mean()
@@ -213,7 +235,7 @@ class SimPlotter(object):
 
                     # Check if the Z-score exceeds the threshold
                     if z_score > zscore_threshold:
-                        row[f'zscore_{var_name}'] = z_score
+                        row[f"zscore_{var_name}"] = z_score
                         selected_rows.append(row)
 
         # Create a DataFrame from the collected rows
@@ -222,24 +244,36 @@ class SimPlotter(object):
 
     def plotContextGI(self, data, modelOutput):
 
-        sns.kdeplot(data, x = 'syn')
-        plt.savefig('syn.pdf')
+        sns.kdeplot(data, x="syn")
+        plt.savefig("syn.pdf")
         plt.clf()
 
-        sns.kdeplot(data = data[data['context_gi']], x = 'gi')
+        sns.kdeplot(data=data[data["context_gi"]], x="gi")
 
-        plt.savefig('gi.pdf')
+        plt.savefig("gi.pdf")
         plt.clf()
 
-        clipMin = np.quantile(data['lfc'], 0.0001)
-        clipMax = np.quantile(data['lfc'], 0.9999)
+        clipMin = np.quantile(data["lfc"], 0.0001)
+        clipMax = np.quantile(data["lfc"], 0.9999)
 
-        sns.kdeplot(data = data[data['gi'] > 1.7], x = 'lfc', common_norm = False, clip = (clipMin, clipMax), color = 'blue')
-        sns.kdeplot(data = data[~data['context_gi']], x = 'lfc', common_norm = False, clip = (clipMin, clipMax), color = 'red')
+        sns.kdeplot(
+            data=data[data["gi"] > 1.7],
+            x="lfc",
+            common_norm=False,
+            clip=(clipMin, clipMax),
+            color="blue",
+        )
+        sns.kdeplot(
+            data=data[~data["context_gi"]],
+            x="lfc",
+            common_norm=False,
+            clip=(clipMin, clipMax),
+            color="red",
+        )
 
         plt.xlim(clipMin, clipMax)
 
-        plt.savefig('context_gi.pdf')
+        plt.savefig("context_gi.pdf")
         plt.clf()
 
     def calculate_uniqueness_probability(self, df):
@@ -247,21 +281,29 @@ class SimPlotter(object):
         uniqueness_df = pd.DataFrame()
 
         # Ensure that mean and std columns are numeric
-        df['gene_ko_growth_12_mean'] = pd.to_numeric(df['gene_ko_growth_12_mean'], errors='coerce')
-        df['gene_ko_growth_12_std'] = pd.to_numeric(df['gene_ko_growth_12_std'], errors='coerce')
+        df["gene_ko_growth_12_mean"] = pd.to_numeric(
+            df["gene_ko_growth_12_mean"], errors="coerce"
+        )
+        df["gene_ko_growth_12_std"] = pd.to_numeric(
+            df["gene_ko_growth_12_std"], errors="coerce"
+        )
 
-        for gene_pair, group in tqdm(df.groupby('gene_pair')):
-            cell_lines_data = group.set_index('cell_line')[['gene_ko_growth_12_mean', 'gene_ko_growth_12_std']].T.to_dict()
+        for gene_pair, group in tqdm(df.groupby("gene_pair")):
+            cell_lines_data = group.set_index("cell_line")[
+                ["gene_ko_growth_12_mean", "gene_ko_growth_12_std"]
+            ].T.to_dict()
 
             # Calculate probabilities
             probabilities = self.calculate_probabilities_for_gene_pair(cell_lines_data)
 
             # Create a temporary DataFrame to store the results for this gene pair
-            temp_df = pd.DataFrame({
-                'gene_pair': gene_pair,
-                'cell_line': list(probabilities.keys()),
-                'uniqueness_probability': list(probabilities.values())
-            })
+            temp_df = pd.DataFrame(
+                {
+                    "gene_pair": gene_pair,
+                    "cell_line": list(probabilities.keys()),
+                    "uniqueness_probability": list(probabilities.values()),
+                }
+            )
 
             # Concatenate the temporary DataFrame with the main result DataFrame
             uniqueness_df = pd.concat([uniqueness_df, temp_df], ignore_index=True)
@@ -271,16 +313,16 @@ class SimPlotter(object):
     def calculate_probabilities_for_gene_pair(self, cell_lines_data):
         probabilities = {}
         for target_cell_line, target_stats in cell_lines_data.items():
-            target_mean = target_stats['gene_ko_growth_12_mean']
-            target_std = target_stats['gene_ko_growth_12_std']
+            target_mean = target_stats["gene_ko_growth_12_mean"]
+            target_std = target_stats["gene_ko_growth_12_std"]
             sum_other_means = 0
             sum_other_vars = 0
 
             # Sum up the means and variances of other cell lines
             for other_cell_line, other_stats in cell_lines_data.items():
                 if other_cell_line != target_cell_line:
-                    other_mean = other_stats['gene_ko_growth_12_mean']
-                    other_std = other_stats['gene_ko_growth_12_std']
+                    other_mean = other_stats["gene_ko_growth_12_mean"]
+                    other_std = other_stats["gene_ko_growth_12_std"]
                     sum_other_means += other_mean
                     sum_other_vars += other_std**2
 
@@ -293,7 +335,9 @@ class SimPlotter(object):
                 avg_other_var = sum_other_vars / n_other
 
                 # Calculate overlap
-                overlap = self.calculate_distribution_overlap(target_mean, target_std, avg_other_mean, np.sqrt(avg_other_var))
+                overlap = self.calculate_distribution_overlap(
+                    target_mean, target_std, avg_other_mean, np.sqrt(avg_other_var)
+                )
 
                 # Probability of uniqueness
                 probabilities[target_cell_line] = 1 - overlap
@@ -324,127 +368,185 @@ class SimPlotter(object):
 
     def scoreContextGI(self, data):
 
-        data['gene_pair'] = data['gene1'].astype(str) + '_' + data['gene2'].astype(str)
-        data['cell_line'] = data['cell_line'].astype(str)
+        data["gene_pair"] = data["gene1"].astype(str) + "_" + data["gene2"].astype(str)
+        data["cell_line"] = data["cell_line"].astype(str)
 
-        data['context_gi'] = np.abs(data['gi']) > 0.01
+        data["context_gi"] = np.abs(data["gi"]) > 0.01
 
-        print(np.sum(data['context_gi']))
+        print(np.sum(data["context_gi"]))
 
-        avg_df = data.groupby(['gene_pair', 'cell_line']).agg({'context_gi' : 'first', 'gi' : 'first', 'context_gi' : 'first', 'lfc' : 'mean', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'syn' : 'first'}).reset_index()
+        avg_df = (
+            data.groupby(["gene_pair", "cell_line"])
+            .agg(
+                {
+                    "context_gi": "first",
+                    "gi": "first",
+                    "context_gi": "first",
+                    "lfc": "mean",
+                    "gene_ko_growth_12_mean": "first",
+                    "gene_ko_growth_12_std": "first",
+                    "syn": "first",
+                }
+            )
+            .reset_index()
+        )
 
-        avg_df['score'] = avg_df['gene_ko_growth_12_mean'] / avg_df['gene_ko_growth_12_std']
+        avg_df["score"] = (
+            avg_df["gene_ko_growth_12_mean"] / avg_df["gene_ko_growth_12_std"]
+        )
 
-        sns.kdeplot(data = avg_df, x = 'score', hue = 'context_gi', common_norm = False)
-        plt.savefig('g12.pdf')
+        sns.kdeplot(data=avg_df, x="score", hue="context_gi", common_norm=False)
+        plt.savefig("g12.pdf")
         plt.clf()
         exit(0)
 
-        unq_score = self.find_unique_gi_based_on_zscore(avg_df, var_name = 'score', zscore_threshold = 0)
+        unq_score = self.find_unique_gi_based_on_zscore(
+            avg_df, var_name="score", zscore_threshold=0
+        )
 
-        avg_df = avg_df.merge(unq_score[['cell_line', 'gene_pair', 'zscore_score']], on = ['cell_line', 'gene_pair'])
+        avg_df = avg_df.merge(
+            unq_score[["cell_line", "gene_pair", "zscore_score"]],
+            on=["cell_line", "gene_pair"],
+        )
 
-        sns.scatterplot(data = avg_df, x = 'syn', y = 'score', hue = 'context_gi')
-        plt.savefig('reg_score.pdf')
+        sns.scatterplot(data=avg_df, x="syn", y="score", hue="context_gi")
+        plt.savefig("reg_score.pdf")
         plt.clf()
 
-        sns.regplot(data = avg_df, x = 'gi', y = 'gene_ko_growth_12_mean')
-        plt.savefig('reg_gi.pdf')
+        sns.regplot(data=avg_df, x="gi", y="gene_ko_growth_12_mean")
+        plt.savefig("reg_gi.pdf")
         plt.clf()
 
-        sns.regplot(data = avg_df, x = 'gi', y = 'zscore_score')
-        plt.savefig('reg_zscore.pdf')
+        sns.regplot(data=avg_df, x="gi", y="zscore_score")
+        plt.savefig("reg_zscore.pdf")
         plt.clf()
 
-        fpr, tpr, thresholds = metrics.roc_curve(avg_df['context_gi'], avg_df['zscore_score'])
+        fpr, tpr, thresholds = metrics.roc_curve(
+            avg_df["context_gi"], avg_df["zscore_score"]
+        )
 
-        plt.plot(fpr, tpr, lw = 3.0)
-        plt.savefig(f'gi_roc_context.pdf')
+        plt.plot(fpr, tpr, lw=3.0)
+        plt.savefig(f"gi_roc_context.pdf")
         plt.clf()
 
-        precision, recall, thresholds = metrics.precision_recall_curve(avg_df['context_gi'], avg_df['zscore_score'])
+        precision, recall, thresholds = metrics.precision_recall_curve(
+            avg_df["context_gi"], avg_df["zscore_score"]
+        )
 
-        plt.plot(recall, precision, lw = 3.0)
-        plt.savefig(f'gi_pr_context.pdf')
+        plt.plot(recall, precision, lw=3.0)
+        plt.savefig(f"gi_pr_context.pdf")
         plt.clf()
 
-        sns.kdeplot(data = avg_df, x = 'zscore_score', hue = 'context_gi', common_norm = False)
-        plt.savefig('gi_scatter.pdf')
+        sns.kdeplot(data=avg_df, x="zscore_score", hue="context_gi", common_norm=False)
+        plt.savefig("gi_scatter.pdf")
         plt.clf()
 
     def scoreContextGI2(self, data):
 
-        data['gene_pair'] = data['gene1'].astype(str) + '_' + data['gene2'].astype(str)
-        data['cell_line'] = data['cell_line'].astype(str)
+        data["gene_pair"] = data["gene1"].astype(str) + "_" + data["gene2"].astype(str)
+        data["cell_line"] = data["cell_line"].astype(str)
 
         # context_gi = self.findContextGI(data, 0.6)
 
-        context_gi = self.find_unique_gi_based_on_zscore(data.groupby(['gene_pair', 'cell_line']).agg({'syn' : 'first'}).reset_index(), var_name = 'syn', zscore_threshold = 0)
+        context_gi = self.find_unique_gi_based_on_zscore(
+            data.groupby(["gene_pair", "cell_line"])
+            .agg({"syn": "first"})
+            .reset_index(),
+            var_name="syn",
+            zscore_threshold=0,
+        )
 
-        context_gi = context_gi[['cell_line', 'gene_pair', 'zscore_syn']].copy()
+        context_gi = context_gi[["cell_line", "gene_pair", "zscore_syn"]].copy()
 
-        merged_df = pd.merge(data, context_gi, on=['gene_pair', 'cell_line'], how='left', indicator=True)
-        merged_df['gi'] = merged_df['_merge'].apply(lambda x: 1 if x == 'both' else 0)
-        merged_df.drop(columns=['_merge'], inplace=True)
+        merged_df = pd.merge(
+            data, context_gi, on=["gene_pair", "cell_line"], how="left", indicator=True
+        )
+        merged_df["gi"] = merged_df["_merge"].apply(lambda x: 1 if x == "both" else 0)
+        merged_df.drop(columns=["_merge"], inplace=True)
 
         # sns.kdeplot(data = merged_df, x = 'lfc', hue = 'gi', common_norm = False)
         # plt.savefig('gi.pdf')
         # plt.clf()
 
-        avg_df = merged_df.groupby(['gene_pair', 'cell_line']).agg({'gi' : 'first', 'lfc' : 'mean', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'syn' : 'first', 'zscore_syn' : 'first'}).reset_index()
+        avg_df = (
+            merged_df.groupby(["gene_pair", "cell_line"])
+            .agg(
+                {
+                    "gi": "first",
+                    "lfc": "mean",
+                    "gene_ko_growth_12_mean": "first",
+                    "gene_ko_growth_12_std": "first",
+                    "syn": "first",
+                    "zscore_syn": "first",
+                }
+            )
+            .reset_index()
+        )
 
-        print(avg_df[avg_df['gene_pair'] == '10_8'])
-        print('')
-        print(avg_df[avg_df['gene_pair'] == '13_64'])
-        print('')
-        print(avg_df[avg_df['gene_pair'] == '28_53'])
+        print(avg_df[avg_df["gene_pair"] == "10_8"])
+        print("")
+        print(avg_df[avg_df["gene_pair"] == "13_64"])
+        print("")
+        print(avg_df[avg_df["gene_pair"] == "28_53"])
 
-        sns.kdeplot(data = avg_df, x = 'gene_ko_growth_12_mean')
-        plt.savefig('gene_ko_growth_12_mean.pdf')
+        sns.kdeplot(data=avg_df, x="gene_ko_growth_12_mean")
+        plt.savefig("gene_ko_growth_12_mean.pdf")
         plt.clf()
 
-        avg_df['score'] = avg_df['gene_ko_growth_12_mean'] / avg_df['gene_ko_growth_12_std']
+        avg_df["score"] = (
+            avg_df["gene_ko_growth_12_mean"] / avg_df["gene_ko_growth_12_std"]
+        )
 
-        sns.kdeplot(data = avg_df, x = 'score')
-        plt.savefig('score.pdf')
+        sns.kdeplot(data=avg_df, x="score")
+        plt.savefig("score.pdf")
         plt.clf()
 
-        sns.regplot(data = avg_df, x = 'syn', y = 'gene_ko_growth_12_mean')
-        sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'syn', y = 'gene_ko_growth_12_mean')
-        plt.savefig('syn_reg.pdf')
+        sns.regplot(data=avg_df, x="syn", y="gene_ko_growth_12_mean")
+        sns.regplot(data=avg_df[avg_df["gi"] == 1], x="syn", y="gene_ko_growth_12_mean")
+        plt.savefig("syn_reg.pdf")
         plt.clf()
 
-        avg_df['score'] = avg_df['gene_ko_growth_12_mean'] / avg_df['gene_ko_growth_12_std']
+        avg_df["score"] = (
+            avg_df["gene_ko_growth_12_mean"] / avg_df["gene_ko_growth_12_std"]
+        )
 
-        sns.kdeplot(data = avg_df, x = 'score')
-        plt.savefig('score.pdf')
+        sns.kdeplot(data=avg_df, x="score")
+        plt.savefig("score.pdf")
         plt.clf()
 
         # avg_df = avg_df[avg_df['score'] > 5]
 
-        unq_score = self.find_unique_gi_based_on_zscore(avg_df.copy(), var_name = 'gene_ko_growth_12_mean', zscore_threshold = 0)
+        unq_score = self.find_unique_gi_based_on_zscore(
+            avg_df.copy(), var_name="gene_ko_growth_12_mean", zscore_threshold=0
+        )
 
-        print(unq_score[unq_score['zscore_gene_ko_growth_12_mean'] > 30])
+        print(unq_score[unq_score["zscore_gene_ko_growth_12_mean"] > 30])
 
         print(len(unq_score))
 
-        avg_df = avg_df.merge(unq_score[['cell_line', 'gene_pair', 'zscore_gene_ko_growth_12_mean']], on = ['cell_line', 'gene_pair'])
+        avg_df = avg_df.merge(
+            unq_score[["cell_line", "gene_pair", "zscore_gene_ko_growth_12_mean"]],
+            on=["cell_line", "gene_pair"],
+        )
 
-        sns.regplot(data = avg_df, x = 'zscore_syn', y = 'zscore_gene_ko_growth_12_mean')
-        sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'zscore_syn', y = 'zscore_gene_ko_growth_12_mean')
+        sns.regplot(data=avg_df, x="zscore_syn", y="zscore_gene_ko_growth_12_mean")
+        sns.regplot(
+            data=avg_df[avg_df["gi"] == 1],
+            x="zscore_syn",
+            y="zscore_gene_ko_growth_12_mean",
+        )
         # sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'syn', y = 'uniqueness_probability')
-        plt.savefig('syn_score.pdf')
+        plt.savefig("syn_score.pdf")
         plt.clf()
 
         unq_prob = self.calculate_uniqueness_probability(avg_df)
 
-        avg_df = avg_df.merge(unq_prob, on = ['cell_line', 'gene_pair'])
+        avg_df = avg_df.merge(unq_prob, on=["cell_line", "gene_pair"])
 
-        sns.regplot(data = avg_df, x = 'syn', y = 'uniqueness_probability')
-        sns.regplot(data = avg_df[avg_df['gi'] == 1], x = 'syn', y = 'uniqueness_probability')
-        plt.savefig('syn_reg_unq.pdf')
+        sns.regplot(data=avg_df, x="syn", y="uniqueness_probability")
+        sns.regplot(data=avg_df[avg_df["gi"] == 1], x="syn", y="uniqueness_probability")
+        plt.savefig("syn_reg_unq.pdf")
         plt.clf()
-
 
         # Split by sign, as there are positive and negative GI in the simulation
         # whereas in reality negative is way more common. Could also just fold the data?
@@ -452,26 +554,34 @@ class SimPlotter(object):
         # Metric for model is not just growth_12, but rather a similar thresholding accounting
         # for posteriors
 
-        for sign in ['pos', 'neg']:
+        for sign in ["pos", "neg"]:
 
             # param = 'gene_ko_growth_12_mean'
-            param = 'uniqueness_probability'
+            param = "uniqueness_probability"
 
-            avg_df_signed = avg_df[avg_df[param] > 0] if sign == 'pos' else avg_df[avg_df[param] < 0]
-            avg_df_signed = avg_df_signed[avg_df_signed['score'] > 5]
+            avg_df_signed = (
+                avg_df[avg_df[param] > 0]
+                if sign == "pos"
+                else avg_df[avg_df[param] < 0]
+            )
+            avg_df_signed = avg_df_signed[avg_df_signed["score"] > 5]
 
-            print(np.sum(avg_df_signed['gi']), len(avg_df_signed))
+            print(np.sum(avg_df_signed["gi"]), len(avg_df_signed))
 
-            fpr, tpr, thresholds = metrics.roc_curve(avg_df_signed['gi'], avg_df_signed[param] * (1 if sign == 'pos' else -1))
+            fpr, tpr, thresholds = metrics.roc_curve(
+                avg_df_signed["gi"], avg_df_signed[param] * (1 if sign == "pos" else -1)
+            )
 
-            plt.plot(fpr, tpr, lw = 3.0)
-            plt.savefig(f'gi_roc_{sign}.pdf')
+            plt.plot(fpr, tpr, lw=3.0)
+            plt.savefig(f"gi_roc_{sign}.pdf")
             plt.clf()
 
-            precision, recall, thresholds = metrics.precision_recall_curve(avg_df_signed['gi'], avg_df_signed[param] * (1 if sign == 'pos' else -1))
+            precision, recall, thresholds = metrics.precision_recall_curve(
+                avg_df_signed["gi"], avg_df_signed[param] * (1 if sign == "pos" else -1)
+            )
 
-            plt.plot(recall, precision, lw = 3.0)
-            plt.savefig(f'gi_pr_{sign}.pdf')
+            plt.plot(recall, precision, lw=3.0)
+            plt.savefig(f"gi_pr_{sign}.pdf")
             plt.clf()
 
     def cell_line_performance(self, modelData):
@@ -482,61 +592,78 @@ class SimPlotter(object):
 
         # Do this beforehand somewhere else
 
-        modelData['gene_pair'] = modelData['gene1'].astype(str) + '_' + modelData['gene2'].astype(str)
-        modelData['cell_line'] = modelData['cell_line'].astype(str)
+        modelData["gene_pair"] = (
+            modelData["gene1"].astype(str) + "_" + modelData["gene2"].astype(str)
+        )
+        modelData["cell_line"] = modelData["cell_line"].astype(str)
 
         # This feels redundant at the moment, but when we run on LFC we will
         # have to average...
 
         threshold = 0.02
 
-        sns.kdeplot(data = modelData, x = 'syn', clip = (-0.05, 0.05))
-        plt.savefig('syn.pdf')
+        sns.kdeplot(data=modelData, x="syn", clip=(-0.05, 0.05))
+        plt.savefig("syn.pdf")
         plt.clf()
 
-        modelData['score']  = modelData['gene_ko_growth_12_mean'] / modelData['gene_ko_growth_12_std']
+        modelData["score"] = (
+            modelData["gene_ko_growth_12_mean"] / modelData["gene_ko_growth_12_std"]
+        )
 
-        modelData = modelData.groupby(['cell_line', 'gene_pair']).agg({'syn' : 'first', 'gene_ko_growth_12_mean' : 'first', 'gene_ko_growth_12_std' : 'first', 'score' : 'first'})
+        modelData = modelData.groupby(["cell_line", "gene_pair"]).agg(
+            {
+                "syn": "first",
+                "gene_ko_growth_12_mean": "first",
+                "gene_ko_growth_12_std": "first",
+                "score": "first",
+            }
+        )
         # modelData = modelData.groupby(['gene_pair']).agg({'cell_line' : 'first', 'syn' : 'median', 'gene_ko_growth_12_mean' : 'median', 'gene_ko_growth_12_std' : 'median', 'score' : 'median'})
-        modelData['gi'] = np.abs(modelData['syn']) > threshold
+        modelData["gi"] = np.abs(modelData["syn"]) > threshold
 
-        param = 'score'
+        param = "score"
 
-        sns.regplot(data = modelData, x = 'score', y = 'syn')
-        plt.savefig(f'gi_reg.pdf')
+        sns.regplot(data=modelData, x="score", y="syn")
+        plt.savefig(f"gi_reg.pdf")
         plt.clf()
 
-        for cell_line, data  in modelData.groupby('cell_line'):
+        for cell_line, data in modelData.groupby("cell_line"):
 
             # Negative or positive GI
 
-            for sign in ['neg', 'pos']:
+            for sign in ["neg", "pos"]:
 
-                data_signed = data[(data[param] > 0) if sign == 'pos' else (data[param] < 0)]
+                data_signed = data[
+                    (data[param] > 0) if sign == "pos" else (data[param] < 0)
+                ]
 
-                print(cell_line, sign, len(data_signed), np.sum(data_signed['gi']))
+                print(cell_line, sign, len(data_signed), np.sum(data_signed["gi"]))
 
-                fpr, tpr, thresholds = metrics.roc_curve(data_signed['gi'], data_signed[param] * (1 if sign == 'pos' else -1))
+                fpr, tpr, thresholds = metrics.roc_curve(
+                    data_signed["gi"], data_signed[param] * (1 if sign == "pos" else -1)
+                )
 
-                plt.plot(fpr, tpr, lw = 3.0)
-                plt.savefig(f'gi_roc_{sign}_{cell_line}.pdf')
+                plt.plot(fpr, tpr, lw=3.0)
+                plt.savefig(f"gi_roc_{sign}_{cell_line}.pdf")
                 plt.clf()
 
-                precision, recall, thresholds = metrics.precision_recall_curve(data_signed['gi'], data_signed[param] * (1 if sign == 'pos' else -1))
+                precision, recall, thresholds = metrics.precision_recall_curve(
+                    data_signed["gi"], data_signed[param] * (1 if sign == "pos" else -1)
+                )
 
-                plt.plot(recall, precision, lw = 3.0)
-                plt.savefig(f'gi_pr_{sign}_{cell_line}.pdf')
+                plt.plot(recall, precision, lw=3.0)
+                plt.savefig(f"gi_pr_{sign}_{cell_line}.pdf")
                 plt.clf()
 
-                sns.regplot(data = data_signed, x = 'score', y = 'syn')
-                plt.savefig(f'gi_reg_{sign}_{cell_line}.pdf')
+                sns.regplot(data=data_signed, x="score", y="syn")
+                plt.savefig(f"gi_reg_{sign}_{cell_line}.pdf")
                 plt.clf()
 
     def makePlots(self):
 
         if not self.singletons:
 
-            dataLFCs = self.data[self.valueName].values,#.reshape(-1, 3)[:, 0]
+            dataLFCs = (self.data[self.valueName].values,)  # .reshape(-1, 3)[:, 0]
             modelLFCs = self.modelOutput["samples"]
 
             self.plotLFCs(dataLFCs, dataType="data")
@@ -554,7 +681,7 @@ class SimPlotter(object):
 
     def makeMultiPlots(self):
 
-        fig, axs = plt.subplots(2, 2, figsize = (16, 12))
+        fig, axs = plt.subplots(2, 2, figsize=(16, 12))
 
         if not self.singletons:
 
@@ -588,12 +715,16 @@ if __name__ == "__main__":
     argParser.add_argument(
         "-d",
         "--combsData",
-        type=str, dest="dataFile", help="Pandas Parquet combination data input file."
+        type=str,
+        dest="dataFile",
+        help="Pandas Parquet combination data input file.",
     )
     argParser.add_argument(
         "-sd",
         "--singlesData",
-        type=str, dest="sglFile", help="Pandas Parquet singleton data input file."
+        type=str,
+        dest="sglFile",
+        help="Pandas Parquet singleton data input file.",
     )
     argParser.add_argument(
         "-cd",
@@ -622,7 +753,11 @@ if __name__ == "__main__":
         "-l", type=str, dest="location", default=".", help="Plot output location."
     )
     argParser.add_argument(
-        "--contexts", type=str, dest="contextsFile", default=".", help="GI contexts pickle file."
+        "--contexts",
+        type=str,
+        dest="contextsFile",
+        default=".",
+        help="GI contexts pickle file.",
     )
     argParser.add_argument(
         "-s",

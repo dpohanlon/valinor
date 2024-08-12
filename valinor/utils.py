@@ -370,3 +370,20 @@ def configArgs(args):
             config[arg] = getattr(args, arg)
 
     return config
+
+
+def getBatchData(data, indices, start_idx, end_idx):
+
+    batch_data = {}
+    batch_data["final"] = {
+        k: v[start_idx:end_idx] if not v is None else None
+        for k, v in data["final"].items()
+    }
+    batch_data["initial"] = {
+        k: v[start_idx:end_idx] if not v is None else None
+        for k, v in data["initial"].items()
+    }
+
+    batch_indices = {k: v[start_idx:end_idx] for k, v in indices.items()}
+
+    return batch_data, batch_indices

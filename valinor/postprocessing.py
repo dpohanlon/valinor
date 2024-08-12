@@ -52,6 +52,16 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 
     df = pd.DataFrame({n: np.mean(paramSamples[n], 0) for n in lhSamples})
 
+    # Return an empty DF if there are no parameters, e.g., from batching with a size greater than the length
+
+    if list(paramSamples.values())[0].size == 0:
+
+        for k in set(paramSamples.keys()) - set(lhSamples):
+            df[f"{k}_mean"] = []
+            df[f"{k}_std"] = []
+
+        return df
+
     # Get the average and std values of the parameter samples
 
     means, stds = averageOverSamples(paramSamples)
@@ -137,7 +147,12 @@ def sampleParams(
             :, indices["gene_s_idx"]
         ]
 
-        singlesParams["mv_s"] = 1.0 / samples["inv_mv_s"]
+        singlesParams["mv_s"] = (
+            1.0
+            / samples["inv_mv_gene"][
+                :, indices["cell_line_s_idx"], indices["gene_s_idx"]
+            ]
+        )
 
         if zi:
             singlesParams["p_zi"] = samples["p_zi"][:, indices["cell_line_s_idx"]]
@@ -174,7 +189,12 @@ def sampleParams(
             :, indices["cell_line_c_idx"]
         ]
 
-        controlsParams["mv_c"] = 1.0 / samples["inv_mv_c"]
+        controlsParams["mv_c"] = (
+            1.0
+            / samples["inv_mv_guide_pair_c"][
+                :, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]
+            ]
+        )
 
         controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
             controlsParams["init_count_c"]
@@ -242,7 +262,12 @@ def sampleParams(
             :, indices["gene_pair_idx"]
         ]
 
-        combsParams["mv"] = 1.0 / samples["inv_mv"]
+        combsParams["mv"] = (
+            1.0
+            / samples["inv_mv_gene_pair"][
+                :, indices["cell_line_idx"], indices["gene_pair_idx"]
+            ]
+        )
 
         if zi:
             combsParams["p_zi"] = samples["p_zi"][:, indices["cell_line_idx"]]
@@ -250,10 +275,6 @@ def sampleParams(
         combsParams["samples_init"] = models.dkoLikelihoodInitial(
             combsParams["init_count"]
         )[0].sample(random.PRNGKey(42))
-
-        finalLH = (
-            models.dkoLikelihoodFinal if alternate else models.dkoLikelihoodFullFinal
-        )
 
         if alternate:
             combsParams["guide_eff_12"] = samples["guide_eff_12"]
