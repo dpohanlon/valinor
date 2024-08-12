@@ -137,7 +137,7 @@ def runValinor(
             combsDF = createDataFrame(sampledParams["combs"])
 
         if config["no_singletons"] == False:
-            singlesDF = createDataFrame(sampledParams["singletons"])
+            singlesDF = createDataFrame(sampledParams["singles"])
 
     else:
 
