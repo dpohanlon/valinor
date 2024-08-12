@@ -77,7 +77,7 @@ class Test02Valinor(unittest.TestCase):
         args += "--epochs 1 "
         args += "--nSamples 10 "
         args += "--batch-sample "
-        args += "--batch-size 1024"
+        args += "--batch-size 1024 "
         args += "-n batchTest "
 
         sp.check_call(f"valinor {args}", shell=True)
