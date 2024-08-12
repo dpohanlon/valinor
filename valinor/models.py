@@ -354,6 +354,30 @@ def sample_od_distributions(
     return inv_mv_gene_pair
 
 
+def sample_control_od_distributions(
+    inv_mv_mean, inv_mv_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+):
+
+    # Err on the side of too much freedom here
+
+    with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
+
+        inv_mv_guide_pair_c = numpyro.sample(
+            "inv_mv_guide_pair_c",
+            dist.TruncatedNormal(
+                loc=jnp.repeat(
+                    inv_mv_mean[:, None], lengths["len_guide_pairs_c"], axis=1
+                ),
+                scale=jnp.repeat(
+                    inv_mv_std[:, None], lengths["len_guide_pairs_c"], axis=1
+                ),
+                low=1.0,
+            ),
+        )
+
+    return inv_mv_guide_pair_c
+
+
 def sample_cell_line_distributions(
     lengths: Dict[str, int],
     prior_params: Dict[str, Any],
@@ -540,8 +564,7 @@ def sample_control_distributions(
     indices,
     prior_params: Dict[str, Any],
     cell_line_growth,
-    inv_mv_mean,
-    inv_mv_std,
+    inv_mv_guide_pair_c,
 ):
     init_c_l, init_c_s = prior_params["init_count_c"]
 
@@ -551,14 +574,10 @@ def sample_control_distributions(
             dist.TruncatedNormal(loc=init_c_l, scale=init_c_s, low=0.0),
         )
 
-    inv_mv_c = numpyro.sample(
-        "inv_mv_c",
-        dist.TruncatedNormal(
-            loc=inv_mv_mean[indices["cell_line_c_idx"]],
-            scale=inv_mv_std[indices["cell_line_c_idx"]],
-            low=1.0,
-        ),
-    )
+    inv_mv_c = inv_mv_guide_pair_c[
+        indices["cell_line_c_idx"], indices["guide_pair_c_idx"]
+    ]
+
     mv_c = numpyro.deterministic("mv_c", 1.0 / inv_mv_c)
 
     cell_line_growth_c = cell_line_growth[indices["cell_line_c_idx"]]
@@ -645,12 +664,11 @@ def valinorHierarchy(
             p_zi if zi else False,
         )
     if not no_controls:
+
+        inv_mv_guide_pair_c = sample_control_od_distributions(
+            inv_mv_mean, inv_mv_std, lengths, prior_params
+        )
+
         sample_control_distributions(
-            data,
-            lengths,
-            indices,
-            prior_params,
-            cell_line_growth,
-            inv_mv_mean,
-            inv_mv_std,
+            data, lengths, indices, prior_params, cell_line_growth, inv_mv_guide_pair_c
         )

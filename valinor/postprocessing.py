@@ -169,7 +169,12 @@ def sampleParams(
             :, indices["cell_line_c_idx"]
         ]
 
-        controlsParams["mv_c"] = 1.0 / samples["inv_mv_c"]
+        controlsParams["mv_c"] = (
+            1.0
+            / samples["inv_mv_guide_pair_c"][
+                :, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]
+            ]
+        )
 
         controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
             controlsParams["init_count_c"]
