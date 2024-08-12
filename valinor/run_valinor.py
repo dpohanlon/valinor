@@ -2,6 +2,9 @@ import argparse
 
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd
+
+from tqdm import tqdm
 
 from jax import random
 import numpyro
@@ -18,6 +21,7 @@ from valinor.utils import (
     configArgs,
     saveModelParams,
     loadPriors,
+    getBatchData,
 )
 from valinor.preprocessing import prepareData
 from valinor.postprocessing import sampleParams, createDataFrame
@@ -111,23 +115,82 @@ def runValinor(
         return_sites=sites_from_model,
     )
 
-    # Sample from posterior
-    samples = predictive(
-        random.PRNGKey(42),
-        data,
-        lengths,
-        indices,
-        prior_params,
-        no_singletons=config["no_singletons"],
-        only_singletons=config["only_singletons"],
-        no_controls=config["no_controls"],
-        guide_config=config["guide_config"],
-        zi=config["zi"],
-    )
+    if not config["batch_sample"]:
 
-    sampledParams = sampleParams(samples, indices, config["alternateLH"])
+        # Sample from posterior
+        samples = predictive(
+            random.PRNGKey(42),
+            data,
+            lengths,
+            indices,
+            prior_params,
+            no_singletons=config["no_singletons"],
+            only_singletons=config["only_singletons"],
+            no_controls=config["no_controls"],
+            guide_config=config["guide_config"],
+            zi=config["zi"],
+        )
 
-    combsDF = createDataFrame(sampledParams["combs"])
+        sampledParams = sampleParams(samples, indices, config["alternateLH"])
+
+        combsDF = createDataFrame(sampledParams["combs"])
+        combsDF.to_parquet(
+            f"{outputDir}combsModel.pq"
+            if config["name"] is None
+            else f"{outputDir}combsModel_{config['name']}.pq"
+        )
+
+        if config["no_singletons"] == False:
+            singlesDF = createDataFrame(sampledParams["singles"])
+            singlesDF.to_parquet(
+                f"{outputDir}singlesModel.pq"
+                if config["name"] is None
+                else f"{outputDir}singlesModel_{config['name']}.pq"
+            )
+
+    else:
+
+        # Sample from posterior in batches, concatenating to the same dataframe.
+        # We can do this as the model is independent of the length of the data.
+
+        n_batches = np.ceil(
+            len(data["final"]["combinations"]) / config["batch_size"]
+        ).astype(int)
+
+        combsDFs = []
+        singlesDFs = []
+
+        for i in tqdm(range(n_batches)):
+
+            start_idx = i * config["batch_size"]
+            end_idx = (i + 1) * config["batch_size"]
+
+            batch_data, batch_indices = getBatchData(data, indices, start_idx, end_idx)
+
+            samples = predictive(
+                random.PRNGKey(42),
+                batch_data,
+                lengths,
+                batch_indices,
+                prior_params,
+                no_singletons=config["no_singletons"],
+                only_singletons=config["only_singletons"],
+                no_controls=config["no_controls"],
+                guide_config=config["guide_config"],
+                zi=config["zi"],
+            )
+
+            sampledParams = sampleParams(samples, batch_indices, config["alternateLH"])
+
+            combsDFs.append(createDataFrame(sampledParams["combs"]))
+
+            if config["no_singletons"] == False:
+                singlesDFs.append(createDataFrame(sampledParams["singles"]))
+
+        combsDF = pd.concat(combsDFs)
+        if config["no_singletons"] == False:
+            singlesDF = pd.concat(singlesDFs)
+
     combsDF.to_parquet(
         f"{outputDir}combsModel.pq"
         if config["name"] is None
@@ -135,7 +198,7 @@ def runValinor(
     )
 
     if config["no_singletons"] == False:
-        singlesDF = createDataFrame(sampledParams["singles"])
+
         singlesDF.to_parquet(
             f"{outputDir}singlesModel.pq"
             if config["name"] is None
@@ -265,6 +328,22 @@ def makeArgs():
         dest="controlsFile",
         default=None,
         help="Data controls file.",
+    )
+
+    argParser.add_argument(
+        "--batch-sample",
+        action="store_true",
+        dest="batch_sample",
+        default=False,
+        help="Whether to sample batches of data from the model.",
+    )
+
+    argParser.add_argument(
+        "--batch-size",
+        type=int,
+        dest="batch_size",
+        default=2**14,
+        help="Batch size for batched operations.",
     )
 
     argParser.add_argument(
