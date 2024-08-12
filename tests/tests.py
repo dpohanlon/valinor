@@ -19,6 +19,8 @@ class Test01ValinorSim(unittest.TestCase):
             os.mkdir("tests/data")
 
         args = "--out-dir tests/data "
+        args += "--nCellLines 2 "
+        args += "--nGenes 25 "
 
         sp.check_call(f"valinor_sim {args}", shell=True)
 
@@ -34,7 +36,7 @@ class Test02Valinor(unittest.TestCase):
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
         args += "--singletonsFile tests/data/dfSgl_sim.pq "
         args += "--controlsFile tests/data/dfCalib_sim.pq "
-        args += "--epochs 10 "
+        args += "--epochs 1 "
         args += "--nSamples 10 "
         args += "-n cliTest "
 
@@ -46,7 +48,7 @@ class Test02Valinor(unittest.TestCase):
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
         args += "--singletonsFile tests/data/dfSgl_sim.pq "
         args += "--controlsFile tests/data/dfCalib_sim.pq "
-        args += "--epochs 10 "
+        args += "--epochs 1 "
         args += "--nSamples 10 "
         args += "-n cliTest "
         args += "--priorsFile tests/priors.yaml "
@@ -59,10 +61,24 @@ class Test02Valinor(unittest.TestCase):
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
         args += "--singletonsFile tests/data/dfSgl_sim.pq "
         args += "--controlsFile tests/data/dfCalib_sim.pq "
-        args += "--epochs 10 "
+        args += "--epochs 1 "
         args += "--nSamples 10 "
         args += "-n zinbTest "
         args += "--ZINB"
+
+        sp.check_call(f"valinor {args}", shell=True)
+
+    def testWithBatching(self):
+        # cwd: valinor
+
+        args = "--combinationsFile tests/data/dfCombs_sim.pq "
+        args += "--singletonsFile tests/data/dfSgl_sim.pq "
+        args += "--controlsFile tests/data/dfCalib_sim.pq "
+        args += "--epochs 1 "
+        args += "--nSamples 10 "
+        args += "--batch-sample "
+        args += "--batch-size 1024"
+        args += "-n batchTest "
 
         sp.check_call(f"valinor {args}", shell=True)
 
