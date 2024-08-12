@@ -292,16 +292,13 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
     return gene_ko_growth
 
 
-def sample_cell_line_distributions(
-    lengths: Dict[str, int],
-    prior_params: Dict[str, Any],
+def sample_mv_cell_line_distributions(
+    lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
-    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-        growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
 
-        cell_line_growth = numpyro.sample(
-            "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
-        )
+    # Axes reversed wrt order in eff, [cell_line, gene_pair]
+
+    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
 
         od_means = prior_params["od_means"]
         od_stds = prior_params["od_stds"]
@@ -316,10 +313,62 @@ def sample_cell_line_distributions(
             "inv_mv_std", dist.TruncatedNormal(loc=od_stds, scale=mv_std_s, low=0.0)
         )
 
+    return inv_mv_mean, inv_mv_std
+
+
+def sample_pair_od_distributions(
+    inv_mv_mean, inv_mv_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+):
+
+    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
+
+        inv_mv_gene_pair = numpyro.sample(
+            "inv_mv_gene_pair",
+            dist.TruncatedNormal(
+                loc=jnp.repeat(inv_mv_mean[:, None], lengths["len_gene_pairs"], axis=1),
+                scale=jnp.repeat(
+                    inv_mv_std[:, None], lengths["len_gene_pairs"], axis=1
+                ),
+                low=1.0,
+            ),
+        )
+
+    return inv_mv_gene_pair
+
+
+def sample_od_distributions(
+    inv_mv_mean, inv_mv_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+):
+
+    with numpyro.plate("genes", lengths["len_genes"]):
+
+        inv_mv_gene_pair = numpyro.sample(
+            "inv_mv_gene",
+            dist.TruncatedNormal(
+                loc=jnp.repeat(inv_mv_mean[:, None], lengths["len_genes"], axis=1),
+                scale=jnp.repeat(inv_mv_std[:, None], lengths["len_genes"], axis=1),
+                low=1.0,
+            ),
+        )
+
+    return inv_mv_gene_pair
+
+
+def sample_cell_line_distributions(
+    lengths: Dict[str, int],
+    prior_params: Dict[str, Any],
+):
+    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+        growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
+
+        cell_line_growth = numpyro.sample(
+            "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
+        )
+
         # TODO: Make me configurable
         library_bias = numpyro.sample("library_bias", dist.Normal(loc=0, scale=0.1))
 
-    return cell_line_growth, inv_mv_mean, inv_mv_std, library_bias
+    return cell_line_growth, library_bias
 
 
 def sample_dko_distributions(
@@ -330,8 +379,7 @@ def sample_dko_distributions(
     guide_eff,
     gene_ko_growth,
     cell_line_growth,
-    inv_mv_mean,
-    inv_mv_std,
+    inv_mv_gene_pair,
     alternate: bool = False,
     p_zi=False,
 ):
@@ -347,20 +395,20 @@ def sample_dko_distributions(
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
         gene_pair_ko_growth = numpyro.sample(
-            "gene_pair_ko_growth", dist.Normal(pair_growth_l, pair_growth_s)
+            "gene_pair_ko_growth",
+            dist.TruncatedNormal(pair_growth_l, pair_growth_s, low=1.0),
         )
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
     guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
 
-    inv_mv = numpyro.sample(
-        "inv_mv",
-        dist.TruncatedNormal(
-            loc=inv_mv_mean[indices["cell_line_idx"]],
-            scale=inv_mv_std[indices["cell_line_idx"]],
-            low=1.0,
-        ),
-    )
+    # Should be THE SAME for all guide pairs of a cell line?
+    # Whereas now this is DIFFERENT even for REPLICATES,
+    # so should at least be the same for all replicates!
+
+    # Hierarchy reversed wrt above
+
+    inv_mv = inv_mv_gene_pair[indices["cell_line_idx"], indices["gene_pair_idx"]]
 
     mv = numpyro.deterministic("mv", 1.0 / inv_mv)
 
@@ -439,8 +487,7 @@ def sample_sko_distributions(
     guide_eff,
     gene_ko_growth,
     cell_line_growth,
-    inv_mv_mean,
-    inv_mv_std,
+    inv_mv_gene,
     library_bias,
     alternate: bool = False,
     p_zi=False,
@@ -455,14 +502,7 @@ def sample_sko_distributions(
 
     guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
-    inv_mv_s = numpyro.sample(
-        "inv_mv_s",
-        dist.TruncatedNormal(
-            loc=inv_mv_mean[indices["cell_line_s_idx"]],
-            scale=inv_mv_std[indices["cell_line_s_idx"]],
-            low=1.0,
-        ),
-    )
+    inv_mv_s = inv_mv_gene[indices["cell_line_s_idx"], indices["gene_s_idx"]]
 
     mv_s = numpyro.deterministic("mv_s", 1.0 / inv_mv_s)
 
@@ -554,10 +594,11 @@ def valinorHierarchy(
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
     (
         cell_line_growth,
-        inv_mv_mean,
-        inv_mv_std,
         library_bias,
     ) = sample_cell_line_distributions(lengths, prior_params)
+
+    # Common to all datasets
+    inv_mv_mean, inv_mv_std = sample_mv_cell_line_distributions(lengths, prior_params)
 
     if zi != False:
         # Probability of inflated zeros
@@ -567,6 +608,11 @@ def valinorHierarchy(
         )
 
     if not only_singletons:
+
+        inv_mv_gene_pair = sample_pair_od_distributions(
+            inv_mv_mean, inv_mv_std, lengths, prior_params
+        )
+
         sample_dko_distributions(
             data,
             lengths,
@@ -575,12 +621,16 @@ def valinorHierarchy(
             guide_eff,
             gene_ko_growth,
             cell_line_growth,
-            inv_mv_mean,
-            inv_mv_std,
+            inv_mv_gene_pair,
             alternate,
             p_zi if zi else False,
         )
     if not no_singletons:
+
+        inv_mv_gene = sample_od_distributions(
+            inv_mv_mean, inv_mv_std, lengths, prior_params
+        )
+
         sample_sko_distributions(
             data,
             lengths,
@@ -589,8 +639,7 @@ def valinorHierarchy(
             guide_eff,
             gene_ko_growth,
             cell_line_growth,
-            inv_mv_mean,
-            inv_mv_std,
+            inv_mv_gene,
             library_bias,
             alternate,
             p_zi if zi else False,
