@@ -133,10 +133,11 @@ def runValinor(
 
         sampledParams = sampleParams(samples, indices, config["alternateLH"])
 
-        combsDF = createDataFrame(sampledParams["combs"])
+        if config["only_singletons"] == False:
+            combsDF = createDataFrame(sampledParams["combs"])
 
         if config["no_singletons"] == False:
-            singlesDF = createDataFrame(sampledParams["singles"])
+            singlesDF = createDataFrame(sampledParams["singletons"])
 
     else:
 
