@@ -119,7 +119,12 @@ def sampleParams(
             :, indices["gene_s_idx"]
         ]
 
-        singlesParams["mv_s"] = 1.0 / samples["inv_mv_s"]
+        singlesParams["mv_s"] = (
+            1.0
+            / samples["inv_mv_gene"][
+                :, indices["cell_line_s_idx"], indices["gene_s_idx"]
+            ]
+        )
 
         if zi:
             singlesParams["p_zi"] = samples["p_zi"].reshape(-1, 1)
@@ -213,7 +218,12 @@ def sampleParams(
         :, indices["gene_pair_idx"]
     ]
 
-    combsParams["mv"] = 1.0 / samples["inv_mv"]
+    combsParams["mv"] = (
+        1.0
+        / samples["inv_mv_gene_pair"][
+            :, indices["cell_line_idx"], indices["gene_pair_idx"]
+        ]
+    )
 
     if zi:
         combsParams["p_zi"] = samples["p_zi"].reshape(-1, 1)
@@ -242,6 +252,7 @@ def sampleParams(
         )[0].sample(random.PRNGKey(42))
 
     else:
+
         combsParams["samples"] = models.dkoLikelihoodFullFinal(
             combsParams["init_count"],
             combsParams["guide_eff_1"],
