@@ -542,7 +542,9 @@ def sample_sko_distributions(
 
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
-    library_bias_s = library_bias[indices["cell_line_s_idx"]]
+    library_bias_s = (
+        library_bias[indices["cell_line_s_idx"]] if library_bias is not None else 1.0
+    )
 
     init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
@@ -665,7 +667,7 @@ def valinorHierarchy(
             gene_ko_growth,
             cell_line_growth,
             inv_mv_gene,
-            1.0 if only_singletons else library_bias,
+            library_bias if not only_singletons else None,
             alternate,
             p_zi if zi else False,
         )
