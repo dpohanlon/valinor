@@ -145,7 +145,9 @@ def runValinor(
         # We can do this as the model is independent of the length of the data.
 
         n_batches = np.ceil(
-            len(data["final"]["combinations"]) / config["batch_size"]
+            len(data["final"]["combinations"])
+            if not config["only_singletons"]
+            else len(data["final"]["singletons"]) / config["batch_size"]
         ).astype(int)
 
         combsDFs = []
