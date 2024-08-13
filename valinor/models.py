@@ -665,7 +665,7 @@ def valinorHierarchy(
             gene_ko_growth,
             cell_line_growth,
             inv_mv_gene,
-            library_bias,
+            1.0 if only_singletons else library_bias,
             alternate,
             p_zi if zi else False,
         )
