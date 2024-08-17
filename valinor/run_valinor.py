@@ -343,7 +343,7 @@ def makeArgs():
         "--batch-size",
         type=int,
         dest="batch_size",
-        default=2 ** 14,
+        default=2**14,
         help="Batch size for batched operations.",
     )
 
