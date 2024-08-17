@@ -8,6 +8,8 @@ import h5py
 
 import yaml
 
+import json
+
 from typing import Dict, List, Tuple, Optional
 
 # TODO: Have a better interface to these, especially when first building them
