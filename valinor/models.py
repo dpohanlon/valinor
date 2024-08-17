@@ -362,8 +362,8 @@ def sample_od_distributions(
         mv_gene_ = numpyro.sample(
             "mv_gene_",
             dist.Gamma(
-                jnp.repeat(alpha[:, None], lengths["len_gene"], axis=1),
-                jnp.repeat(beta[:, None], lengths["len_gene"], axis=1),
+                jnp.repeat(alpha[:, None], lengths["len_genes"], axis=1),
+                jnp.repeat(beta[:, None], lengths["len_genes"], axis=1),
             ),
         )
 
