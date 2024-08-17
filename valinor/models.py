@@ -42,7 +42,7 @@ def dkoLikelihoodFinal(
     gene_ko_growth_1: float,
     gene_ko_growth_2: float,
     gene_ko_growth_12: float,
-    mv: float,
+    inv_mv: float,
     library_bias: float,
     p_zi: float,
 ) -> Distribution:
@@ -74,7 +74,7 @@ def dkoLikelihoodFinal(
 
     theta *= init_theta
 
-    return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
+    return negativeBinomial(theta, theta * inv_mv / (1 - inv_mv), p_zi), theta
 
 
 def dkoLikelihoodFullFinal(
@@ -85,7 +85,7 @@ def dkoLikelihoodFullFinal(
     gene_ko_growth_1: float,
     gene_ko_growth_2: float,
     gene_ko_growth_12: float,
-    mv: float,
+    inv_mv: float,
     library_bias: float,
     p_zi: float,
 ) -> Distribution:
@@ -121,7 +121,7 @@ def dkoLikelihoodFullFinal(
         * (p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12))
     )
 
-    return negativeBinomial(theta, theta * mv / (1 - mv), p_zi), theta
+    return negativeBinomial(theta, theta * inv_mv / (1 - inv_mv), p_zi), theta
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
@@ -143,7 +143,7 @@ def skoLikelihoodFinal(
     guide_eff_s: float,
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
-    mv: float,
+    inv_mv: float,
     library_bias: float,
     alternate: bool = False,
     p_zi=False,
@@ -172,7 +172,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_1=gene_ko_growth_s,
             gene_ko_growth_2=0.0,
             gene_ko_growth_12=0.0,
-            mv=mv,
+            inv_mv=inv_mv,
             library_bias=library_bias,
             p_zi=p_zi,
         )
@@ -186,7 +186,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_1=gene_ko_growth_s,
             gene_ko_growth_2=0.0,
             gene_ko_growth_12=0.0,
-            mv=mv,
+            inv_mv=inv_mv,
             library_bias=library_bias,
             p_zi=p_zi,
         )
@@ -195,11 +195,11 @@ def skoLikelihoodFinal(
 def controlLikelihoodFinal(
     init_theta_c: float,
     cell_line_growth_c: float,
-    mv: float,
+    inv_mv: float,
 ) -> Distribution:
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
-    return negativeBinomial(theta, theta * mv / (1 - mv)), theta
+    return negativeBinomial(theta, theta * inv_mv / (1 - inv_mv)), theta
 
 
 def sample_guide_distributions(
@@ -303,14 +303,19 @@ def sample_mv_cell_line_distributions(
 
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
 
-        od_means = prior_params["od_means"]
-        od_stds = prior_params["od_stds"]
+        # This is a prior on the inverse of the overdispersion parameter
+        # so is in [0, 1]
+
+        # These are given in as OD, rather than inverse OD
+
+        od_means = 1. / prior_params["od_means"]
+        od_stds = 1. / prior_params["od_stds"]
 
         mv_mean_s = prior_params["mv_mean_scale"]
         mv_std_s = prior_params["mv_std_scale"]
 
         inv_mv_mean = numpyro.sample(
-            "inv_mv_mean", dist.TruncatedNormal(loc=od_means, scale=mv_mean_s, low=1.0)
+            "inv_mv_mean", dist.TruncatedNormal(loc=od_means, scale=mv_mean_s, low=0.0, high=1.0)
         )
         inv_mv_std = numpyro.sample(
             "inv_mv_std", dist.TruncatedNormal(loc=od_stds, scale=mv_std_s, low=0.0)
@@ -332,7 +337,8 @@ def sample_pair_od_distributions(
                 scale=jnp.repeat(
                     inv_mv_std[:, None], lengths["len_gene_pairs"], axis=1
                 ),
-                low=1.0,
+                low=0.0,
+                high=1.0,
             ),
         )
 
@@ -350,7 +356,8 @@ def sample_od_distributions(
             dist.TruncatedNormal(
                 loc=jnp.repeat(inv_mv_mean[:, None], lengths["len_genes"], axis=1),
                 scale=jnp.repeat(inv_mv_std[:, None], lengths["len_genes"], axis=1),
-                low=1.0,
+                low=0.0,
+                high=1.0,
             ),
         )
 
@@ -374,7 +381,8 @@ def sample_control_od_distributions(
                 scale=jnp.repeat(
                     inv_mv_std[:, None], lengths["len_guide_pairs_c"], axis=1
                 ),
-                low=1.0,
+                low=0.0,
+                high = 1.0,
             ),
         )
 
@@ -487,7 +495,7 @@ def sample_dko_distributions(
             gene_ko_growth_1,
             gene_ko_growth_2,
             gene_ko_growth_12,
-            mv,
+            inv_mv,
             library_bias=1.0,
             p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
@@ -501,7 +509,7 @@ def sample_dko_distributions(
             gene_ko_growth_1,
             gene_ko_growth_2,
             gene_ko_growth_12,
-            mv,
+            inv_mv,
             library_bias=1.0,
             p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
@@ -553,7 +561,7 @@ def sample_sko_distributions(
         guide_eff_s,
         cell_line_growth_s,
         gene_ko_growth_s,
-        mv_s,
+        inv_mv_s,
         library_bias_s,
         alternate,
         p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
@@ -597,7 +605,7 @@ def sample_control_distributions(
     # Could do it with DKO LH, fixing g = 0
 
     lh_c, theta_c = controlLikelihoodFinal(
-        init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
+        init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, inv_mv_c
     )
 
     numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
