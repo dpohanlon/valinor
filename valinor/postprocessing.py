@@ -147,12 +147,11 @@ def sampleParams(
             :, indices["gene_s_idx"]
         ]
 
-        singlesParams["mv_s"] = (
-            1.0
-            / samples["inv_mv_gene"][
-                :, indices["cell_line_s_idx"], indices["gene_s_idx"]
-            ]
-        )
+        mvProd = samples['gene_std'][:, :, None] * samples['non_centered_deviation_gene'][:, None, :]
+
+        mv = samples['mv_cell_line'][:, :, None] + mvProd
+
+        singlesParams["mv_s"] = mv[:, indices["cell_line_s_idx"], indices["gene_s_idx"]] + 1
 
         if zi:
             singlesParams["p_zi"] = samples["p_zi"][:, indices["cell_line_s_idx"]]
@@ -190,10 +189,9 @@ def sampleParams(
         ]
 
         controlsParams["mv_c"] = (
-            1.0
-            / samples["inv_mv_guide_pair_c"][
+            samples["mv_guide_pair_c_"][
                 :, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]
-            ]
+            ] + 1
         )
 
         controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
@@ -262,12 +260,13 @@ def sampleParams(
             :, indices["gene_pair_idx"]
         ]
 
-        combsParams["mv"] = (
-            1.0
-            / samples["inv_mv_gene_pair"][
-                :, indices["cell_line_idx"], indices["gene_pair_idx"]
-            ]
-        )
+        # [n_samples, n_cell_lines] * [n_samples, n_genes] = [n_samples, n_cell_lines, n_genes]
+
+        mvProd = samples['gene_std'][:, :, None] * samples['non_centered_deviation'][:, None, :]
+
+        mv = samples['mv_cell_line'][:, :, None] + mvProd + 1
+
+        combsParams["mv"] = mv[:, indices["cell_line_idx"], indices["gene_pair_idx"]]
 
         if zi:
             combsParams["p_zi"] = samples["p_zi"][:, indices["cell_line_idx"]]

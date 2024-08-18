@@ -74,6 +74,9 @@ def dkoLikelihoodFinal(
 
     theta *= init_theta
 
+    theta = jax.nn.softplus(theta)
+    mv = jax.nn.softplus(mv) + 1.
+
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
 
 
@@ -120,6 +123,9 @@ def dkoLikelihoodFullFinal(
         * jnp.exp(cell_line_growth)
         * (p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12))
     )
+
+    theta = jax.nn.softplus(theta)
+    mv = jax.nn.softplus(mv) + 1.
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
 
@@ -198,6 +204,9 @@ def controlLikelihoodFinal(
     mv: float,
 ) -> Distribution:
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
+
+    theta = jax.nn.softplus(theta)
+    mv = jax.nn.softplus(mv) + 1.
 
     return negativeBinomial(theta, theta / (mv - 1)), theta
 
@@ -299,102 +308,115 @@ def sample_mv_cell_line_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    # Axes reversed wrt order in eff, [cell_line, gene_pair]
+    od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1
+    od_stds = prior_params["od_stds"]
 
-    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+    mv_mean_s = np.ones(lengths["len_cell_lines"]) * prior_params["mv_mean_scale"]
 
-        od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1
-        od_stds = prior_params["od_stds"]
+    # Prior on OD param directly
 
-        mv_mean_s = 1.0 / prior_params["mv_mean_scale"]
-        mv_std_s = 1.0 / prior_params["mv_std_scale"]
+    # mean_alpha = od_means**2 / od_stds**2
+    # mean_beta = od_means / od_stds**2
 
-        # Prior on OD param directly
+    # with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
 
-        mean_alpha = od_means**2 / mv_mean_s**2
-        mean_beta = od_means / mv_mean_s**2
+    # Sample the global OD for each cell line
+    # mv_cell_line = numpyro.sample(
+    #     "mv_cell_line", dist.Gamma(mean_alpha, mean_beta)
+    # )
 
-        std_alpha = od_stds**2 / mv_std_s**2
-        std_beta = od_stds / mv_std_s**2
+    # mv_cell_line = numpyro.sample(
+    #     "mv_cell_line", dist.LogNormal(jnp.log(od_means), od_stds / od_means)
+    # )
 
-        # These are in (0, inf]
+    mv_cell_line = numpyro.sample(
+        "mv_cell_line", dist.TruncatedNormal(od_means, od_stds, low = 0.0)
+    )
 
-        mv_mean = numpyro.sample("mv_mean", dist.Gamma(mean_alpha, mean_beta))
+    # Define the scale for non-centered deviations (could be learned or set as a prior)
+    gene_std = numpyro.sample(
+        "gene_std", dist.HalfNormal(mv_mean_s)
+    )
 
-        mv_std = numpyro.sample("mv_std", dist.Gamma(std_alpha, std_beta))
-
-    return mv_mean, mv_std
+    return mv_cell_line, gene_std
 
 
 def sample_pair_od_distributions(
-    mv_mean, mv_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+    mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
+
+    # Sample the non-centered deviations for each gene pair
+    non_centered_deviation = numpyro.sample(
+        "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
+    )
+
+    # Compute the outer product of gene_std and non_centered_deviation
+    outer_product = jnp.outer(gene_std, non_centered_deviation)  # Shape: [len_cell_lines, len_gene_pairs]
 
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
 
-        alpha = mv_mean**2 / mv_std**2
-        beta = mv_mean / mv_std**2
-
-        mv_gene_pair_ = numpyro.sample(
+        # Compute the gene pair-specific OD using the non-centered parameterization
+        mv_gene_pair_ = numpyro.deterministic(
             "mv_gene_pair_",
-            dist.Gamma(
-                jnp.repeat(alpha[:, None], lengths["len_gene_pairs"], axis=1),
-                jnp.repeat(beta[:, None], lengths["len_gene_pairs"], axis=1),
-            ),
+            mv_cell_line[:, None] + outer_product
         )
 
-        # Go from (0, inf] to (1, inf]
+        mv_gene_pair_ = jax.nn.softplus(mv_gene_pair_)
 
         mv_gene_pair = numpyro.deterministic("mv_gene_pair", mv_gene_pair_ + 1)
 
     return mv_gene_pair
 
-
 def sample_od_distributions(
-    mv_mean, mv_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+    mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
+
+    # Sample the non-centered deviations
+    non_centered_deviation = numpyro.sample(
+        "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
+    )
+
+    # Compute the outer product of gene_std and non_centered_deviation
+    outer_product = jnp.outer(gene_std, non_centered_deviation)  # Shape: [len_cell_lines, len_genes]
 
     with numpyro.plate("genes", lengths["len_genes"]):
 
-        alpha = mv_mean**2 / mv_std**2
-        beta = mv_mean / mv_std**2
-
-        mv_gene_ = numpyro.sample(
+        # Compute the gene specific OD using the non-centered parameterization
+        mv_gene_ = numpyro.deterministic(
             "mv_gene_",
-            dist.Gamma(
-                jnp.repeat(alpha[:, None], lengths["len_genes"], axis=1),
-                jnp.repeat(beta[:, None], lengths["len_genes"], axis=1),
-            ),
+            # mv_cell_line[:, None] * (1 + outer_product) # Double plus ungood (NaN)
+            mv_cell_line[:, None] + outer_product
         )
 
-        # Go from (0, inf] to (1, inf]
+        mv_gene_ = jax.nn.softplus(mv_gene_)
 
+        # Ensure the final result is in the correct range [1, inf]
         mv_gene = numpyro.deterministic("mv_gene", mv_gene_ + 1)
 
     return mv_gene
 
 
 def sample_control_od_distributions(
-    mv_mean, mv_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+    mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    # Err on the side of too much freedom here
+    # Sample the non-centered deviations
+    non_centered_deviation = numpyro.sample(
+        "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]])
+    )
+
+    # Compute the outer product of gene_std and non_centered_deviation
+    outer_product = jnp.outer(gene_std, non_centered_deviation)  # Shape: [len_cell_lines, len_guide_c_pairs]
 
     with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
 
-        alpha = mv_mean**2 / mv_std**2
-        beta = mv_mean / mv_std**2
-
-        mv_guide_pair_c_ = numpyro.sample(
+        # Compute the guide pair-specific OD using the non-centered parameterization
+        mv_guide_pair_c_ = numpyro.deterministic(
             "mv_guide_pair_c_",
-            dist.Gamma(
-                jnp.repeat(alpha[:, None], lengths["len_guide_pairs_c"], axis=1),
-                jnp.repeat(beta[:, None], lengths["len_guide_pairs_c"], axis=1),
-            ),
+            mv_cell_line[:, None] + outer_product
         )
 
-        # Go from (0, inf] to (1, inf]
-
+        # Ensure the final result is in the correct range [1, inf]
         mv_guide_pair_c = numpyro.deterministic("mv_guide_pair_c", mv_guide_pair_c_ + 1)
 
     return mv_guide_pair_c
@@ -564,7 +586,7 @@ def sample_sko_distributions(
     init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
     lh_s, theta_s = skoLikelihoodFinal(
-        init_theta_s[indices["guide_pair_s_idx"]],
+       init_theta_s[indices["guide_pair_s_idx"]],
         guide_eff_s,
         cell_line_growth_s,
         gene_ko_growth_s,
@@ -643,12 +665,12 @@ def valinorHierarchy(
     ) = sample_cell_line_distributions(lengths, prior_params)
 
     # Common to all datasets
-    mv_mean, mv_std = sample_mv_cell_line_distributions(lengths, prior_params)
+    mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
 
     if not only_singletons:
 
         mv_gene_pair = sample_pair_od_distributions(
-            mv_mean, mv_std, lengths, prior_params
+            mv_cell_line, gene_std, lengths, prior_params
         )
 
         sample_dko_distributions(
@@ -665,7 +687,7 @@ def valinorHierarchy(
         )
     if not no_singletons:
 
-        mv_gene = sample_od_distributions(mv_mean, mv_std, lengths, prior_params)
+        mv_gene = sample_od_distributions(mv_cell_line, gene_std, lengths, prior_params)
 
         sample_sko_distributions(
             data,
@@ -683,7 +705,7 @@ def valinorHierarchy(
     if not no_controls:
 
         mv_guide_pair_c = sample_control_od_distributions(
-            mv_mean, mv_std, lengths, prior_params
+            mv_cell_line, gene_std, lengths, prior_params
         )
 
         sample_control_distributions(

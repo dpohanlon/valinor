@@ -190,7 +190,7 @@ def getIndices(
         "cell_line_idx": jnp.array(
             df["cell_line_index"].values
             if not only_singletons
-            else dfSingles["cell_line_s_index"].values
+            else dfSingles["cell_line_index"].values
         ),
     }
 
