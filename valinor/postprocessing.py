@@ -188,11 +188,11 @@ def sampleParams(
             :, indices["cell_line_c_idx"]
         ]
 
-        controlsParams["mv_c"] = (
-            samples["mv_guide_pair_c_"][
-                :, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]
-            ] + 1
-        )
+        mvProd = samples['gene_std'][:, :, None] * samples['non_centered_deviation_gene_c'][:, None, :]
+
+        mv = samples['mv_cell_line'][:, :, None] + mvProd + 1
+
+        controlsParams["mv_c"] = mv[:, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
 
         controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
             controlsParams["init_count_c"]
