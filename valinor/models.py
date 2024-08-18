@@ -315,23 +315,23 @@ def sample_mv_cell_line_distributions(
 
     # Prior on OD param directly
 
-    mean_alpha = od_means**2 / od_stds**2
-    mean_beta = od_means / od_stds**2
+    # mean_alpha = od_means**2 / od_stds**2
+    # mean_beta = od_means / od_stds**2
 
     # with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
 
     # Sample the global OD for each cell line
-    mv_cell_line = numpyro.sample(
-        "mv_cell_line", dist.Gamma(mean_alpha, mean_beta)
-    )
+    # mv_cell_line = numpyro.sample(
+    #     "mv_cell_line", dist.Gamma(mean_alpha, mean_beta)
+    # )
 
     # mv_cell_line = numpyro.sample(
     #     "mv_cell_line", dist.LogNormal(jnp.log(od_means), od_stds / od_means)
     # )
 
-    # mv_cell_line = numpyro.sample(
-    #     "mv_cell_line", dist.TruncatedNormal(od_means, od_stds, low = 0.0)
-    # )
+    mv_cell_line = numpyro.sample(
+        "mv_cell_line", dist.TruncatedNormal(od_means, od_stds, low = 0.0)
+    )
 
     # Define the scale for non-centered deviations (could be learned or set as a prior)
     gene_std = numpyro.sample(
@@ -358,7 +358,7 @@ def sample_pair_od_distributions(
         # Compute the gene pair-specific OD using the non-centered parameterization
         mv_gene_pair_ = numpyro.deterministic(
             "mv_gene_pair_",
-            mv_cell_line[:, None] * (1 + outer_product)
+            mv_cell_line[:, None] + outer_product
         )
 
         mv_gene_pair_ = jax.nn.softplus(mv_gene_pair_)
@@ -385,7 +385,7 @@ def sample_od_distributions(
         mv_gene_ = numpyro.deterministic(
             "mv_gene_",
             # mv_cell_line[:, None] * (1 + outer_product) # Double plus ungood (NaN)
-            mv_cell_line[:, None] * (1 + outer_product)
+            mv_cell_line[:, None] + outer_product
         )
 
         mv_gene_ = jax.nn.softplus(mv_gene_)
@@ -413,7 +413,7 @@ def sample_control_od_distributions(
         # Compute the guide pair-specific OD using the non-centered parameterization
         mv_guide_pair_c_ = numpyro.deterministic(
             "mv_guide_pair_c_",
-            mv_cell_line[:, None] * (1 + outer_product)
+            mv_cell_line[:, None] + outer_product
         )
 
         # Ensure the final result is in the correct range [1, inf]
