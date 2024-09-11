@@ -75,7 +75,7 @@ def dkoLikelihoodFinal(
     theta *= init_theta
 
     theta = jax.nn.softplus(theta)
-    mv = jax.nn.softplus(mv-1) + 1.
+    mv = jax.nn.softplus(mv-1) + 1. + 1E-6
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
 
@@ -114,9 +114,9 @@ def dkoLikelihoodFullFinal(
     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
     p_12 = guide_eff_1 * guide_eff_2
 
-    g1 = library_bias * gene_ko_growth_1
-    g2 = gene_ko_growth_2
-    g12 = gene_ko_growth_12
+    g1 = jnp.clip(library_bias * gene_ko_growth_1, -1000, 1000)
+    g2 = jnp.clip(gene_ko_growth_2, -1000, 1000)
+    g12 = jnp.clip(gene_ko_growth_12, -1000, 1000)
 
     theta = (
         init_theta
@@ -125,7 +125,7 @@ def dkoLikelihoodFullFinal(
     )
 
     theta = jax.nn.softplus(theta)
-    mv = jax.nn.softplus(mv-1) + 1.
+    mv = jax.nn.softplus(mv-1) + 1. + 1E-6
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
 
@@ -206,7 +206,7 @@ def controlLikelihoodFinal(
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
     theta = jax.nn.softplus(theta)
-    mv = jax.nn.softplus(mv-1) + 1.
+    mv = jax.nn.softplus(mv-1) + 1. + 1E-6
 
     return negativeBinomial(theta, theta / (mv - 1)), theta
 
@@ -433,6 +433,8 @@ def sample_cell_line_distributions(
             "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
         )
 
+        cell_line_growth = jnp.clip(cell_line_growth, -1000, 1000)
+
         # TODO: Make me configurable
         library_bias = numpyro.sample("library_bias", dist.Normal(loc=0, scale=0.1))
 
@@ -586,7 +588,7 @@ def sample_sko_distributions(
     init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
     lh_s, theta_s = skoLikelihoodFinal(
-       init_theta_s[indices["guide_pair_s_idx"]],
+    init_theta_s[indices["guide_pair_s_idx"]],
         guide_eff_s,
         cell_line_growth_s,
         gene_ko_growth_s,

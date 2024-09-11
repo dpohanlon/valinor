@@ -10,7 +10,7 @@ from jax import random
 import numpyro
 
 from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
-from numpyro.infer.autoguide import AutoNormal
+from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
 
 from numpyro.handlers import seed, trace
 
@@ -30,7 +30,6 @@ from valinor.plotting import plotDiagPlots
 from typing import Dict, List, Tuple, Any
 
 import json
-
 
 def get_model_sites(model, *args):
     model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args)
@@ -56,8 +55,9 @@ def runValinor(
     """
 
     guide = AutoNormal(models.valinorHierarchy)
+    # guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, rank = 1024)
 
-    optimizer = numpyro.optim.Adam(step_size=config["lr"])
+    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm = 10.0)
 
     svi = SVI(
         models.valinorHierarchy,
