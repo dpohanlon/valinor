@@ -75,7 +75,7 @@ def dkoLikelihoodFinal(
     theta *= init_theta
 
     theta = jax.nn.softplus(theta)
-    mv = jax.nn.softplus(mv-1) + 1. + 1E-6
+    mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
 
@@ -125,7 +125,7 @@ def dkoLikelihoodFullFinal(
     )
 
     theta = jax.nn.softplus(theta)
-    mv = jax.nn.softplus(mv-1) + 1. + 1E-6
+    mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
 
@@ -206,7 +206,7 @@ def controlLikelihoodFinal(
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
     theta = jax.nn.softplus(theta)
-    mv = jax.nn.softplus(mv-1) + 1. + 1E-6
+    mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     return negativeBinomial(theta, theta / (mv - 1)), theta
 
@@ -330,13 +330,11 @@ def sample_mv_cell_line_distributions(
     # )
 
     mv_cell_line = numpyro.sample(
-        "mv_cell_line", dist.TruncatedNormal(od_means, od_stds, low = 0.0)
+        "mv_cell_line", dist.TruncatedNormal(od_means, od_stds, low=0.0)
     )
 
     # Define the scale for non-centered deviations (could be learned or set as a prior)
-    gene_std = numpyro.sample(
-        "gene_std", dist.HalfNormal(mv_mean_s)
-    )
+    gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
 
     return mv_cell_line, gene_std
 
@@ -351,14 +349,15 @@ def sample_pair_od_distributions(
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
-    outer_product = jnp.outer(gene_std, non_centered_deviation)  # Shape: [len_cell_lines, len_gene_pairs]
+    outer_product = jnp.outer(
+        gene_std, non_centered_deviation
+    )  # Shape: [len_cell_lines, len_gene_pairs]
 
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
 
         # Compute the gene pair-specific OD using the non-centered parameterization
         mv_gene_pair_ = numpyro.deterministic(
-            "mv_gene_pair_",
-            mv_cell_line[:, None] + outer_product
+            "mv_gene_pair_", mv_cell_line[:, None] + outer_product
         )
 
         mv_gene_pair_ = jax.nn.softplus(mv_gene_pair_)
@@ -366,6 +365,7 @@ def sample_pair_od_distributions(
         mv_gene_pair = numpyro.deterministic("mv_gene_pair", mv_gene_pair_ + 1)
 
     return mv_gene_pair
+
 
 def sample_od_distributions(
     mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
@@ -377,7 +377,9 @@ def sample_od_distributions(
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
-    outer_product = jnp.outer(gene_std, non_centered_deviation)  # Shape: [len_cell_lines, len_genes]
+    outer_product = jnp.outer(
+        gene_std, non_centered_deviation
+    )  # Shape: [len_cell_lines, len_genes]
 
     with numpyro.plate("genes", lengths["len_genes"]):
 
@@ -385,7 +387,7 @@ def sample_od_distributions(
         mv_gene_ = numpyro.deterministic(
             "mv_gene_",
             # mv_cell_line[:, None] * (1 + outer_product) # Double plus ungood (NaN)
-            mv_cell_line[:, None] + outer_product
+            mv_cell_line[:, None] + outer_product,
         )
 
         mv_gene_ = jax.nn.softplus(mv_gene_)
@@ -402,18 +404,20 @@ def sample_control_od_distributions(
 
     # Sample the non-centered deviations
     non_centered_deviation = numpyro.sample(
-        "non_centered_deviation_gene_c", dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]])
+        "non_centered_deviation_gene_c",
+        dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]]),
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
-    outer_product = jnp.outer(gene_std, non_centered_deviation)  # Shape: [len_cell_lines, len_guide_c_pairs]
+    outer_product = jnp.outer(
+        gene_std, non_centered_deviation
+    )  # Shape: [len_cell_lines, len_guide_c_pairs]
 
     with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
 
         # Compute the guide pair-specific OD using the non-centered parameterization
         mv_guide_pair_c_ = numpyro.deterministic(
-            "mv_guide_pair_c_",
-            mv_cell_line[:, None] + outer_product
+            "mv_guide_pair_c_", mv_cell_line[:, None] + outer_product
         )
 
         # Ensure the final result is in the correct range [1, inf]
@@ -588,7 +592,7 @@ def sample_sko_distributions(
     init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
     lh_s, theta_s = skoLikelihoodFinal(
-    init_theta_s[indices["guide_pair_s_idx"]],
+        init_theta_s[indices["guide_pair_s_idx"]],
         guide_eff_s,
         cell_line_growth_s,
         gene_ko_growth_s,
@@ -643,6 +647,7 @@ def sample_control_distributions(
         obs=data["final"]["controls"],
     )
 
+
 def valinorControls(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
@@ -665,6 +670,7 @@ def valinorControls(
     sample_control_distributions(
         data, lengths, indices, prior_params, cell_line_growth, mv_guide_pair_c
     )
+
 
 def valinorSingles(
     data: Dict[str, jnp.array],
@@ -702,6 +708,7 @@ def valinorSingles(
         alternate,
         p_zi if zi else False,
     )
+
 
 def valinorHierarchy(
     data: Dict[str, jnp.array],

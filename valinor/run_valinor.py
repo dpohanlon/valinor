@@ -31,6 +31,7 @@ from typing import Dict, List, Tuple, Any
 
 import json
 
+
 def get_model_sites(model, *args):
     model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args)
     return list(model_trace.keys())
@@ -58,7 +59,9 @@ def runValinor(
 
     guide_controls = AutoNormal(models.valinorControls)
 
-    optimizer_controls = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm = 10.0)
+    optimizer_controls = numpyro.optim.ClippedAdam(
+        step_size=config["lr"], clip_norm=10.0
+    )
 
     svi_controls = SVI(
         models.valinorControls,
@@ -82,7 +85,9 @@ def runValinor(
 
     guide_singles = AutoNormal(models.valinorSingles)
 
-    optimizer_singles = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm = 10.0)
+    optimizer_singles = numpyro.optim.ClippedAdam(
+        step_size=config["lr"], clip_norm=10.0
+    )
 
     svi_singles = SVI(
         models.valinorSingles,
@@ -93,13 +98,24 @@ def runValinor(
 
     singles_rng_init, singles_rng = random.split(prng_key_controls)
 
-    singles_args = {'data' : data, 'lengths' : lengths, 'indices' : indices, 'prior_params' : prior_params, 'guide_config' : config["guide_config"], 'zi' : config["zi"]}
+    singles_args = {
+        "data": data,
+        "lengths": lengths,
+        "indices": indices,
+        "prior_params": prior_params,
+        "guide_config": config["guide_config"],
+        "zi": config["zi"],
+    }
 
-    state_singles = svi_singles.init(singles_rng_init, init_state=params_controls, **singles_args)
+    state_singles = svi_singles.init(
+        singles_rng_init, init_state=params_controls, **singles_args
+    )
 
-    for i in range(config['epochs']):
+    for i in range(config["epochs"]):
         singles_rng, rng_key_step = random.split(singles_rng)
-        state_singles, loss = svi_singles.stable_update(state_singles, rng_key_step, **singles_args)
+        state_singles, loss = svi_singles.stable_update(
+            state_singles, rng_key_step, **singles_args
+        )
 
     params_singles = state_singles.params
 
@@ -108,7 +124,7 @@ def runValinor(
     guide = AutoNormal(models.valinorHierarchy)
     # guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, rank = 1024)
 
-    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm = 10.0)
+    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm=10.0)
 
     svi_full = SVI(
         models.valinorHierarchy,
@@ -117,13 +133,24 @@ def runValinor(
         loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
     )
 
-    full_args = {'data' : data, 'lengths' : lengths, 'indices' : indices, 'prior_params' : prior_params, 'no_singletons' : config['no_singletons'], 'only_singletons' : config['only_singletons'], 'no_controls' : config['no_controls'], 'alternate' : config['alternate'], 'guide_config' : config["guide_config"], 'zi' : config["zi"]}
+    full_args = {
+        "data": data,
+        "lengths": lengths,
+        "indices": indices,
+        "prior_params": prior_params,
+        "no_singletons": config["no_singletons"],
+        "only_singletons": config["only_singletons"],
+        "no_controls": config["no_controls"],
+        "alternate": config["alternate"],
+        "guide_config": config["guide_config"],
+        "zi": config["zi"],
+    }
 
     full_rng_init, full_rng = random.split(singles_rng)
 
     state_full = svi_full.init(full_rng_init, init_state=params_singles, **full_args)
 
-    for i in range(config['epochs']):
+    for i in range(config["epochs"]):
         full_rng, rng_key_step = random.split(full_rng)
         state_full, loss = svi_full.stable_update(state_full, rng_key_step, **full_args)
 

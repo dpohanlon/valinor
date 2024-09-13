@@ -147,11 +147,16 @@ def sampleParams(
             :, indices["gene_s_idx"]
         ]
 
-        mvProd = samples['gene_std'][:, :, None] * samples['non_centered_deviation_gene'][:, None, :]
+        mvProd = (
+            samples["gene_std"][:, :, None]
+            * samples["non_centered_deviation_gene"][:, None, :]
+        )
 
-        mv = samples['mv_cell_line'][:, :, None] + mvProd
+        mv = samples["mv_cell_line"][:, :, None] + mvProd
 
-        singlesParams["mv_s"] = mv[:, indices["cell_line_s_idx"], indices["gene_s_idx"]] + 1
+        singlesParams["mv_s"] = (
+            mv[:, indices["cell_line_s_idx"], indices["gene_s_idx"]] + 1
+        )
 
         if zi:
             singlesParams["p_zi"] = samples["p_zi"][:, indices["cell_line_s_idx"]]
@@ -188,11 +193,16 @@ def sampleParams(
             :, indices["cell_line_c_idx"]
         ]
 
-        mvProd = samples['gene_std'][:, :, None] * samples['non_centered_deviation_gene_c'][:, None, :]
+        mvProd = (
+            samples["gene_std"][:, :, None]
+            * samples["non_centered_deviation_gene_c"][:, None, :]
+        )
 
-        mv = samples['mv_cell_line'][:, :, None] + mvProd + 1
+        mv = samples["mv_cell_line"][:, :, None] + mvProd + 1
 
-        controlsParams["mv_c"] = mv[:, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
+        controlsParams["mv_c"] = mv[
+            :, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]
+        ]
 
         controlsParams["samples_c_init"] = models.skoLikelihoodInitial(
             controlsParams["init_count_c"]
@@ -262,9 +272,12 @@ def sampleParams(
 
         # [n_samples, n_cell_lines] * [n_samples, n_genes] = [n_samples, n_cell_lines, n_genes]
 
-        mvProd = samples['gene_std'][:, :, None] * samples['non_centered_deviation'][:, None, :]
+        mvProd = (
+            samples["gene_std"][:, :, None]
+            * samples["non_centered_deviation"][:, None, :]
+        )
 
-        mv = samples['mv_cell_line'][:, :, None] + mvProd + 1
+        mv = samples["mv_cell_line"][:, :, None] + mvProd + 1
 
         combsParams["mv"] = mv[:, indices["cell_line_idx"], indices["gene_pair_idx"]]
 
