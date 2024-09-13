@@ -643,6 +643,65 @@ def sample_control_distributions(
         obs=data["final"]["controls"],
     )
 
+def valinorControls(
+    data: Dict[str, jnp.array],
+    lengths: Dict[str, int],
+    indices: Dict[str, jnp.array],
+    prior_params: Dict[str, Any],
+) -> None:
+
+    (
+        cell_line_growth,
+        library_bias,
+        p_zi,
+    ) = sample_cell_line_distributions(lengths, prior_params)
+
+    mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
+
+    mv_guide_pair_c = sample_control_od_distributions(
+        mv_cell_line, gene_std, lengths, prior_params
+    )
+
+    sample_control_distributions(
+        data, lengths, indices, prior_params, cell_line_growth, mv_guide_pair_c
+    )
+
+def valinorSingles(
+    data: Dict[str, jnp.array],
+    lengths: Dict[str, int],
+    indices: Dict[str, jnp.array],
+    prior_params: Dict[str, Any],
+    guide_config: str = "partial_pooling",
+    zi=False,
+) -> None:
+
+    guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
+
+    gene_ko_growth = sample_gene_distributions(lengths, prior_params)
+    (
+        cell_line_growth,
+        library_bias,
+        p_zi,
+    ) = sample_cell_line_distributions(lengths, prior_params)
+
+    # Common to all datasets
+    mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
+
+    mv_gene = sample_od_distributions(mv_cell_line, gene_std, lengths, prior_params)
+
+    sample_sko_distributions(
+        data,
+        lengths,
+        indices,
+        prior_params,
+        guide_eff,
+        gene_ko_growth,
+        cell_line_growth,
+        mv_gene,
+        library_bias if not only_singletons else None,
+        alternate,
+        p_zi if zi else False,
+    )
 
 def valinorHierarchy(
     data: Dict[str, jnp.array],
