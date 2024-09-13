@@ -67,7 +67,7 @@ def runValinor(
         loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
     )
 
-    svi_result_controls = svi_controls.run(
+    state_full_controls = svi_controls.run(
         prng_key_controls,
         config["epochs"],
         data,
@@ -76,7 +76,7 @@ def runValinor(
         prior_params,
     )
 
-    params_controls = svi_result_controls.params
+    params_controls = state_full_controls.params
 
     ##
 
@@ -98,10 +98,10 @@ def runValinor(
     state_singles = svi_singles.init(singles_rng_init, init_state=params_controls, **singles_args)
 
     for i in range(config['epochs']):
-        singles_rng, rng_key_step = jax.random.split(singles_rng)
+        singles_rng, rng_key_step = random.split(singles_rng)
         state_singles, loss = svi_singles.stable_update(state_singles, rng_key_step, **singles_args)
 
-    params_singles = state.params
+    params_singles = state_singles.params
 
     ##
 
@@ -124,8 +124,8 @@ def runValinor(
     state_full = svi_full.init(full_rng_init, init_state=params_singles, **full_args)
 
     for i in range(config['epochs']):
-        full_rng, rng_key_step = jax.random.split(full_rng)
-        svi_result, loss = svi_full.stable_update(svi_result, rng_key_step, **full_args)
+        full_rng, rng_key_step = random.split(full_rng)
+        state_full, loss = svi_full.stable_update(state_full, rng_key_step, **full_args)
 
     ##
 
@@ -133,9 +133,9 @@ def runValinor(
     if config["outputDir"] != outputDir:
         outputDir = f"{config['outputDir'].rstrip('/')}/"
 
-    plotDiagPlots(svi_result, name=config["name"], outputDir=outputDir)
+    plotDiagPlots(state_full, name=config["name"], outputDir=outputDir)
 
-    params = svi_result.params
+    params = state_full.params
 
     saveModelParams(params, f'{outputDir}{config["paramsFileName"]}')
 
