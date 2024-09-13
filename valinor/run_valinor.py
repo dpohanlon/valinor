@@ -108,7 +108,7 @@ def runValinor(
     }
 
     state_singles = svi_singles.init(
-        singles_rng_init, init_state=params_controls, **singles_args
+        singles_rng_init, init_params=params_controls, **singles_args
     )
 
     for i in range(config["epochs"]):
@@ -148,7 +148,7 @@ def runValinor(
 
     full_rng_init, full_rng = random.split(singles_rng)
 
-    state_full = svi_full.init(full_rng_init, init_state=params_singles, **full_args)
+    state_full = svi_full.init(full_rng_init, init_params=params_singles, **full_args)
 
     for i in range(config["epochs"]):
         full_rng, rng_key_step = random.split(full_rng)
