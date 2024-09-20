@@ -704,8 +704,8 @@ def valinorSingles(
         gene_ko_growth,
         cell_line_growth,
         mv_gene,
-        library_bias if not only_singletons else None,
-        alternate,
+        None,
+        False,
         p_zi if zi else False,
     )
 

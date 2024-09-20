@@ -70,7 +70,7 @@ def runValinor(
         loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
     )
 
-    state_full_controls = svi_controls.run(
+    state_controls = svi_controls.run(
         prng_key_controls,
         config["epochs"],
         data,
@@ -79,7 +79,7 @@ def runValinor(
         prior_params,
     )
 
-    params_controls = state_full_controls.params
+    params_controls = state_controls.params
 
     ##
 
@@ -107,15 +107,19 @@ def runValinor(
         "zi": config["zi"],
     }
 
-    state_singles = svi_singles.init(
-        singles_rng_init, init_params=params_controls, **singles_args
+    # state_singles = svi_singles.init(
+    state_singles = svi_singles.run(
+        singles_rng_init,
+        config["epochs"],
+        init_params=params_controls,
+        **singles_args,
+        # data =  data,
+        # lengths =  lengths,
+        # indices =  indices,
+        # prior_params =  prior_params,
+        # guide_config =  config["guide_config"],
+        # zi =  config["zi"],
     )
-
-    for i in range(config["epochs"]):
-        singles_rng, rng_key_step = random.split(singles_rng)
-        state_singles, loss = svi_singles.stable_update(
-            state_singles, rng_key_step, **singles_args
-        )
 
     params_singles = state_singles.params
 
@@ -148,12 +152,11 @@ def runValinor(
 
     full_rng_init, full_rng = random.split(singles_rng)
 
-    state_full = svi_full.init(full_rng_init, init_params=params_singles, **full_args)
-
-    for i in range(config["epochs"]):
-        full_rng, rng_key_step = random.split(full_rng)
-        state_full, loss = svi_full.stable_update(state_full, rng_key_step, **full_args)
-
+    state_full = svi_full.run(
+        full_rng_init,
+        config["epochs"],
+        init_params=params_singles,
+        **full_args,
     ##
 
     outputDir = ""
