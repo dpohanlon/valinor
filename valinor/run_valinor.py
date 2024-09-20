@@ -113,12 +113,6 @@ def runValinor(
         config["epochs"],
         init_params=params_controls,
         **singles_args,
-        # data =  data,
-        # lengths =  lengths,
-        # indices =  indices,
-        # prior_params =  prior_params,
-        # guide_config =  config["guide_config"],
-        # zi =  config["zi"],
     )
 
     params_singles = state_singles.params
@@ -145,7 +139,7 @@ def runValinor(
         "no_singletons": config["no_singletons"],
         "only_singletons": config["only_singletons"],
         "no_controls": config["no_controls"],
-        "alternate": config["alternate"],
+        "alternate": config["alternateLH"],
         "guide_config": config["guide_config"],
         "zi": config["zi"],
     }
