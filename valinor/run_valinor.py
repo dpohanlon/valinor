@@ -157,6 +157,8 @@ def runValinor(
         config["epochs"],
         init_params=params_singles,
         **full_args,
+    )
+
     ##
 
     outputDir = ""
