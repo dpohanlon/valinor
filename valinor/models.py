@@ -295,11 +295,26 @@ def sample_guide_distributions(
 
 
 def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
-    with numpyro.plate("genes", lengths["len_genes"]):
-        growth_l, growth_s = prior_params["gene_ko_growth"]
-        gene_ko_growth = numpyro.sample(
-            "gene_ko_growth", dist.Normal(growth_l, growth_s)
-        )
+
+    if not "gene_effect_means" in prior_params:
+
+        with numpyro.plate("genes", lengths["len_genes"]):
+            growth_l, growth_s = prior_params["gene_ko_growth"]
+            gene_ko_growth = numpyro.sample(
+                "gene_ko_growth", dist.Normal(growth_l, growth_s)
+            )
+
+    else:
+
+        growth_l = prior_params["gene_effect_means"]
+        growth_s = prior_params["gene_effect_stds"]
+
+        with numpyro.plate("genes", lengths["len_genes"]) as g:
+            with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c :
+
+                gene_ko_growth = numpyro.sample(
+                    "gene_ko_growth", dist.Normal(growth_l[g, c], growth_s[g, c])
+                )
 
     return gene_ko_growth
 
@@ -430,7 +445,16 @@ def sample_cell_line_distributions(
     lengths: Dict[str, int],
     prior_params: Dict[str, Any],
 ):
-    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+
+    if not "control_means" in prior_params:
+        growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
+    else:
+        # Assume that these are indexed the same as priors (increasing cell line idx)
+        growth_cell_l = prior_params["control_means"]
+        growth_cell_s = prior_params["control_stds"]
+
+    with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c:
+
         growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
 
         cell_line_growth = numpyro.sample(

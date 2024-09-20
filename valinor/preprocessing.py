@@ -75,6 +75,30 @@ def prepareData(
             np.std(datasets["controls"]["plasmid"]),
         )
 
+    # Init params for controls, cell line stats for control DF
+
+    if controls:
+
+        control_means, control_stds = calculate_cell_line_stats(datasets["controls"])
+
+        prior_params["control_means"] = control_means
+        prior_params["control_stds"] = control_stds
+
+    if singletons:
+
+        # 2D array, genes x cell lines
+        gene_means, gene_stds, idx_c, idx_g = calculate_gene_stats(datasets["singletons"])
+
+        prior_params["gene_effect_means"] = gene_means
+        prior_params["gene_effect_stds"] = gene_stds
+
+    if not singletons:
+
+        # try and guess these
+
+        pass
+
+
     if reindex:
         if singletons and not only_singletons:
             print("Only reindex with a single data type!")
