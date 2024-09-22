@@ -10,7 +10,12 @@ from valinor.utils import (
     reindexDF,
 )
 
-from valinor.priors import calculateOverdispersion, defaultPriors
+from valinor.priors import (
+    calculateOverdispersion,
+    defaultPriors,
+    calculate_cell_line_stats,
+    calculate_gene_stats,
+)
 
 from typing import Dict, List, Tuple, Any
 
@@ -87,7 +92,9 @@ def prepareData(
     if singletons:
 
         # 2D array, genes x cell lines
-        gene_means, gene_stds, idx_c, idx_g = calculate_gene_stats(datasets["singletons"])
+        gene_means, gene_stds, idx_c, idx_g = calculate_gene_stats(
+            datasets["singletons"]
+        )
 
         prior_params["gene_effect_means"] = gene_means
         prior_params["gene_effect_stds"] = gene_stds
@@ -97,7 +104,6 @@ def prepareData(
         # try and guess these
 
         pass
-
 
     if reindex:
         if singletons and not only_singletons:

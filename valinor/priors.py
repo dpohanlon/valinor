@@ -64,12 +64,13 @@ def calculate_gene_stats(df):
            - gene_std_dev_array: Standard deviation of log fold change per gene within each cell line.
     """
 
-    if "gene_index" not in df.columns:
+    # Must match what is used in the rest of the code
+    if "gene1_unq_index" not in df.columns:
         raise ValueError(
             "DataFrame must contain 'gene_index' column for gene-level calculations."
         )
 
-    grouped_by_gene_and_cell = df.groupby(["cell_line_index", "gene_index"])
+    grouped_by_gene_and_cell = df.groupby(["cell_line_index", "gene1_unq_index"])
 
     # Calculate this once somewhere? Or use precalculated version with normalisation?
 

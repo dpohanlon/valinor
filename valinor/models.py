@@ -298,23 +298,25 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
 
     if not "gene_effect_means" in prior_params:
 
+        growth_l, growth_s = prior_params["gene_ko_growth"]
+
         with numpyro.plate("genes", lengths["len_genes"]):
-            growth_l, growth_s = prior_params["gene_ko_growth"]
             gene_ko_growth = numpyro.sample(
                 "gene_ko_growth", dist.Normal(growth_l, growth_s)
             )
 
     else:
 
+        # Return a 2D array with [n_cell_lines, n_genes].
+        # Later index to a 1D array, where gene indices will be unique for each cell line,
+        # as perhaps not all genes will be present for each cell line.
+
         growth_l = prior_params["gene_effect_means"]
         growth_s = prior_params["gene_effect_stds"]
 
-        with numpyro.plate("genes", lengths["len_genes"]) as g:
-            with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c :
-
-                gene_ko_growth = numpyro.sample(
-                    "gene_ko_growth", dist.Normal(growth_l[g, c], growth_s[g, c])
-                )
+        gene_ko_growth = numpyro.sample(
+            "gene_ko_growth", dist.Normal(growth_l, growth_s)
+        )
 
     return gene_ko_growth
 
@@ -513,8 +515,20 @@ def sample_dko_distributions(
 
     mv = mv_gene_pair[indices["cell_line_idx"], indices["gene_pair_idx"]]
 
-    gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
-    gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"]]
+    if not "gene_effect_means" in prior_params:
+
+        gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
+        gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"]]
+
+    else:
+
+        gene_ko_growth_1 = gene_ko_growth[
+            indices["cell_line_idx"], indices["gene_1_idx"]
+        ]
+        gene_ko_growth_2 = gene_ko_growth[
+            indices["cell_line_idx"], indices["gene_2_idx"]
+        ]
+
     gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
 
     cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
@@ -605,7 +619,15 @@ def sample_sko_distributions(
 
     mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_idx"]]
 
-    gene_ko_growth_s = gene_ko_growth[indices["gene_s_idx"]]
+    if not "gene_effect_means" in prior_params:
+
+        gene_ko_growth_s = gene_ko_growth[indices["gene_s_idx"]]
+
+    else:
+
+        gene_ko_growth_s = gene_ko_growth[
+            indices["cell_line_s_idx"], indices["gene_s_idx"]
+        ]
 
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
