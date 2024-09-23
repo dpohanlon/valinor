@@ -144,7 +144,7 @@ def sampleParams(
         ]
 
         singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
-            :, indices["gene_s_idx"]
+            :, indices["cell_line_s_idx"], indices["gene_s_idx"]
         ]
 
         mvProd = (
@@ -261,10 +261,10 @@ def sampleParams(
             )
 
         combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
-            :, indices["gene_1_idx"]
+            :, indices["cell_line_idx"], indices["gene_1_idx"]
         ]
         combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][
-            :, indices["gene_2_idx"]
+            :, indices["cell_line_idx"], indices["gene_2_idx"]
         ]
         combsParams["gene_ko_growth_12"] = samples["gene_pair_ko_growth"][
             :, indices["gene_pair_idx"]

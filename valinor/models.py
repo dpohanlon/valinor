@@ -314,8 +314,12 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
         growth_l = prior_params["gene_effect_means"]
         growth_s = prior_params["gene_effect_stds"]
 
+        # But I can't pass a NaN here, so mask them off
+
+        mask = ~jnp.isnan(growth_l)
+
         gene_ko_growth = numpyro.sample(
-            "gene_ko_growth", dist.Normal(growth_l, growth_s)
+            "gene_ko_growth", dist.Normal(growth_l, growth_s).mask(mask)
         )
 
     return gene_ko_growth
