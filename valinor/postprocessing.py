@@ -87,6 +87,7 @@ def sampleParams(
     samples: Dict[str, np.ndarray],
     indices: Dict[str, np.ndarray],
     alternate: bool = False,
+    empirical_gene_priors: bool = False,
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Sample parameters based on the provided samples and indices.
@@ -143,9 +144,21 @@ def sampleParams(
             :, indices["cell_line_s_idx"]
         ]
 
-        singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
-            :, indices["cell_line_s_idx"], indices["gene_s_idx"]
-        ]
+        if empirical_gene_priors:
+
+            # These are stored as a 2D array
+
+            singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
+                :, indices["cell_line_s_idx"], indices["gene_s_idx"]
+            ]
+
+        else:
+
+            # These are stored as a 1D array already
+
+            singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
+                :, indices["gene_s_idx"]
+            ]
 
         mvProd = (
             samples["gene_std"][:, :, None]
@@ -260,12 +273,23 @@ def sampleParams(
                 + combsParams["tilde_alpha_2"] * combsParams["guide_eff_std_2"]
             )
 
-        combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
-            :, indices["cell_line_idx"], indices["gene_1_idx"]
-        ]
-        combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][
-            :, indices["cell_line_idx"], indices["gene_2_idx"]
-        ]
+        if empirical_gene_priors:
+
+            combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
+                :, indices["cell_line_idx"], indices["gene_1_idx"]
+            ]
+            combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][
+                :, indices["cell_line_idx"], indices["gene_2_idx"]
+            ]
+        else:
+
+            combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
+                :, indices["gene_1_idx"]
+            ]
+            combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][
+                :, indices["gene_2_idx"]
+            ]
+
         combsParams["gene_ko_growth_12"] = samples["gene_pair_ko_growth"][
             :, indices["gene_pair_idx"]
         ]

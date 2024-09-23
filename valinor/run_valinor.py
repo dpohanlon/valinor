@@ -204,7 +204,9 @@ def runValinor(
             zi=config["zi"],
         )
 
-        sampledParams = sampleParams(samples, indices, config["alternateLH"])
+        sampledParams = sampleParams(
+            samples, indices, config["alternateLH"], "gene_effect_means" in prior_params
+        )
 
         if config["only_singletons"] == False:
             combsDF = createDataFrame(sampledParams["combs"])
@@ -249,7 +251,12 @@ def runValinor(
                 zi=config["zi"],
             )
 
-            sampledParams = sampleParams(samples, batch_indices, config["alternateLH"])
+            sampledParams = sampleParams(
+                samples,
+                batch_indices,
+                config["alternateLH"],
+                "gene_effect_means" in prior_params,
+            )
 
             if config["only_singletons"] == False:
                 combsDFs.append(createDataFrame(sampledParams["combs"]))
