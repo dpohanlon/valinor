@@ -70,7 +70,7 @@ def calculate_gene_stats(df):
             "DataFrame must contain 'gene_index' column for gene-level calculations."
         )
 
-    grouped_by_gene_and_cell = df.groupby(["cell_line_index", "gene1_unq_index"])
+    grouped_by_gene_and_cell = df.groupby(["cell_line_index", "gene1_index"])
 
     # Calculate this once somewhere? Or use precalculated version with normalisation?
 

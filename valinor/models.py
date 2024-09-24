@@ -526,12 +526,17 @@ def sample_dko_distributions(
 
     else:
 
+        # Index 2D array with indices not unique to cell line
         gene_ko_growth_1 = gene_ko_growth[
-            indices["cell_line_idx"], indices["gene_1_idx"]
+            indices["cell_line_idx"], indices["gene_1_common_idx"]
         ]
         gene_ko_growth_2 = gene_ko_growth[
-            indices["cell_line_idx"], indices["gene_2_idx"]
+            indices["cell_line_idx"], indices["gene_2_common_idx"]
         ]
+
+        print(jnp.mean(gene_ko_growth_1))
+        print(jnp.mean(gene_ko_growth_2))
+
 
     gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
 
@@ -630,7 +635,7 @@ def sample_sko_distributions(
     else:
 
         gene_ko_growth_s = gene_ko_growth[
-            indices["cell_line_s_idx"], indices["gene_s_idx"]
+            indices["cell_line_s_idx"], indices["gene_s_common_idx"]
         ]
 
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]

@@ -149,7 +149,7 @@ def sampleParams(
             # These are stored as a 2D array
 
             singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
-                :, indices["cell_line_s_idx"], indices["gene_s_idx"]
+                :, indices["cell_line_s_idx"], indices["gene_s_common_idx"]
             ]
 
         else:
@@ -276,10 +276,10 @@ def sampleParams(
         if empirical_gene_priors:
 
             combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
-                :, indices["cell_line_idx"], indices["gene_1_idx"]
+                :, indices["cell_line_idx"], indices["gene_1_common_idx"]
             ]
             combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][
-                :, indices["cell_line_idx"], indices["gene_2_idx"]
+                :, indices["cell_line_idx"], indices["gene_2_common_idx"]
             ]
         else:
 

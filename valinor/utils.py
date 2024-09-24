@@ -187,6 +187,11 @@ def getIndices(
             if not only_singletons
             else dfSingles["gene1_unq_index"].values
         ),
+        "gene_1_common_idx": jnp.array(
+            df["gene1_index"].values
+            if not only_singletons
+            else dfSingles["gene1_index"].values
+        ),
         "cell_line_idx": jnp.array(
             df["cell_line_index"].values
             if not only_singletons
@@ -196,6 +201,7 @@ def getIndices(
 
     if not only_singletons:
         indices["gene_2_idx"] = jnp.array(df["gene2_unq_index"].values)
+        indices["gene_2_common_idx"] = jnp.array(df["gene2_index"].values)
         indices["guide_2_idx"] = jnp.array(df["guide2_index"].values)
         indices["gene_pair_idx"] = jnp.array(df["gene_unq_pair_index"].values)
 
@@ -205,6 +211,8 @@ def getIndices(
         indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index"].values)
 
         indices["gene_s_idx"] = jnp.array(dfSingles["gene1_unq_index"].values)
+
+        indices["gene_s_common_idx"] = jnp.array(dfSingles["gene1_index"].values)
 
         indices["cell_line_s_idx"] = jnp.array(dfSingles["cell_line_index"].values)
 
