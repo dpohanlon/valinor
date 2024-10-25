@@ -187,6 +187,10 @@ def getIndices(
             if not only_singletons
             else dfSingles["gene1_unq_index"].values
         ),
+
+        # These should be the same value for the same gene across
+        # all cell lines, rather than different per cell line
+        # like gene_1_idx
         "gene_1_common_idx": jnp.array(
             df["gene1_index"].values
             if not only_singletons

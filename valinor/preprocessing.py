@@ -68,6 +68,9 @@ def prepareData(
             np.std(datasets["combinations"]["plasmid"]),
         )
 
+        if 'dLFC' in datasets['combinations']:
+            prior_params['dLFC'] = getDeltaLFC(datasets['combinations'])
+
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (
             np.mean(datasets["singletons"]["plasmid"]),
@@ -82,14 +85,18 @@ def prepareData(
 
     # Init params for controls, cell line stats for control DF
 
-    if controls:
+    if controls: # and config == True
+
+        print('Setting control priors using data.')
 
         control_means, control_stds = calculate_cell_line_stats(datasets["controls"])
 
         prior_params["control_means"] = control_means
         prior_params["control_stds"] = control_stds
 
-    if singletons:
+    if singletons: # and config == True
+
+        print('Setting single gene effect priors using data.')
 
         # 2D array, genes x cell lines
         gene_means, gene_stds, idx_c, idx_g = calculate_gene_stats(
@@ -144,3 +151,10 @@ def prepareData(
         prior_params,
         {"final": finalCounts, "initial": initialCounts},
     )
+
+
+def getDeltaLFC(combinations):
+
+    pair_grouped = combinations.groupby("gene_unq_pair_index").agg({"dLFC": "mean"})
+
+    return pair_grouped["dLFC"]

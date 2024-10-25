@@ -41,12 +41,19 @@ def calculate_cell_line_stats(df):
 
     grouped_by_cell = df.groupby(["cell_line_index"])
 
-    means = grouped_by_cell.apply(
-        lambda x: np.mean(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-    )
-    std_devs = grouped_by_cell.apply(
-        lambda x: np.std(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-    )
+    if "lfc_norm_scaled" not in df:
+
+        means = grouped_by_cell.apply(
+            lambda x: np.mean(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
+        )
+        std_devs = grouped_by_cell.apply(
+            lambda x: np.std(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
+        )
+
+    else:
+
+        means = grouped_by_cell.apply(lambda x: np.mean(x["lfc_norm_scaled"]))
+        std_devs = grouped_by_cell.apply(lambda x: np.std(x["lfc_norm_scaled"]))
 
     return means, std_devs
 
@@ -74,12 +81,23 @@ def calculate_gene_stats(df):
 
     # Calculate this once somewhere? Or use precalculated version with normalisation?
 
-    gene_means = grouped_by_gene_and_cell.apply(
-        lambda x: np.mean(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-    )
-    gene_std_devs = grouped_by_gene_and_cell.apply(
-        lambda x: np.std(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-    )
+    if "lfc_norm_scaled" not in df:
+
+        gene_means = grouped_by_gene_and_cell.apply(
+            lambda x: np.mean(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
+        )
+        gene_std_devs = grouped_by_gene_and_cell.apply(
+            lambda x: np.std(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
+        )
+
+    else:
+
+        gene_means = grouped_by_gene_and_cell.apply(
+            lambda x: np.mean(x["lfc_norm_scaled"])
+        )
+        gene_std_devs = grouped_by_gene_and_cell.apply(
+            lambda x: np.std(x["lfc_norm_scaled"])
+        )
 
     pivot_mean = gene_means.unstack(fill_value=np.nan)
     pivot_std_dev = gene_std_devs.unstack(fill_value=np.nan)

@@ -441,6 +441,10 @@ def makeDataset(
     dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
     dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
 
+    # Not unique wrt cell lines
+    dfCombs["gene1_index"] = dfCombs["gene1"]
+    dfCombs["gene2_index"] = dfCombs["gene2"]
+
     sns.kdeplot(dfCombs, x="syn", clip=(-0.2, 0.2))
     plt.savefig("syn.pdf")
     plt.clf()
@@ -469,6 +473,9 @@ def makeDataset(
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
+
+    # Not unique wrt cell lines
+    dfSgl["gene1_index"] = dfSgl["gene1"]
 
     dfSgl = dfSgl.sort_values(
         ["guide1_index_s", "guide2_index_s", "cell_line"]

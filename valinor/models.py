@@ -234,12 +234,16 @@ def sample_guide_distributions(
         with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c:
             with numpyro.plate("guides_per_cell", lengths["len_guides"]) as g_c:
 
-                tilde_alpha = numpyro.sample("tilde_alpha", dist.Normal(0, 1))
+                tilde_alpha = numpyro.sample(
+                    "tilde_alpha",
+                    dist.Normal(0, 1).expand(
+                        [lengths["len_guides"], lengths["len_cell_lines"]]
+                    ),
+                )
 
                 # Ensure p_1 has the correct shape
                 guide_eff = (
-                    guide_eff_mean[g_c].reshape(-1, 1)
-                    + guide_eff_std[g_c].reshape(-1, 1) * tilde_alpha
+                    guide_eff_mean[:, None] + guide_eff_std[:, None] * tilde_alpha
                 )
                 sigmoid = transforms.SigmoidTransform()
                 guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
@@ -503,9 +507,13 @@ def sample_dko_distributions(
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
+        pair_growth_mean = numpyro.param(
+            "pair_growth_mean", init_value=pair_growth_l
+        )
+
         gene_pair_ko_growth = numpyro.sample(
             "gene_pair_ko_growth",
-            dist.Normal(pair_growth_l, pair_growth_s),
+            dist.Normal(pair_growth_mean, pair_growth_s),
         )
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
@@ -533,10 +541,6 @@ def sample_dko_distributions(
         gene_ko_growth_2 = gene_ko_growth[
             indices["cell_line_idx"], indices["gene_2_common_idx"]
         ]
-
-        print(jnp.mean(gene_ko_growth_1))
-        print(jnp.mean(gene_ko_growth_2))
-
 
     gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
 

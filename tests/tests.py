@@ -40,6 +40,8 @@ class Test02Valinor(unittest.TestCase):
         args += "--nSamples 10 "
         args += "-n cliTest "
 
+        print("Testing with CLI")
+
         sp.check_call(f"valinor {args}", shell=True)
 
     def testWithCLIPriors(self):
@@ -52,6 +54,8 @@ class Test02Valinor(unittest.TestCase):
         args += "--nSamples 10 "
         args += "-n cliTest "
         args += "--priorsFile tests/priors.yaml "
+
+        print('Testing with CLI and priors')
 
         sp.check_call(f"valinor {args}", shell=True)
 
@@ -66,6 +70,8 @@ class Test02Valinor(unittest.TestCase):
         args += "-n zinbTest "
         args += "--ZINB"
 
+        print("Testing with ZINB")
+
         sp.check_call(f"valinor {args}", shell=True)
 
     def testWithBatching(self):
@@ -79,6 +85,8 @@ class Test02Valinor(unittest.TestCase):
         args += "--batch-sample "
         args += "--batch-size 1024 "
         args += "-n batchTest "
+
+        print("Testing with sampling batches")
 
         sp.check_call(f"valinor {args}", shell=True)
 
@@ -101,12 +109,14 @@ class Test03ValinorReport(unittest.TestCase):
         args += "--valinorConfigFile valinorrun_cliTest.json "
         args += "--subsetSLpairs"
 
+        print("Testing report")
+
         sp.check_call(f"valinorreport {args}", shell=True)
 
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    for test_class in [TestValinorSim, TestValinor, TestValinorReport]:
+    for test_class in [Test01ValinorSim, Test02Valinor, Test03ValinorReport]:
         tests = unittest.defaultTestLoader.loadTestsFromTestCase(test_class)
         suite.addTests(tests)
     unittest.TextTestRunner().run(suite)
