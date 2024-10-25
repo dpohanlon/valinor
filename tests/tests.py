@@ -65,7 +65,7 @@ class Test02Valinor(unittest.TestCase):
 
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
         args += "--singletonsFile tests/data/dfSgl_sim.pq "
-        args += "--noControls "
+        args += "--no-controls "
         args += "--epochs 1 "
         args += "--nSamples 10 "
         args += "-n cliTest "
@@ -79,7 +79,7 @@ class Test02Valinor(unittest.TestCase):
         # cwd: valinor
 
         args = "--combinationsFile tests/data/dfCombs_sim.pq "
-        args += "--noSingletons "
+        args += "--no-singletons "
         args += "--epochs 1 "
         args += "--nSamples 10 "
         args += "-n onlyCombs "
