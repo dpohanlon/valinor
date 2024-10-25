@@ -476,19 +476,30 @@ def makeArgs():
 
 def run():
     argParser = makeArgs()
-
     args = argParser.parse_args()
+
+    # Automatically set flags if files are not provided and display warnings
+    if args.singletonsFile is None:
+        args.no_singletons = True
+        print("Warning: No singletons file provided. --no-singletons flag set.")
+
+    if args.controlsFile is None:
+        args.no_controls = True
+        print("Warning: No controls file provided. --no-controls flag set.")
+
+    if args.combinationsFile is None:
+        args.only_singletons = True
+        print("Warning: No combinations file provided. --only-singletons flag set.")
 
     config = configArgs(args)
 
-    # These can be `None`, and the downstream methods will deal with it accordingly
     data_files = {
         "combinations": config["combinationsFile"],
         "singletons": config["singletonsFile"],
         "controls": config["controlsFile"],
     }
 
-    loaded_priors = loadPriors(args.priorsFile) if args.priorsFile != None else None
+    loaded_priors = loadPriors(args.priorsFile) if args.priorsFile is not None else None
 
     lengths, indices, prior_params, data = prepareData(
         data_files,
@@ -500,6 +511,8 @@ def run():
     )
 
     runValinor(lengths, indices, prior_params, data, config)
+
+
 
 
 if __name__ == "__main__":

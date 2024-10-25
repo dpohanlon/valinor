@@ -440,6 +440,7 @@ def makeDataset(
     dfCombs["cell_line_index"] = dfCombs["cell_line"]
     dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
     dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
+    dfCombs['GuidePair'] = dfCombs["guide_pair_index"]
 
     # Not unique wrt cell lines
     dfCombs["gene1_index"] = dfCombs["gene1"]
@@ -473,6 +474,7 @@ def makeDataset(
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
+    dfSgl['GuidePair'] = dfSgl["guide_pair_index"]
 
     # Not unique wrt cell lines
     dfSgl["gene1_index"] = dfSgl["gene1"]
