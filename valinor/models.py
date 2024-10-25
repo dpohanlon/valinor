@@ -30,6 +30,7 @@ def dkoLikelihoodInitial(init_theta: float) -> Distribution:
         A Poisson distribution object.
     """
 
+    # return negativeBinomial(init_theta, 1E-6, False), init_theta
     return dist.Poisson(init_theta), init_theta
 
 
@@ -495,6 +496,7 @@ def sample_dko_distributions(
     mv_gene_pair,
     alternate: bool = False,
     p_zi=False,
+    predict=False,
 ):
     with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
         init_l, init_s = prior_params["init_count"]
@@ -507,9 +509,7 @@ def sample_dko_distributions(
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
-        pair_growth_mean = numpyro.param(
-            "pair_growth_mean", init_value=pair_growth_l
-        )
+        pair_growth_mean = numpyro.param("pair_growth_mean", init_value=pair_growth_l)
 
         gene_pair_ko_growth = numpyro.sample(
             "gene_pair_ko_growth",
@@ -602,9 +602,14 @@ def sample_dko_distributions(
             p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
 
-    numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
+    # Only evaluate these when performing inference rather than predicting
+    # as otherwise there is a problem with the sampling for unbounded
+    # discrete distributions
 
-    numpyro.sample("obs", lh, obs=data["final"]["combinations"])
+    if not predict:
+
+        numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
+        numpyro.sample("obs", lh, obs=data["final"]["combinations"])
 
 
 def sample_sko_distributions(
@@ -619,6 +624,7 @@ def sample_sko_distributions(
     library_bias,
     alternate: bool = False,
     p_zi=False,
+    predict=False,
 ):
     with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
@@ -661,13 +667,15 @@ def sample_sko_distributions(
         p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
     )
 
-    numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
+    if not predict:
 
-    numpyro.sample(
-        "obs_s",
-        lh_s,
-        obs=data["final"]["singletons"],
-    )
+        numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
+
+        numpyro.sample(
+            "obs_s",
+            lh_s,
+            obs=data["final"]["singletons"],
+        )
 
 
 def sample_control_distributions(
@@ -677,6 +685,7 @@ def sample_control_distributions(
     prior_params: Dict[str, Any],
     cell_line_growth,
     mv_guide_pair_c,
+    predict=False,
 ):
     init_c_l, init_c_s = prior_params["init_count_c"]
 
@@ -698,13 +707,15 @@ def sample_control_distributions(
         init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
     )
 
-    numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
+    if not predict:
 
-    numpyro.sample(
-        "obs_c",
-        lh_c,
-        obs=data["final"]["controls"],
-    )
+        numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
+
+        numpyro.sample(
+            "obs_c",
+            lh_c,
+            obs=data["final"]["controls"],
+        )
 
 
 def valinorControls(
@@ -738,6 +749,7 @@ def valinorSingles(
     prior_params: Dict[str, Any],
     guide_config: str = "partial_pooling",
     zi=False,
+    predict=False,
 ) -> None:
 
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
@@ -766,6 +778,7 @@ def valinorSingles(
         None,
         False,
         p_zi if zi else False,
+        predict=predict,
     )
 
 
@@ -780,6 +793,7 @@ def valinorHierarchy(
     alternate: bool = False,
     guide_config: str = "partial_pooling",
     zi=False,
+    predict=False,
 ) -> None:
 
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
@@ -811,6 +825,7 @@ def valinorHierarchy(
             mv_gene_pair,
             alternate,
             p_zi if zi else False,
+            predict=predict,
         )
     if not no_singletons:
 
@@ -828,6 +843,7 @@ def valinorHierarchy(
             library_bias if not only_singletons else None,
             alternate,
             p_zi if zi else False,
+            predict=predict,
         )
     if not no_controls:
 
@@ -836,5 +852,11 @@ def valinorHierarchy(
         )
 
         sample_control_distributions(
-            data, lengths, indices, prior_params, cell_line_growth, mv_guide_pair_c
+            data,
+            lengths,
+            indices,
+            prior_params,
+            cell_line_growth,
+            mv_guide_pair_c,
+            predict=predict,
         )

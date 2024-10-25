@@ -76,7 +76,10 @@ def save_results(params, config, outputDir):
     with open(f"valinorrun_{config['name']}.json", "w") as outfile:
         json.dump(config, outfile)
 
-def sample_posterior(predictive, config, data, lengths, indices, prior_params, batch=False):
+
+def sample_posterior(
+    predictive, config, data, lengths, indices, prior_params, batch=False
+):
     if not batch:
         # Non-batch case: directly sample from the posterior
         samples = predictive(
@@ -89,21 +92,34 @@ def sample_posterior(predictive, config, data, lengths, indices, prior_params, b
             only_singletons=config["only_singletons"],
             no_controls=config["no_controls"],
             guide_config=config["guide_config"],
-            zi=config["zi"]
+            zi=config["zi"],
+            predict=True,
         )
 
         sampledParams = sampleParams(
             samples, indices, config["alternateLH"], "gene_effect_means" in prior_params
         )
 
-        combsDF = createDataFrame(sampledParams["combs"]) if config["only_singletons"] == False else None
-        singlesDF = createDataFrame(sampledParams["singles"]) if config["no_singletons"] == False else None
+        combsDF = (
+            createDataFrame(sampledParams["combs"])
+            if config["only_singletons"] == False
+            else None
+        )
+        singlesDF = (
+            createDataFrame(sampledParams["singles"])
+            if config["no_singletons"] == False
+            else None
+        )
 
         return combsDF, singlesDF
 
     # Batched case
     n_batches = np.ceil(
-        (len(data["final"]["combinations"]) if not config["only_singletons"] else len(data["final"]["singletons"]))
+        (
+            len(data["final"]["combinations"])
+            if not config["only_singletons"]
+            else len(data["final"]["singletons"])
+        )
         / config["batch_size"]
     ).astype(int)
 
@@ -125,11 +141,15 @@ def sample_posterior(predictive, config, data, lengths, indices, prior_params, b
             only_singletons=config["only_singletons"],
             no_controls=config["no_controls"],
             guide_config=config["guide_config"],
-            zi=config["zi"]
+            zi=config["zi"],
+            predict=True,
         )
 
         sampledParams = sampleParams(
-            samples, batch_indices, config["alternateLH"], "gene_effect_means" in prior_params
+            samples,
+            batch_indices,
+            config["alternateLH"],
+            "gene_effect_means" in prior_params,
         )
 
         if config["only_singletons"] == False:
@@ -141,6 +161,7 @@ def sample_posterior(predictive, config, data, lengths, indices, prior_params, b
     singlesDF = pd.concat(singlesDFs) if config["no_singletons"] == False else None
 
     return combsDF, singlesDF
+
 
 def save_posterior_samples(combsDF, singlesDF, config, outputDir):
     if config["only_singletons"] == False:
@@ -168,7 +189,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     params_singles = None
 
     # Check for controls
-    if "controls" in data['final'] and data["final"]['controls'] is not None:
+    if "controls" in data["final"] and data["final"]["controls"] is not None:
         svi_controls = initialize_svi(
             models.valinorControls, AutoNormal(models.valinorControls), config
         )
@@ -186,7 +207,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         print("No controls data found. Skipping controls step.")
 
     # Check for singles
-    if "singletons" in data['final'] and data["final"]['singletons'] is not None:
+    if "singletons" in data["final"] and data["final"]["singletons"] is not None:
         svi_singles = initialize_svi(
             models.valinorSingles, AutoNormal(models.valinorSingles), config
         )
@@ -209,13 +230,13 @@ def runValinor(lengths, indices, prior_params, data, config):
         params_singles = params_controls
 
     # Check for combinations
-    if "combinations" in data['final'] and data["final"]['combinations'] is not None:
+    if "combinations" in data["final"] and data["final"]["combinations"] is not None:
         svi_full = initialize_svi(
             models.valinorHierarchy, AutoNormal(models.valinorHierarchy), config
         )
 
         if params_singles is not None and "dLFC" in prior_params:
-            params_singles["pair_growth_mean"] = prior_params['dLFC'].values
+            params_singles["pair_growth_mean"] = prior_params["dLFC"].values
 
         full_rng_init, _ = random.split(prng_key_controls)
         full_args = {
@@ -479,6 +500,7 @@ def run():
     )
 
     runValinor(lengths, indices, prior_params, data, config)
+
 
 if __name__ == "__main__":
     run()

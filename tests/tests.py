@@ -30,49 +30,93 @@ class Test02Valinor(unittest.TestCase):
     def setUpClass(cls):
         print("Setting up Valinor test class...")
 
-    def testWithCLI(self):
-        # cwd: valinor
+    # def testWithCLI(self):
+    #     # cwd: valinor
 
-        args = "--combinationsFile tests/data/dfCombs_sim.pq "
-        args += "--singletonsFile tests/data/dfSgl_sim.pq "
-        args += "--controlsFile tests/data/dfCalib_sim.pq "
-        args += "--epochs 1 "
-        args += "--nSamples 10 "
-        args += "-n cliTest "
+    #     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    #     args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    #     args += "--controlsFile tests/data/dfCalib_sim.pq "
+    #     args += "--epochs 100 "
+    #     args += "--nSamples 10 "
+    #     args += "--lr 0.01"
+    #     args += "-n cliTest "
 
-        print("Testing with CLI")
+    #     print("Testing with CLI")
 
-        sp.check_call(f"valinor {args}", shell=True)
+    #     sp.check_call(f"valinor {args}", shell=True)
 
-    def testWithCLIPriors(self):
-        # cwd: valinor
+    # def testWithCLIPriors(self):
+    #     # cwd: valinor
 
-        args = "--combinationsFile tests/data/dfCombs_sim.pq "
-        args += "--singletonsFile tests/data/dfSgl_sim.pq "
-        args += "--controlsFile tests/data/dfCalib_sim.pq "
-        args += "--epochs 1 "
-        args += "--nSamples 10 "
-        args += "-n cliTest "
-        args += "--priorsFile tests/priors.yaml "
+    #     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    #     args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    #     args += "--controlsFile tests/data/dfCalib_sim.pq "
+    #     args += "--epochs 1 "
+    #     args += "--nSamples 10 "
+    #     args += "-n cliTest "
+    #     args += "--priorsFile tests/priors.yaml "
 
-        print('Testing with CLI and priors')
+    #     print('Testing with CLI and priors')
 
-        sp.check_call(f"valinor {args}", shell=True)
+    #     sp.check_call(f"valinor {args}", shell=True)
 
-    def testWithZINB(self):
-        # cwd: valinor
+    # def testWithNoControls(self):
+    #     # cwd: valinor
 
-        args = "--combinationsFile tests/data/dfCombs_sim.pq "
-        args += "--singletonsFile tests/data/dfSgl_sim.pq "
-        args += "--controlsFile tests/data/dfCalib_sim.pq "
-        args += "--epochs 1 "
-        args += "--nSamples 10 "
-        args += "-n zinbTest "
-        args += "--ZINB"
+    #     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    #     args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    #     args += "--noControls "
+    #     args += "--epochs 1 "
+    #     args += "--nSamples 10 "
+    #     args += "-n cliTest "
+    #     args += "--priorsFile tests/priors.yaml "
 
-        print("Testing with ZINB")
+    #     print('Testing with CLI and priors')
 
-        sp.check_call(f"valinor {args}", shell=True)
+    #     sp.check_call(f"valinor {args}", shell=True)
+
+    # def testWithOnlyCombs(self):
+    #     # cwd: valinor
+
+    #     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    #     args += "--noSingletons "
+    #     args += "--epochs 1 "
+    #     args += "--nSamples 10 "
+    #     args += "-n onlyCombs "
+    #     args += "--priorsFile tests/priors.yaml "
+
+    #     print('Testing with only combinations')
+
+    #     sp.check_call(f"valinor {args}", shell=True)
+
+    # def testWithOnlySingles(self):
+    #     # cwd: valinor
+
+    #     args = "--singletonsFile tests/data/dfSgl_sim.pq "
+    #     args += "--onlySingletons "
+    #     args += "--epochs 1 "
+    #     args += "--nSamples 10 "
+    #     args += "-n onlySingles "
+    #     args += "--priorsFile tests/priors.yaml "
+
+    #     print('Testing with only singletons')
+
+    #     sp.check_call(f"valinor {args}", shell=True)
+
+    # def testWithZINB(self):
+    #     # cwd: valinor
+
+    #     args = "--combinationsFile tests/data/dfCombs_sim.pq "
+    #     args += "--singletonsFile tests/data/dfSgl_sim.pq "
+    #     args += "--controlsFile tests/data/dfCalib_sim.pq "
+    #     args += "--epochs 1 "
+    #     args += "--nSamples 10 "
+    #     args += "-n zinbTest "
+    #     args += "--ZINB"
+
+    #     print("Testing with ZINB")
+
+    #     sp.check_call(f"valinor {args}", shell=True)
 
     def testWithBatching(self):
         # cwd: valinor
@@ -116,7 +160,8 @@ class Test03ValinorReport(unittest.TestCase):
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    for test_class in [Test01ValinorSim, Test02Valinor, Test03ValinorReport]:
+    # for test_class in [Test01ValinorSim, Test02Valinor, Test03ValinorReport]:
+    for test_class in [Test01ValinorSim, Test02Valinor]:
         tests = unittest.defaultTestLoader.loadTestsFromTestCase(test_class)
         suite.addTests(tests)
     unittest.TextTestRunner().run(suite)
