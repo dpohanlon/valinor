@@ -8,6 +8,8 @@ import h5py
 
 import yaml
 
+import json
+
 from typing import Dict, List, Tuple, Optional
 
 # TODO: Have a better interface to these, especially when first building them
@@ -84,7 +86,9 @@ def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
 
 
 def getUniqueGeneGuideIndices(
-    indices: Dict[str, np.ndarray], singletons: bool = True
+    indices: Dict[str, np.ndarray],
+    singletons: bool = True,
+    only_singletons=False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get unique gene and guide indices.
@@ -97,8 +101,16 @@ def getUniqueGeneGuideIndices(
         Tuple[np.ndarray, np.ndarray]: Unique gene indices and guide indices.
     """
 
-    guide_indices = [indices["guide_1_idx"], indices["guide_2_idx"]]
-    gene_indices = [indices["gene_1_idx"], indices["gene_2_idx"]]
+    guide_indices = [
+        indices["guide_1_idx"],
+    ]
+    gene_indices = [
+        indices["gene_1_idx"],
+    ]
+
+    if not only_singletons:
+        guide_indices += [indices["guide_2_idx"]]
+        gene_indices += [indices["gene_2_idx"]]
 
     if singletons:
         guide_indices += [indices["guide_s_idx"]]
@@ -109,10 +121,43 @@ def getUniqueGeneGuideIndices(
     )
 
 
+def reindexVar(df, var):
+
+    oldIndicesUnq = df[var].unique()
+    newIndexMap = {oldIndicesUnq[i]: i for i in range(len(oldIndicesUnq))}
+    newIndices = np.array([newIndexMap[v] for v in df[var].values])
+
+    return newIndices
+
+
+def reindexDF(df: pd.DataFrame, singletons=False):
+
+    # Reindexes to avoid cases where guides appear in only the combinations/singles
+    # dataset. Not to be used for a model with matched combinations and singles!
+
+    # But there is still a global guide pair index, so be careful with controls....
+
+    df["guide_pair_index"] = reindexVar(df, "guide_pair_index")
+    df["guide1_index"] = reindexVar(df, "guide1_index")
+    df["gene1_unq_index"] = reindexVar(df, "gene1_unq_index")
+    df["cell_line_index"] = reindexVar(df, "cell_line_index")
+
+    if not singletons:
+
+        df["gene_pair_index"] = reindexVar(df, "gene_pair_index")
+        df["guide2_index"] = reindexVar(df, "guide2_index")
+        df["gene2_unq_index"] = reindexVar(df, "gene2_unq_index")
+
+    return df
+
+
 def getIndices(
     df: pd.DataFrame,
     dfSingles: Optional[pd.DataFrame] = None,
     dfControls: Optional[pd.DataFrame] = None,
+    only_singletons=False,
+    singletons=True,
+    controls=True,
 ) -> Dict[str, np.ndarray]:
     """
     Get indices from the dataframes.
@@ -127,25 +172,54 @@ def getIndices(
     """
 
     indices = {
-        "guide_pair_idx": jnp.array(df["guide_pair_index"].values),
-        "gene_pair_idx": jnp.array(df["gene_unq_pair_index"].values),
-        "guide_1_idx": jnp.array(df["guide1_index"].values),
-        "guide_2_idx": jnp.array(df["guide2_index"].values),
-        "gene_1_idx": jnp.array(df["gene1_unq_index"].values),
-        "gene_2_idx": jnp.array(df["gene2_unq_index"].values),
-        "cell_line_idx": jnp.array(df["cell_line_index"].values),
+        "guide_pair_idx": jnp.array(
+            df["guide_pair_index"].values
+            if not only_singletons
+            else dfSingles["guide_pair_index"].values
+        ),
+        "guide_1_idx": jnp.array(
+            df["guide1_index"].values
+            if not only_singletons
+            else dfSingles["guide1_index"].values
+        ),
+        "gene_1_idx": jnp.array(
+            df["gene1_unq_index"].values
+            if not only_singletons
+            else dfSingles["gene1_unq_index"].values
+        ),
+        # These should be the same value for the same gene across
+        # all cell lines, rather than different per cell line
+        # like gene_1_idx
+        "gene_1_common_idx": jnp.array(
+            df["gene1_index"].values
+            if not only_singletons
+            else dfSingles["gene1_index"].values
+        ),
+        "cell_line_idx": jnp.array(
+            df["cell_line_index"].values
+            if not only_singletons
+            else dfSingles["cell_line_index"].values
+        ),
     }
 
-    if not (dfSingles is None):
+    if not only_singletons:
+        indices["gene_2_idx"] = jnp.array(df["gene2_unq_index"].values)
+        indices["gene_2_common_idx"] = jnp.array(df["gene2_index"].values)
+        indices["guide_2_idx"] = jnp.array(df["guide2_index"].values)
+        indices["gene_pair_idx"] = jnp.array(df["gene_unq_pair_index"].values)
+
+    if singletons:
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
 
         indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index"].values)
 
         indices["gene_s_idx"] = jnp.array(dfSingles["gene1_unq_index"].values)
 
+        indices["gene_s_common_idx"] = jnp.array(dfSingles["gene1_index"].values)
+
         indices["cell_line_s_idx"] = jnp.array(dfSingles["cell_line_index"].values)
 
-    if not (dfControls is None):
+    if controls:
         indices["cell_line_c_idx"] = jnp.array(dfControls["cell_line_index"].values)
         indices["guide_pair_c_idx"] = jnp.array(dfControls["guide_pair_index"].values)
 
@@ -157,7 +231,10 @@ def getIndices(
 
 
 def calculateLengths(
-    indices: Dict[str, np.ndarray], singletons: bool = True, neg_controls: bool = True
+    indices: Dict[str, np.ndarray],
+    singletons: bool = True,
+    neg_controls: bool = True,
+    only_singletons=False,
 ) -> Dict[str, int]:
     """
     Calculate lengths from indices.
@@ -176,11 +253,14 @@ def calculateLengths(
     lengths = {
         "len_cell_lines": len(np.unique(indices["cell_line_idx"])),
         "len_guide_pairs": len(np.unique(indices["guide_pair_idx"])),
-        "len_gene_pairs": len(np.unique(indices["gene_pair_idx"])),
     }
 
+    if not only_singletons:
+
+        lengths["len_gene_pairs"] = len(np.unique(indices["gene_pair_idx"]))
+
     gene_indices, guide_indices = getUniqueGeneGuideIndices(
-        indices, singletons=singletons
+        indices, singletons=singletons, only_singletons=only_singletons
     )
 
     if singletons:
@@ -222,6 +302,7 @@ def checkBounds(
     lengths: Dict[str, int],
     singletons: bool = True,
     neg_controls: bool = True,
+    only_singletons: bool = False,
 ) -> None:
     """
     Check if the indices are within bounds.
@@ -237,7 +318,7 @@ def checkBounds(
     """
 
     gene_indices, guide_indices = getUniqueGeneGuideIndices(
-        indices, singletons=singletons
+        indices, singletons=singletons, only_singletons=only_singletons
     )
 
     # Numpyro doesn't check whether we try to index off the end of an array,
@@ -249,7 +330,9 @@ def checkBounds(
     assert np.max(indices["cell_line_idx"]) < lengths["len_cell_lines"]
 
     assert np.max(indices["guide_pair_idx"]) < lengths["len_guide_pairs"]
-    assert np.max(indices["gene_pair_idx"]) < lengths["len_gene_pairs"]
+
+    if not only_singletons:
+        assert np.max(indices["gene_pair_idx"]) < lengths["len_gene_pairs"]
 
     if singletons:
         assert np.max(indices["cell_line_s_idx"]) < lengths["len_cell_lines"]
@@ -284,10 +367,11 @@ def checkBounds(
             "WARNING: Some model guide pair parameters are un-referenced (no matching indices)."
         )
 
-    if np.max(indices["gene_pair_idx"]) != lengths["len_gene_pairs"] - 1:
-        print(
-            "WARNING: Some model gene pair parameters are un-referenced (no matching indices)."
-        )
+    if not only_singletons:
+        if np.max(indices["gene_pair_idx"]) != lengths["len_gene_pairs"] - 1:
+            print(
+                "WARNING: Some model gene pair parameters are un-referenced (no matching indices)."
+            )
 
 
 def configArgs(args):

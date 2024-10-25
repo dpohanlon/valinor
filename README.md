@@ -8,12 +8,12 @@
 
 Installation
 ---
-Install from the Github repository. 
+Install from the Github repository.
 Make sure that you are installing Valinor in an environment that has python version >3.7 but smaller than 3.11.
 ```bash
 git clone git@github.com:dpohanlon/valinor.git
 pip install -e .
-pip install --upgrade "jax[cuda11_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install --upgrade "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
 Run Valinor
@@ -33,7 +33,7 @@ Now there are two options to build the report. Either using the executable or ju
 
 Option 1: Use `valinorreport` executable to create the valinor report
 ---
-This takes the Valinor results and the original input files to generate a user-friendly processed table `valinoroutput_processed_ito.pq` (`--output_file` flag). This table is necessary for creating the report html. The folder in which report files should be saved needs to specified with `--report_folder`. 
+This takes the Valinor results and the original input files to generate a user-friendly processed table `valinoroutput_processed_ito.pq` (`--output_file` flag). This table is necessary for creating the report html. The folder in which report files should be saved needs to specified with `--report_folder`.
 ```bash
 valinorreport \
     --val_combo combsModel_ito.pq \
@@ -56,7 +56,7 @@ Open `report.html` created inside the `valinorreport` folder. On the opened repo
 
 
 Option 2: Use individual scripts to create the valinor report
---- 
+---
 1. Run processing script on Valinor output
 This creates some dignostic plots that are relevant for the Valinor report (s. below) and a file that combines the data and Valinor output into one table for downstream usage.
 ```bash

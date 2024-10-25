@@ -10,7 +10,7 @@ from jax import random
 import numpyro
 
 from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
-from numpyro.infer.autoguide import AutoNormal
+from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
 
 from numpyro.handlers import seed, trace
 
@@ -23,7 +23,7 @@ from valinor.utils import (
     loadPriors,
     getBatchData,
 )
-from valinor.preprocessing import prepareData
+from valinor.preprocessing import prepareData, getDeltaLFC
 from valinor.postprocessing import sampleParams, createDataFrame
 from valinor.plotting import plotDiagPlots
 
@@ -37,177 +37,270 @@ def get_model_sites(model, *args):
     return list(model_trace.keys())
 
 
-def runValinor(
-    lengths: Dict[str, int],
-    indices: Dict[str, Any],
-    prior_params: Dict[str, Any],
-    data: Dict[str, Any],
-    config: Dict[str, Any],
-) -> None:
-    """
-    Runs the Valinor model on the provided data.
-
-    Args:
-        lengths (Dict[str, int]): Dictionary containing length values.
-        indices (Dict[str, Any]): Dictionary containing index arrays.
-        prior_params (Dict[str, Any]): Dictionary containing prior parameters.
-        data (Dict[str, Any]): Dictionary containing data arrays.
-        config (Namespace): Configuration options for the run.
-    """
-
-    guide = AutoNormal(models.valinorHierarchy)
-
-    optimizer = numpyro.optim.Adam(step_size=config["lr"])
-
+def initialize_svi(model, guide, config):
+    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm=10.0)
     svi = SVI(
-        models.valinorHierarchy,
+        model,
         guide,
         optimizer,
         loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
     )
+    return svi
 
-    svi_result = svi.run(
-        random.PRNGKey(42),
-        config["epochs"],
-        data,
-        lengths,
-        indices,
-        prior_params,
-        no_singletons=config["no_singletons"],
-        only_singletons=config["only_singletons"],
-        no_controls=config["no_controls"],
-        alternate=config["alternateLH"],
-        stable_update=config["stable_update"],
-        guide_config=config["guide_config"],
-        zi=config["zi"],
+
+def run_svi(
+    svi,
+    prng_key,
+    epochs,
+    data,
+    lengths,
+    indices,
+    prior_params,
+    init_params=None,
+    **kwargs,
+):
+    return svi.run(
+        prng_key,
+        epochs,
+        init_params=init_params,
+        data=data,
+        lengths=lengths,
+        indices=indices,
+        prior_params=prior_params,
+        **kwargs,
     )
 
-    outputDir = ""
-    if config["outputDir"] != outputDir:
-        outputDir = f"{config['outputDir'].strip('/')}/"
 
-    plotDiagPlots(svi_result, name=config["name"], outputDir=outputDir)
-
-    params = svi_result.params
-
+def save_results(params, config, outputDir):
     saveModelParams(params, f'{outputDir}{config["paramsFileName"]}')
+    with open(f"valinorrun_{config['name']}.json", "w") as outfile:
+        json.dump(config, outfile)
 
-    # Run selected post-processing, save samples, make plots, etc
 
-    sites_from_model = get_model_sites(
-        models.valinorHierarchy,
-        data,
-        lengths,
-        indices,
-        prior_params,
-        config["no_singletons"],
-        config["only_singletons"],
-        config["no_controls"],
-        config["alternateLH"],
-        config["guide_config"],
-        config["zi"],
-    )
-
-    predictive = Predictive(
-        guide,
-        params=params,
-        num_samples=config["nSamples"],
-        return_sites=sites_from_model,
-    )
-
-    if not config["batch_sample"]:
-
-        # Sample from posterior
+def sample_posterior(
+    predictive, config, data, lengths, indices, prior_params, batch=False
+):
+    if not batch:
+        # Non-batch case: directly sample from the posterior
         samples = predictive(
             random.PRNGKey(42),
-            data,
-            lengths,
-            indices,
-            prior_params,
+            data=data,
+            lengths=lengths,
+            indices=indices,
+            prior_params=prior_params,
             no_singletons=config["no_singletons"],
             only_singletons=config["only_singletons"],
             no_controls=config["no_controls"],
             guide_config=config["guide_config"],
             zi=config["zi"],
+            predict=True,
         )
 
-        sampledParams = sampleParams(samples, indices, config["alternateLH"])
+        sampledParams = sampleParams(
+            samples, indices, config["alternateLH"], "gene_effect_means" in prior_params
+        )
 
-        combsDF = createDataFrame(sampledParams["combs"])
+        combsDF = (
+            createDataFrame(sampledParams["combs"])
+            if config["only_singletons"] == False
+            else None
+        )
+        singlesDF = (
+            createDataFrame(sampledParams["singles"])
+            if config["no_singletons"] == False
+            else None
+        )
+
+        return combsDF, singlesDF
+
+    # Batched case
+    n_batches = np.ceil(
+        (
+            len(data["final"]["combinations"])
+            if not config["only_singletons"]
+            else len(data["final"]["singletons"])
+        )
+        / config["batch_size"]
+    ).astype(int)
+
+    combsDFs, singlesDFs = [], []
+
+    for i in tqdm(range(n_batches)):
+        start_idx = i * config["batch_size"]
+        end_idx = (i + 1) * config["batch_size"]
+
+        batch_data, batch_indices = getBatchData(data, indices, start_idx, end_idx)
+
+        samples = predictive(
+            random.PRNGKey(42),
+            data=batch_data,
+            lengths=lengths,
+            indices=batch_indices,
+            prior_params=prior_params,
+            no_singletons=config["no_singletons"],
+            only_singletons=config["only_singletons"],
+            no_controls=config["no_controls"],
+            guide_config=config["guide_config"],
+            zi=config["zi"],
+            predict=True,
+        )
+
+        sampledParams = sampleParams(
+            samples,
+            batch_indices,
+            config["alternateLH"],
+            "gene_effect_means" in prior_params,
+        )
+
+        if config["only_singletons"] == False:
+            combsDFs.append(createDataFrame(sampledParams["combs"]))
+        if config["no_singletons"] == False:
+            singlesDFs.append(createDataFrame(sampledParams["singles"]))
+
+    combsDF = pd.concat(combsDFs) if config["only_singletons"] == False else None
+    singlesDF = pd.concat(singlesDFs) if config["no_singletons"] == False else None
+
+    return combsDF, singlesDF
+
+
+def save_posterior_samples(combsDF, singlesDF, config, outputDir):
+    if config["only_singletons"] == False:
         combsDF.to_parquet(
             f"{outputDir}combsModel.pq"
             if config["name"] is None
             else f"{outputDir}combsModel_{config['name']}.pq"
         )
-
-        if config["no_singletons"] == False:
-            singlesDF = createDataFrame(sampledParams["singles"])
-            singlesDF.to_parquet(
-                f"{outputDir}singlesModel.pq"
-                if config["name"] is None
-                else f"{outputDir}singlesModel_{config['name']}.pq"
-            )
-
-    else:
-
-        # Sample from posterior in batches, concatenating to the same dataframe.
-        # We can do this as the model is independent of the length of the data.
-
-        n_batches = np.ceil(
-            len(data["final"]["combinations"]) / config["batch_size"]
-        ).astype(int)
-
-        combsDFs = []
-        singlesDFs = []
-
-        for i in tqdm(range(n_batches)):
-
-            start_idx = i * config["batch_size"]
-            end_idx = (i + 1) * config["batch_size"]
-
-            batch_data, batch_indices = getBatchData(data, indices, start_idx, end_idx)
-
-            samples = predictive(
-                random.PRNGKey(42),
-                batch_data,
-                lengths,
-                batch_indices,
-                prior_params,
-                no_singletons=config["no_singletons"],
-                only_singletons=config["only_singletons"],
-                no_controls=config["no_controls"],
-                guide_config=config["guide_config"],
-                zi=config["zi"],
-            )
-
-            sampledParams = sampleParams(samples, batch_indices, config["alternateLH"])
-
-            combsDFs.append(createDataFrame(sampledParams["combs"]))
-
-            if config["no_singletons"] == False:
-                singlesDFs.append(createDataFrame(sampledParams["singles"]))
-
-        combsDF = pd.concat(combsDFs)
-        if config["no_singletons"] == False:
-            singlesDF = pd.concat(singlesDFs)
-
-    combsDF.to_parquet(
-        f"{outputDir}combsModel.pq"
-        if config["name"] is None
-        else f"{outputDir}combsModel_{config['name']}.pq"
-    )
-
     if config["no_singletons"] == False:
-
         singlesDF.to_parquet(
             f"{outputDir}singlesModel.pq"
             if config["name"] is None
             else f"{outputDir}singlesModel_{config['name']}.pq"
         )
 
-    # save the config to a json
-    with open(f"valinorrun_{config['name']}.json", "w") as outfile:
-        json.dump(config, outfile)
+
+def runValinor(lengths, indices, prior_params, data, config):
+    prng_key_controls = random.PRNGKey(42)
+    outputDir = (
+        f"{config['outputDir'].rstrip('/')}/" if config["outputDir"] != "" else ""
+    )
+
+    # Initialize params
+    params_controls = None
+    params_singles = None
+
+    # Check for controls
+    if "controls" in data["final"] and data["final"]["controls"] is not None:
+        svi_controls = initialize_svi(
+            models.valinorControls, AutoNormal(models.valinorControls), config
+        )
+        state_controls = run_svi(
+            svi_controls,
+            prng_key_controls,
+            config["epochs"],
+            data,
+            lengths,
+            indices,
+            prior_params,
+        )
+        params_controls = state_controls.params
+    else:
+        print("No controls data found. Skipping controls step.")
+
+    # Check for singles
+    if "singletons" in data["final"] and data["final"]["singletons"] is not None:
+        svi_singles = initialize_svi(
+            models.valinorSingles, AutoNormal(models.valinorSingles), config
+        )
+        singles_rng_init, _ = random.split(prng_key_controls)
+        singles_args = {"guide_config": config["guide_config"], "zi": config["zi"]}
+        state_singles = run_svi(
+            svi_singles,
+            singles_rng_init,
+            config["epochs"],
+            data,
+            lengths,
+            indices,
+            prior_params,
+            init_params=params_controls,
+            **singles_args,
+        )
+        params_singles = state_singles.params
+    else:
+        print("No singles data found. Skipping singles step.")
+        params_singles = params_controls
+
+    # Check for combinations
+    if "combinations" in data["final"] and data["final"]["combinations"] is not None:
+        svi_full = initialize_svi(
+            models.valinorHierarchy, AutoNormal(models.valinorHierarchy), config
+        )
+
+        if params_singles is not None and "dLFC" in prior_params:
+            params_singles["pair_growth_mean"] = prior_params["dLFC"].values
+
+        full_rng_init, _ = random.split(prng_key_controls)
+        full_args = {
+            "no_singletons": config["no_singletons"],
+            "only_singletons": config["only_singletons"],
+            "no_controls": config["no_controls"],
+            "alternate": config["alternateLH"],
+            "guide_config": config["guide_config"],
+            "zi": config["zi"],
+        }
+
+        # Run the full model with params from singles or controls (if singles are missing)
+        state_full = run_svi(
+            svi_full,
+            full_rng_init,
+            config["epochs"],
+            data,
+            lengths,
+            indices,
+            prior_params,
+            init_params=params_singles,
+            **full_args,
+        )
+
+        # Plot and save results
+        plotDiagPlots(state_full, name=config["name"], outputDir=outputDir)
+        params = state_full.params
+        save_results(params, config, outputDir)
+
+        # Sample from the model
+        sites_from_model = get_model_sites(
+            models.valinorHierarchy,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            config["no_singletons"],
+            config["only_singletons"],
+            config["no_controls"],
+            config["alternateLH"],
+            config["guide_config"],
+            config["zi"],
+        )
+
+        predictive = Predictive(
+            AutoNormal(models.valinorHierarchy),
+            params=params,
+            num_samples=config["nSamples"],
+            return_sites=sites_from_model,
+        )
+
+        # Sampling posterior
+        combsDF, singlesDF = sample_posterior(
+            predictive,
+            config,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            batch=config["batch_sample"],
+        )
+        save_posterior_samples(combsDF, singlesDF, config, outputDir)
+    else:
+        print("No combinations data found. Skipping combinations step.")
 
 
 def makeArgs():
@@ -365,8 +458,17 @@ def makeArgs():
     argParser.add_argument(
         "--ZINB",
         dest="zi",
+        default=False,
         action="store_true",
         help="Set final distributions to be zero inflated.",
+    )
+
+    argParser.add_argument(
+        "--reindex",
+        dest="reindex",
+        default=False,
+        action="store_true",
+        help="Reindex data types that are only of one class (i.e., only combinations or only singles) in the case where guides are not common.",
     )
 
     return argParser
@@ -374,19 +476,30 @@ def makeArgs():
 
 def run():
     argParser = makeArgs()
-
     args = argParser.parse_args()
+
+    # Automatically set flags if files are not provided and display warnings
+    if args.singletonsFile is None:
+        args.no_singletons = True
+        print("Warning: No singletons file provided. --no-singletons flag set.")
+
+    if args.controlsFile is None:
+        args.no_controls = True
+        print("Warning: No controls file provided. --no-controls flag set.")
+
+    if args.combinationsFile is None:
+        args.only_singletons = True
+        print("Warning: No combinations file provided. --only-singletons flag set.")
 
     config = configArgs(args)
 
-    # These can be `None`, and the downstream methods will deal with it accordingly
     data_files = {
         "combinations": config["combinationsFile"],
         "singletons": config["singletonsFile"],
         "controls": config["controlsFile"],
     }
 
-    loaded_priors = loadPriors(args.priorsFile) if args.priorsFile != None else None
+    loaded_priors = loadPriors(args.priorsFile) if args.priorsFile is not None else None
 
     lengths, indices, prior_params, data = prepareData(
         data_files,
@@ -394,9 +507,12 @@ def run():
         config["only_singletons"],
         not config["no_singletons"],
         not config["no_controls"],
+        config["reindex"],
     )
 
     runValinor(lengths, indices, prior_params, data, config)
+
+
 
 
 if __name__ == "__main__":

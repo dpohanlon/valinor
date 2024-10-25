@@ -23,7 +23,7 @@ def plotLossCurve(loss, log=True, name=None, outputDir=""):
     plt.ylabel("ELBO")
     plt.xlabel("Steps")
 
-    outputDir = "" if outputDir == "" else outputDir.strip("/") + "/"
+    outputDir = "" if outputDir == "" else outputDir.rstrip("/") + "/"
 
     plt.savefig(
         f"{outputDir}valinor_loss.pdf"
