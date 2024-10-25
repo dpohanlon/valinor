@@ -116,7 +116,7 @@ def prepareData(
         if singletons and not only_singletons:
             print("Only reindex with a single data type!")
         elif only_singletons:
-            datasets["singletons"] = reindexDF(datasets["singletons"])
+            datasets["singletons"] = reindexDF(datasets["singletons"], singletons = True)
         else:
             datasets["combinations"] = reindexDF(datasets["combinations"])
 

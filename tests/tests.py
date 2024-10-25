@@ -96,6 +96,7 @@ class Test02Valinor(unittest.TestCase):
         args += "--only-singletons "
         args += "--epochs 1 "
         args += "--nSamples 10 "
+        args += "--reindex "
         args += "-n onlySingles "
         args += "--priorsFile tests/priors.yaml "
 
