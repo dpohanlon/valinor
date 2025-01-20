@@ -119,6 +119,9 @@ def dkoLikelihoodFullFinal(
     g2 = jnp.clip(gene_ko_growth_2, -1000, 1000)
     g12 = jnp.clip(gene_ko_growth_12, -1000, 1000)
 
+    print(p_1.shape)
+    print(g1.shape)
+
     theta = (
         init_theta
         * jnp.exp(cell_line_growth)

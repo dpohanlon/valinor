@@ -15,6 +15,7 @@ from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
 from numpyro.handlers import seed, trace
 
 from valinor import models
+from valinor.guides import valinor_full_guide, valinor_singles_guide, valinor_controls_guide
 from valinor.utils import (
     getIndices,
     calculateLengths,
@@ -191,7 +192,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for controls
     if "controls" in data["final"] and data["final"]["controls"] is not None:
         svi_controls = initialize_svi(
-            models.valinorControls, AutoNormal(models.valinorControls), config
+            models.valinorControls, valinor_controls_guide, config
         )
         state_controls = run_svi(
             svi_controls,
@@ -209,7 +210,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
         svi_singles = initialize_svi(
-            models.valinorSingles, AutoNormal(models.valinorSingles), config
+            models.valinorSingles, valinor_singles_guide, config
         )
         singles_rng_init, _ = random.split(prng_key_controls)
         singles_args = {"guide_config": config["guide_config"], "zi": config["zi"]}
@@ -232,7 +233,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for combinations
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
         svi_full = initialize_svi(
-            models.valinorHierarchy, AutoNormal(models.valinorHierarchy), config
+            models.valinorHierarchy, valinor_full_guide, config
         )
 
         if params_singles is not None and "dLFC" in prior_params:
