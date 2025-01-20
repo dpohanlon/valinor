@@ -239,19 +239,6 @@ def guide_single_od(lengths):
         )
 
 def guide_double_od(lengths, prior_params):
-    # Pair-level growth
-    pair_growth_l, pair_growth_s = prior_params["pair_growth"]
-    pg_loc = numpyro.param("pair_growth_loc", jnp.array(pair_growth_l))
-    pg_scale = numpyro.param(
-        "pair_growth_scale",
-        jnp.array(jnp.abs(pair_growth_s) + 1e-3),
-        constraint=dist.constraints.positive
-    )
-    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
-        numpyro.sample(
-            "gene_pair_ko_growth",
-            dist.Normal(pg_loc, pg_scale)
-        )
     # OD expansions for gene pairs
     ndp_loc = numpyro.param(
         "non_centered_deviation_loc",
@@ -266,6 +253,21 @@ def guide_double_od(lengths, prior_params):
         numpyro.sample(
             "non_centered_deviation",
             dist.Normal(ndp_loc, ndp_scale)
+        )
+
+def guide_pair_growth(lengths, prior_params):
+    # Pair-level growth
+    pair_growth_l, pair_growth_s = prior_params["pair_growth"]
+    pg_loc = numpyro.param("pair_growth_loc", jnp.array(pair_growth_l))
+    pg_scale = numpyro.param(
+        "pair_growth_scale",
+        jnp.array(jnp.abs(pair_growth_s) + 1e-3),
+        constraint=dist.constraints.positive
+    )
+    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
+        numpyro.sample(
+            "gene_pair_ko_growth",
+            dist.Normal(pg_loc, pg_scale)
         )
 
 def guide_control_od(lengths):
@@ -358,16 +360,15 @@ def valinor_controls_guide(
     """
     Guide for the controls-only sub-model.
     """
-    # Cell-line parameters
+
     guide_cell_line(lengths, prior_params, zi=zi)
-    # Global overdispersion
+
     guide_global_overdisp(lengths, prior_params)
-    # Not sure why this is named like this, but is a cell line
+
     guide_gene_std(lengths, prior_params)
-    # Gene-level parameters are not needed for controls-only
+
     guide_control_od(lengths)
-    # Assuming controls share some guide efficiencies, otherwise omit
-    # Initial counts for controls
+
     guide_init_counts_control(lengths, prior_params)
 
 def valinor_singles_guide(
@@ -383,18 +384,18 @@ def valinor_singles_guide(
     Guide for the single knockout sub-model, including controls.
     """
 
-    # Guide efficiencies
+
     guide_guide_eff(lengths, prior_params, config=guide_config)
-    # Gene-level parameters
+
     guide_gene_ko_growth(lengths, prior_params)
-    # Cell-line parameters
+
     guide_cell_line(lengths, prior_params, zi=zi)
-    # Global overdispersion
+
     guide_global_overdisp(lengths, prior_params)
     guide_gene_std(lengths, prior_params)
-    # Single-gene overdispersion
+
     guide_single_od(lengths)
-    # Initial counts for singleKOs and controls
+
     guide_init_counts_single(lengths, prior_params)
 
 def valinor_full_guide(
@@ -405,6 +406,7 @@ def valinor_full_guide(
     no_singletons: bool = False,
     only_singletons: bool = False,
     no_controls: bool = True,
+    alternate: bool = False,
     guide_config: str = "partial_pooling",
     zi: bool = False,
     predict: bool = False,
@@ -413,26 +415,33 @@ def valinor_full_guide(
     Guide for the full hierarchical model, including double knockouts, single knockouts, and controls.
     Allows for optional exclusion of components.
     """
-    # Guide efficiencies
+
+    if alternate == True:
+        print("Alternate hasn't been implemented for this guide!")
+
+    # These have to match the order in the model
+
     guide_guide_eff(lengths, prior_params, config=guide_config)
-    # Cell-line parameters
-    guide_cell_line(lengths, prior_params, zi=zi)
-    # Global overdispersion
-    guide_global_overdisp(lengths, prior_params)
-    # Gene-level parameters
-    guide_gene_std(lengths, prior_params)
     guide_gene_ko_growth(lengths, prior_params)
-    # Single-gene overdispersion
-    if not no_singletons:
-        guide_single_od(lengths)
-    # Double-gene overdispersion and pair-level growth
+
+    guide_cell_line(lengths, prior_params, zi=zi)
+
+    guide_global_overdisp(lengths, prior_params)
+
+    guide_gene_std(lengths, prior_params)
     if not only_singletons:
         guide_double_od(lengths, prior_params)
-    # Control overdispersion
+        guide_init_counts_double(lengths, prior_params)
+        guide_pair_growth(lengths, prior_params)
+
+    if not no_singletons:
+        guide_single_od(lengths)
+        guide_init_counts_single(lengths, prior_params)
+
     if not no_controls:
         guide_control_od(lengths)
-    # Initial counts for all relevant subsets
-    guide_init_counts(lengths, prior_params, no_singletons, only_singletons, no_controls)
+        guide_init_counts_control(lengths, prior_params)
+
 
 # def valinor_guide(
 #     data: Dict[str, jnp.array],
