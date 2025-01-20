@@ -81,6 +81,14 @@ def save_results(params, config, outputDir):
 def sample_posterior(
     predictive, config, data, lengths, indices, prior_params, batch=False
 ):
+
+    if config["only_singletons"] == False:
+        args = {no_singletons : config["no_singletons"],
+                only_singletons : config["only_singletons"],
+                no_controls : config["no_controls"]}
+    else:
+        args = {}
+
     if not batch:
         # Non-batch case: directly sample from the posterior
         samples = predictive(
@@ -89,10 +97,7 @@ def sample_posterior(
             lengths=lengths,
             indices=indices,
             prior_params=prior_params,
-            no_singletons=config["no_singletons"],
-            only_singletons=config["only_singletons"],
-            no_controls=config["no_controls"],
-            guide_config=config["guide_config"],
+            **args,
             zi=config["zi"],
             predict=True,
         )
@@ -165,6 +170,7 @@ def sample_posterior(
 
 
 def save_posterior_samples(combsDF, singlesDF, config, outputDir):
+
     if config["only_singletons"] == False:
         combsDF.to_parquet(
             f"{outputDir}combsModel.pq"
@@ -210,7 +216,8 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
         svi_singles = initialize_svi(
-            models.valinorSingles, valinor_singles_guide, config
+            # models.valinorSingles, valinor_singles_guide, config
+            models.valinorSingles, AutoNormal(models.valinorSingles), config
         )
         singles_rng_init, _ = random.split(prng_key_controls)
         singles_args = {"guide_config": config["guide_config"], "zi": config["zi"]}
@@ -226,6 +233,38 @@ def runValinor(lengths, indices, prior_params, data, config):
             **singles_args,
         )
         params_singles = state_singles.params
+
+        # Sample from the model
+        sites_from_model = get_model_sites(
+            models.valinorSingles,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            config["guide_config"],
+            config["zi"],
+        )
+
+        predictive = Predictive(
+            AutoNormal(models.valinorSingles),
+            params=params_singles,
+            num_samples=config["nSamples"],
+            return_sites=sites_from_model,
+        )
+
+        # Sampling posterior
+        combsDF, singlesDF = sample_posterior(
+            predictive,
+            config,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            batch=config["batch_sample"],
+        )
+
+        save_posterior_samples(combsDF, singlesDF, config, outputDir)
+
     else:
         print("No singles data found. Skipping singles step.")
         params_singles = params_controls
