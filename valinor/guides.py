@@ -383,15 +383,15 @@ def valinor_singles_guide(
     Guide for the single knockout sub-model, including controls.
     """
 
+    # Guide efficiencies
+    guide_guide_eff(lengths, prior_params, config=guide_config)
+    # Gene-level parameters
+    guide_gene_ko_growth(lengths, prior_params)
     # Cell-line parameters
     guide_cell_line(lengths, prior_params, zi=zi)
     # Global overdispersion
     guide_global_overdisp(lengths, prior_params)
-    # Gene-level parameters
     guide_gene_std(lengths, prior_params)
-    guide_gene_ko_growth(lengths, prior_params)
-    # Guide efficiencies
-    guide_guide_eff(lengths, prior_params, config=guide_config)
     # Single-gene overdispersion
     guide_single_od(lengths)
     # Initial counts for singleKOs and controls
@@ -413,6 +413,8 @@ def valinor_full_guide(
     Guide for the full hierarchical model, including double knockouts, single knockouts, and controls.
     Allows for optional exclusion of components.
     """
+    # Guide efficiencies
+    guide_guide_eff(lengths, prior_params, config=guide_config)
     # Cell-line parameters
     guide_cell_line(lengths, prior_params, zi=zi)
     # Global overdispersion
@@ -420,8 +422,6 @@ def valinor_full_guide(
     # Gene-level parameters
     guide_gene_std(lengths, prior_params)
     guide_gene_ko_growth(lengths, prior_params)
-    # Guide efficiencies
-    guide_guide_eff(lengths, prior_params, config=guide_config)
     # Single-gene overdispersion
     if not no_singletons:
         guide_single_od(lengths)
