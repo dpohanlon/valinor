@@ -342,17 +342,17 @@ def makeDataset(
                 "WARNING: Context specific GI selected, but this would end up being fewer than one pair per cell line! \nNot generating unique GI pairs (increase uniqueFrac)."
             )
 
-    sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
-    plt.ylabel("Gene")
-    plt.xlabel("Gene")
-    plt.savefig(f"contexts0_{name}.pdf")
-    plt.clf()
+    # sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig(f"contexts0_{name}.pdf")
+    # plt.clf()
 
-    sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
-    plt.ylabel("Gene")
-    plt.xlabel("Gene")
-    plt.savefig(f"contexts1_{name}.pdf")
-    plt.clf()
+    # sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig(f"contexts1_{name}.pdf")
+    # plt.clf()
 
     pickle.dump(
         (cell_line_to_contexts, context_matrices),

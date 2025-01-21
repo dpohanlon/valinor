@@ -475,7 +475,7 @@ def sample_cell_line_distributions(
         cell_line_growth = jnp.clip(cell_line_growth, -1000, 1000)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=0, scale=0.1))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.1))
 
         p_zi = numpyro.sample(
             "p_zi",

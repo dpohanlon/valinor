@@ -216,8 +216,8 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
         svi_singles = initialize_svi(
-            # models.valinorSingles, valinor_singles_guide, config
-            models.valinorSingles, AutoNormal(models.valinorSingles), config
+            models.valinorSingles, valinor_singles_guide, config
+            # models.valinorSingles, AutoNormal(models.valinorSingles), config
         )
         singles_rng_init, _ = random.split(prng_key_controls)
         singles_args = {"guide_config": config["guide_config"], "zi": config["zi"]}
@@ -234,6 +234,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
         params_singles = state_singles.params
 
+        plotDiagPlots(state_singles, name=f"{config['name']}_singles", outputDir=outputDir)
+
         # Sample from the model
         sites_from_model = get_model_sites(
             models.valinorSingles,
@@ -246,7 +248,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         predictive = Predictive(
-            AutoNormal(models.valinorSingles),
+            # AutoNormal(models.valinorSingles),
+            valinor_singles_guide,
             params=params_singles,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,

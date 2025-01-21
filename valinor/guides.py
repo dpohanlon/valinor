@@ -128,7 +128,7 @@ def guide_cell_line(lengths, prior_params, zi=False):
         )
         library_bias_loc = numpyro.param(
             "library_bias_loc",
-            jnp.zeros(lengths["len_cell_lines"])
+            jnp.ones(lengths["len_cell_lines"])
         )
         library_bias_scale = numpyro.param(
             "library_bias_scale",
@@ -167,11 +167,11 @@ def guide_global_overdisp(lengths, prior_params):
         jnp.array(od_stds, dtype=jnp.float32) + 1e-3,
         constraint=dist.constraints.positive
     )
-    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-        numpyro.sample(
-            "mv_cell_line",
-            dist.TruncatedNormal(mv_cell_line_loc, mv_cell_line_scale, low=0.0)
-        )
+    # with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
+    numpyro.sample(
+        "mv_cell_line",
+        dist.TruncatedNormal(mv_cell_line_loc, mv_cell_line_scale, low=0.0)
+    )
 
 def guide_gene_std(lengths, prior_params):
     mv_mean_s = jnp.ones(lengths["len_cell_lines"]) * prior_params["mv_mean_scale"]
@@ -180,11 +180,11 @@ def guide_gene_std(lengths, prior_params):
         mv_mean_s,
         constraint=dist.constraints.positive
     )
-    with numpyro.plate("gene_std_plate", lengths["len_cell_lines"]):
-        numpyro.sample(
-            "gene_std",
-            dist.HalfNormal(gene_std_scale)
-        )
+    # with numpyro.plate("gene_std_plate", lengths["len_cell_lines"]):
+    numpyro.sample(
+        "gene_std",
+        dist.HalfNormal(gene_std_scale)
+    )
 
 def guide_gene_ko_growth(lengths, prior_params):
     if "gene_effect_means" not in prior_params:
