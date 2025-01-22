@@ -606,10 +606,10 @@ def sample_dko_distributions(
     # as otherwise there is a problem with the sampling for unbounded
     # discrete distributions
 
-    if not predict:
 
-        numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"])
-        numpyro.sample("obs", lh, obs=data["final"]["combinations"])
+
+    numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None)
+    numpyro.sample("obs", lh, obs=data["final"]["combinations"] if not predict else None)
 
 
 def sample_sko_distributions(
@@ -667,15 +667,13 @@ def sample_sko_distributions(
         p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
     )
 
-    if not predict:
+    numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"]  if not predict else None)
 
-        numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"])
-
-        numpyro.sample(
-            "obs_s",
-            lh_s,
-            obs=data["final"]["singletons"],
-        )
+    numpyro.sample(
+        "obs_s",
+        lh_s,
+        obs=data["final"]["singletons"] if not predict else None,
+    )
 
 
 def sample_control_distributions(
@@ -707,15 +705,15 @@ def sample_control_distributions(
         init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
     )
 
-    if not predict:
 
-        numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"])
 
-        numpyro.sample(
-            "obs_c",
-            lh_c,
-            obs=data["final"]["controls"],
-        )
+    numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"] if not predict else None)
+
+    numpyro.sample(
+        "obs_c",
+        lh_c,
+        obs=data["final"]["controls"] if not predict else None,
+    )
 
 
 def valinorControls(

@@ -197,8 +197,11 @@ def runValinor(lengths, indices, prior_params, data, config):
 
     # Check for controls
     if "controls" in data["final"] and data["final"]["controls"] is not None:
+
+        controls_guide = AutoNormal(models.valinorControls)
+
         svi_controls = initialize_svi(
-            models.valinorControls, valinor_controls_guide, config
+            models.valinorControls, controls_guide, config
         )
         state_controls = run_svi(
             svi_controls,
@@ -215,9 +218,12 @@ def runValinor(lengths, indices, prior_params, data, config):
 
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
+
+        singles_guide = AutoNormal(models.valinorSingles)
+
         svi_singles = initialize_svi(
-            models.valinorSingles, valinor_singles_guide, config
-            # models.valinorSingles, AutoNormal(models.valinorSingles), config
+            # models.valinorSingles, valinor_singles_guide, config
+            models.valinorSingles, singles_guide, config
         )
         singles_rng_init, _ = random.split(prng_key_controls)
         singles_args = {"guide_config": config["guide_config"], "zi": config["zi"]}
@@ -248,8 +254,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         predictive = Predictive(
-            # AutoNormal(models.valinorSingles),
-            valinor_singles_guide,
+            models.valinorSingles,
+            guide = singles_guide,
             params=params_singles,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,
@@ -274,8 +280,11 @@ def runValinor(lengths, indices, prior_params, data, config):
 
     # Check for combinations
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
+
+        full_guide = AutoNormal(models.valinorHierarchy)
+
         svi_full = initialize_svi(
-            models.valinorHierarchy, valinor_full_guide, config
+            models.valinorHierarchy, full_guide, config
         )
 
         if params_singles is not None and "dLFC" in prior_params:
@@ -325,7 +334,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         predictive = Predictive(
-            AutoNormal(models.valinorHierarchy),
+            models.valinorHierarchy,
+            guide = full_guide,
             params=params,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,

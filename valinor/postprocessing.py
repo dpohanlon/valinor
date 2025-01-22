@@ -2,6 +2,8 @@ import numpy as np
 
 import pandas as pd
 
+import h5py
+
 import jax
 from jax import random
 import jax.numpy as jnp
@@ -82,9 +84,6 @@ def sigmoid(x):
 
 
 # Split up this megafunction
-
-
-
 
 def sampleParams(
     samples: Dict[str, np.ndarray],
@@ -186,6 +185,15 @@ def sampleParams(
         )
         singlesParams["samples_s"] = lh_s.sample(random.split(keys[key_counter])[0])
         key_counter += 1
+
+        singlesParams['obs_init_s'] = samples["obs_init_s"][:, indices["guide_pair_s_idx"]]
+
+        singlesParams['obs_s'] = samples["obs_s"]
+
+        with h5py.File('obs_init_s.h5', 'w') as h5f:
+            h5f.create_dataset('obs_init_s', data=singlesParams['obs_init_s'])
+        with h5py.File('obs_s.h5', 'w') as h5f:
+            h5f.create_dataset('obs_s', data=singlesParams['obs_s'])
 
         params["singles"] = singlesParams
 
