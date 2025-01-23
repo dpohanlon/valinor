@@ -198,8 +198,8 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for controls
     if "controls" in data["final"] and data["final"]["controls"] is not None:
 
-        controls_guide = AutoNormal(models.valinorControls)
-        # controls_guide = valinor_controls_guide
+        # controls_guide = AutoNormal(models.valinorControls)
+        controls_guide = valinor_controls_guide
 
         svi_controls = initialize_svi(
             models.valinorControls, controls_guide, config
@@ -220,8 +220,8 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
 
-        singles_guide = AutoNormal(models.valinorSingles)
-        # singles_guide = valinor_singles_guide
+        # singles_guide = AutoNormal(models.valinorSingles)
+        singles_guide = valinor_singles_guide
 
         svi_singles = initialize_svi(
             models.valinorSingles, singles_guide, config
@@ -282,8 +282,8 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for combinations
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
 
-        full_guide = AutoNormal(models.valinorHierarchy)
-        # full_guide = valinor_hierarchy_guide
+        # full_guide = AutoNormal(models.valinorHierarchy)
+        full_guide = valinor_full_guide
 
         svi_full = initialize_svi(
             models.valinorHierarchy, full_guide, config
