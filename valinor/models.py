@@ -721,6 +721,13 @@ def valinorControls(
     lengths: Dict[str, int],
     indices: Dict[str, jnp.array],
     prior_params: Dict[str, Any],
+    no_singletons: bool = False,
+    only_singletons: bool = False,
+    no_controls: bool = True,
+    alternate: bool = False,
+    guide_config: str = "partial_pooling",
+    zi=False,
+    predict=False,
 ) -> None:
 
     (
@@ -745,6 +752,10 @@ def valinorSingles(
     lengths: Dict[str, int],
     indices: Dict[str, jnp.array],
     prior_params: Dict[str, Any],
+    no_singletons: bool = False,
+    only_singletons: bool = False,
+    no_controls: bool = True,
+    alternate: bool = False,
     guide_config: str = "partial_pooling",
     zi=False,
     predict=False,

@@ -222,7 +222,7 @@ def sampleParams(
 
         # Sample from Final Control Likelihood
         lh_c, theta_c = models.controlLikelihoodFinal(
-            init_theta=controlsParams["init_count_c"],
+            init_theta_c=controlsParams["init_count_c"],
             cell_line_growth_c=controlsParams["cell_growth_c"],
             mv=controlsParams["mv_c"],
         )

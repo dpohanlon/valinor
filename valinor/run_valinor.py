@@ -83,9 +83,9 @@ def sample_posterior(
 ):
 
     if config["only_singletons"] == False:
-        args = {no_singletons : config["no_singletons"],
-                only_singletons : config["only_singletons"],
-                no_controls : config["no_controls"]}
+        args = {'no_singletons' : config["no_singletons"],
+                'only_singletons' : config["only_singletons"],
+                'no_controls' : config["no_controls"]}
     else:
         args = {}
 
@@ -108,12 +108,12 @@ def sample_posterior(
 
         combsDF = (
             createDataFrame(sampledParams["combs"])
-            if config["only_singletons"] == False
+            if ("combs" in sampledParams)
             else None
         )
         singlesDF = (
             createDataFrame(sampledParams["singles"])
-            if config["no_singletons"] == False
+            if ("singles" in sampledParams)
             else None
         )
 
@@ -171,13 +171,13 @@ def sample_posterior(
 
 def save_posterior_samples(combsDF, singlesDF, config, outputDir):
 
-    if config["only_singletons"] == False:
+    if (config["only_singletons"] == False) and (combsDF is not None):
         combsDF.to_parquet(
             f"{outputDir}combsModel.pq"
             if config["name"] is None
             else f"{outputDir}combsModel_{config['name']}.pq"
         )
-    if config["no_singletons"] == False:
+    if (config["no_singletons"] == False) and (singlesDF is not None):
         singlesDF.to_parquet(
             f"{outputDir}singlesModel.pq"
             if config["name"] is None
@@ -199,6 +199,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "controls" in data["final"] and data["final"]["controls"] is not None:
 
         controls_guide = AutoNormal(models.valinorControls)
+        # controls_guide = valinor_controls_guide
 
         svi_controls = initialize_svi(
             models.valinorControls, controls_guide, config
@@ -220,9 +221,9 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
 
         singles_guide = AutoNormal(models.valinorSingles)
+        # singles_guide = valinor_singles_guide
 
         svi_singles = initialize_svi(
-            # models.valinorSingles, valinor_singles_guide, config
             models.valinorSingles, singles_guide, config
         )
         singles_rng_init, _ = random.split(prng_key_controls)
@@ -282,6 +283,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
 
         full_guide = AutoNormal(models.valinorHierarchy)
+        # full_guide = valinor_hierarchy_guide
 
         svi_full = initialize_svi(
             models.valinorHierarchy, full_guide, config
