@@ -469,7 +469,7 @@ def makeDataset(
     print("adding singleton replicates", time.time() - t)
     dfSgl = addReplicates(dfSgl, nReplicates, returnCounts=returnCounts)
 
-    dfSgl["cell_line_index"] = dfCombs["cell_line"]
+    dfSgl["cell_line_index"] = dfSgl["cell_line"]
     # The same by our new definition
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]

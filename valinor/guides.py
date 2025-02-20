@@ -351,7 +351,7 @@ def guide_init_counts(lengths, prior_params, no_singletons, only_singletons, no_
 
 def valinor_controls_guide(
     data: Dict[str, jnp.array],
-    lengths: Dict[str, int],
+        lengths: Dict[str, int],
     indices: Dict[str, jnp.array],
     prior_params: Dict[str, Any],
     no_singletons: bool = False,
