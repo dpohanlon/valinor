@@ -331,6 +331,15 @@ def sampleParams(
         combsParams["samples"] = lh_comb.sample(random.split(keys[key_counter])[0])
         key_counter += 1
 
+        combsParams['obs_init'] = samples["obs_init"][:, indices["guide_pair_idx"]]
+
+        combsParams['obs'] = samples["obs"]
+
+        with h5py.File('obs_init.h5', 'w') as h5f:
+            h5f.create_dataset('obs_init', data=combsParams['obs_init'])
+        with h5py.File('obs.h5', 'w') as h5f:
+            h5f.create_dataset('obs', data=combsParams['obs'])
+
         params["combs"] = combsParams
 
     return params
