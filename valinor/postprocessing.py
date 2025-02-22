@@ -82,7 +82,6 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 def sigmoid(x):
     return 1 / (1 + jnp.exp(-x))
 
-
 # Split up this megafunction
 
 def sampleParams(

@@ -318,7 +318,7 @@ def makeDataset(
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.1)
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.02)
     cell_line_to_contexts = assign_contexts_to_cell_lines(
         nCellLines, nContexts, unique_contexts=False
     )

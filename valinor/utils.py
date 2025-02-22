@@ -277,6 +277,13 @@ def calculateLengths(
 
     return lengths
 
+def lfc(final, reference):
+    fc = final / (reference + 1E-9)
+
+    return np.log2(fc + 1E-9)
+
+def deltaLFC(lfc_combination, lfc_1, lfc_2):
+    return lfc_combination - (lfc_1 + lfc_2)
 
 def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
     """
