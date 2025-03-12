@@ -39,11 +39,13 @@ def guide_guide_eff(
         with numpyro.plate("guides", lengths["len_guides"]):
             guide_eff_mean_ = numpyro.sample(
                 "guide_eff_mean",
-                dist.TruncatedNormal(guide_eff_mean_loc, guide_eff_mean_scale, low=0.0, high=1.0)
+                # dist.TruncatedNormal(guide_eff_mean_loc, guide_eff_mean_scale, low=0.0, high=1.0)
+                dist.Normal(guide_eff_mean_loc, guide_eff_mean_scale)
             )
             guide_eff_std_ = numpyro.sample(
                 "guide_eff_std",
-                dist.TruncatedNormal(guide_eff_std_loc, guide_eff_std_scale, low=0.0, high=1.0)
+                # dist.TruncatedNormal(guide_eff_std_loc, guide_eff_std_scale, low=0.0, high=1.0)
+                dist.Normal(guide_eff_std_loc, guide_eff_std_scale)
             )
 
         with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
@@ -62,6 +64,9 @@ def guide_guide_eff(
                     dist.Normal(tilde_alpha_loc, tilde_alpha_scale).expand(
                         [lengths["len_guides"], lengths["len_cell_lines"]]
                     ),
+                    # dist.Laplace(tilde_alpha_loc, tilde_alpha_scale).expand(
+                    #     [lengths["len_guides"], lengths["len_cell_lines"]]
+                    # ),
                 )
                 guide_eff_ = guide_eff_mean_[:, None] + guide_eff_std_[:, None] * tilde_alpha
                 numpyro.deterministic("guide_eff", jax.nn.sigmoid(guide_eff_))
@@ -236,6 +241,7 @@ def guide_single_od(lengths):
         numpyro.sample(
             "non_centered_deviation_gene",
             dist.Normal(ngene_loc, ngene_scale)
+            # dist.Laplace(ngene_loc, ngene_scale)
         )
 
 def guide_double_od(lengths, prior_params):
@@ -284,6 +290,7 @@ def guide_control_od(lengths):
         numpyro.sample(
             "non_centered_deviation_gene_c",
             dist.Normal(ndc_loc, ndc_scale)
+            # dist.Laplace(ndc_loc, ndc_scale)
         )
 
 def guide_init_counts_double(lengths, prior_params):
@@ -392,7 +399,6 @@ def valinor_singles_guide(
     """
     Guide for the single knockout sub-model, including controls.
     """
-
 
     guide_guide_eff(lengths, prior_params, config=guide_config)
 

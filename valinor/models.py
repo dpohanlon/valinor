@@ -225,11 +225,13 @@ def sample_guide_distributions(
         with numpyro.plate("guides", lengths["len_guides"]) as g:
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
-                dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+                # dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+                dist.Normal(loc=mean_l, scale=mean_s),
             )
             guide_eff_std = numpyro.sample(
                 "guide_eff_std",
-                dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0, high=1.0),
+                # dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0, high=1.0),
+                dist.Normal(loc=std_l, scale=std_s),
             )
 
         with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c:
@@ -237,8 +239,8 @@ def sample_guide_distributions(
 
                 tilde_alpha = numpyro.sample(
                     "tilde_alpha",
-                    # dist.Normal(0, 1).expand(
-                    dist.Laplace(0, 1).expand(
+                    dist.Normal(0, 1).expand(
+                    # dist.Laplace(0, 1).expand(
                         [lengths["len_guides"], lengths["len_cell_lines"]]
                     ),
                 )
@@ -356,8 +358,8 @@ def sample_pair_od_distributions(
 
     # Sample the non-centered deviations for each gene pair
     non_centered_deviation = numpyro.sample(
-        # "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
-        "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
+        "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
+        # "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
@@ -385,8 +387,8 @@ def sample_od_distributions(
 
     # Sample the non-centered deviations
     non_centered_deviation = numpyro.sample(
-        # "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
-        "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
+        "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
+        # "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
@@ -691,8 +693,6 @@ def sample_control_distributions(
     lh_c, theta_c = controlLikelihoodFinal(
         init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
     )
-
-
 
     numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"] if not predict else None)
 
