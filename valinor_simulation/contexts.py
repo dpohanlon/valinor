@@ -21,7 +21,7 @@ def getContextMatrix(
 
 
 def generate_context_matrices(
-    num_genes, num_contexts, fraction_gene_pairs_in_context, scale=0.02
+    num_genes, num_contexts, fraction_gene_pairs_in_context, scale=0.2
 ):
     """
     Generate context matrices for gene interactions.
@@ -44,7 +44,7 @@ def generate_context_matrices(
 
     for _ in range(num_contexts):
         # Start with a matrix of zeros (indicating no change)
-        context_matrix = np.zeros((num_genes, num_genes))
+        context_matrix = np.ones((num_genes, num_genes))
 
         # Randomly select gene pairs to modify, ensuring we don't select diagonal pairs
         gene_pairs_to_modify = []
@@ -57,8 +57,12 @@ def generate_context_matrices(
             # Generate a random multiplier between 0 and scale for the interaction
             # multiplier = np.random.uniform(0, scale)
 
-            multiplier = np.random.normal(1.0, scale)  # Set this more intelligently?
-            multiplier *= np.random.choice([1, -1])
+            # More likely to make them more effective than less
+
+            multiplier = np.random.normal(1.0 + scale, scale)  # Set this more intelligently?
+
+            # More likely to be synthetic lethal than the other direction
+            multiplier *= np.random.choice([1, -1], p = [0.9, 0.1])
 
             context_matrix[pair[0], pair[1]] = multiplier
             context_matrix[pair[1], pair[0]] = multiplier

@@ -52,7 +52,8 @@ class DoubleKO(object):
         # Start with everything at the gene level
 
         if synergies is None:
-            self.synergies = np.random.normal(0.0, 0.01, (self.nGenes, self.nGenes))
+            # Additive on essentiality, but modified multiplicatively by context
+            self.synergies = np.random.normal(0.0, 0.25, (self.nGenes, self.nGenes))
             np.fill_diagonal(self.synergies, 0)
 
             # Symmetrise
@@ -67,7 +68,7 @@ class DoubleKO(object):
 
         if not (gi_contexts is None):
             for i in gi_context_lists:
-                self.synergies += gi_contexts[i]
+                self.synergies *= gi_contexts[i]
 
         # sns.heatmap(self.synergies, cmap=sns.color_palette("vlag", as_cmap=True), vmin = -0.5, vmax = 0.5)
         # plt.savefig('syn_after.pdf')

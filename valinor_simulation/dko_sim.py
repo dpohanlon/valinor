@@ -79,7 +79,7 @@ def genCellLine(
 
     # If we're adding more context, don't include the prototype context GIs!
 
-    if not (gi_contexts == None):
+    if gi_contexts == None:
         newSyn = np.random.normal(0, fluctuateStd, size=prototypeDKO.synergies.shape)
 
     else:
@@ -239,7 +239,7 @@ def populate_unique_contexts(
     nCellLines,
     context_matrices,
     cell_line_to_contexts,
-    contextSynVal=0.1,
+    contextSynVal=1.5, # Multiplicative parameter (> 1!)
 ):
     # Last context matrix per cell line always be the unique one when saved
 
@@ -264,9 +264,9 @@ def populate_unique_contexts(
         row_indices, col_indices = np.array(pairsThisCellLine).T
 
         # Symmetric (to avoid dropping after 'symmetrisation'!)
-        uniqueContext = np.zeros((nGenes, nGenes))
-        uniqueContext[row_indices, col_indices] = contextSynVal
-        uniqueContext[col_indices, row_indices] = contextSynVal
+        uniqueContext = np.ones((nGenes, nGenes))
+        uniqueContext[row_indices, col_indices] *= contextSynVal
+        uniqueContext[col_indices, row_indices] *= contextSynVal
 
         # Append this to the set of context GIs and
 
@@ -318,7 +318,9 @@ def makeDataset(
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.02)
+    # Matrices for genetic interactions multiplicative modifiers that are not 'cell line unique', but are associated with a context
+
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.25)
     cell_line_to_contexts = assign_contexts_to_cell_lines(
         nCellLines, nContexts, unique_contexts=False
     )
@@ -326,6 +328,8 @@ def makeDataset(
     if uniqueFrac != None:
         uniqueN = int(uniqueFrac * nGenes * nGenes)
         giPerCellLine = uniqueN // nCellLines
+
+        # Update the previous context matrices with interactions that are unique to cell lines (and therefore a 'genetic background')
 
         if giPerCellLine > 0:
             context_matrices, cell_line_to_contexts = populate_unique_contexts(
@@ -381,6 +385,8 @@ def makeDataset(
     # plt.xlabel("Gene")
     # plt.savefig("contexts.pdf")
     # plt.clf()
+
+    # print(context_matrices)
 
     dko = DoubleKO(
         nGenes=nGenes,
@@ -446,8 +452,14 @@ def makeDataset(
     dfCombs["gene1_index"] = dfCombs["gene1"]
     dfCombs["gene2_index"] = dfCombs["gene2"]
 
-    sns.kdeplot(dfCombs, x="syn", clip=(-0.2, 0.2))
+    # V.different for cell lines other than 0!?
+
+    sns.kdeplot(dfCombs, x="syn", clip=(-0.5, 0.5), hue = 'cell_line')
     plt.savefig("syn.pdf")
+    plt.clf()
+
+    sns.kdeplot(dfCombs, x="ess1", clip=(-0.5, 0.5), hue = 'cell_line')
+    plt.savefig("ess1.pdf")
     plt.clf()
 
     dfCombs.to_parquet(f"{outDir}/dfCombs_{name}.pq")
@@ -633,7 +645,7 @@ def run():
         "--uniqueFrac",
         type=float,
         dest="uniqueFrac",
-        default=None,  # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
+        default=0.05,  # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
         help="Fraction of GI unique pairs per cell line.",
     )
 
@@ -641,7 +653,7 @@ def run():
         "--contextSynVal",
         type=float,
         dest="contextSynVal",
-        default=0.1,
+        default=1.5,
         help="Synergy parameter for context unique pairs.",
     )
 
