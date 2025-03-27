@@ -41,19 +41,14 @@ def calculate_cell_line_stats(df):
 
     grouped_by_cell = df.groupby(["cell_line_index"])
 
-    if "lfc_norm_scaled" not in df:
-
-        means = grouped_by_cell.apply(
-            lambda x: np.mean(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-        )
-        std_devs = grouped_by_cell.apply(
-            lambda x: np.std(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-        )
-
+    if "lfc_norm_scaled" not in df.columns:
+        df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
+        means = grouped_by_cell["_computed_log"].mean()
+        std_devs = grouped_by_cell["_computed_log"].std()
+        df.drop(columns=["_computed_log"], inplace=True)
     else:
-
-        means = grouped_by_cell.apply(lambda x: np.mean(x["lfc_norm_scaled"]))
-        std_devs = grouped_by_cell.apply(lambda x: np.std(x["lfc_norm_scaled"]))
+        means = grouped_by_cell["lfc_norm_scaled"].mean()
+        std_devs = grouped_by_cell["lfc_norm_scaled"].std()
 
     return means, std_devs
 
@@ -81,23 +76,14 @@ def calculate_gene_stats(df):
 
     # Calculate this once somewhere? Or use precalculated version with normalisation?
 
-    if "lfc_norm_scaled" not in df:
-
-        gene_means = grouped_by_gene_and_cell.apply(
-            lambda x: np.mean(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-        )
-        gene_std_devs = grouped_by_gene_and_cell.apply(
-            lambda x: np.std(np.log(x["value"] / (x["plasmid"] + 1e-6) + 1e-6))
-        )
-
+    if "lfc_norm_scaled" not in df.columns:
+        df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
+        gene_means = grouped_by_gene_and_cell["_computed_log"].mean()
+        gene_std_devs = grouped_by_gene_and_cell["_computed_log"].std()
+        df.drop(columns=["_computed_log"], inplace=True)
     else:
-
-        gene_means = grouped_by_gene_and_cell.apply(
-            lambda x: np.mean(x["lfc_norm_scaled"])
-        )
-        gene_std_devs = grouped_by_gene_and_cell.apply(
-            lambda x: np.std(x["lfc_norm_scaled"])
-        )
+        gene_means = grouped_by_gene_and_cell["lfc_norm_scaled"].mean()
+        gene_std_devs = grouped_by_gene_and_cell["lfc_norm_scaled"].std()
 
     pivot_mean = gene_means.unstack(fill_value=np.nan)
     pivot_std_dev = gene_std_devs.unstack(fill_value=np.nan)
