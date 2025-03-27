@@ -113,6 +113,12 @@ def dkoLikelihoodFullFinal(
     p_00 = (1.0 - guide_eff_1) * (1.0 - guide_eff_2)
     p_1 = guide_eff_1 * (1.0 - guide_eff_2)
     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
+
+    # alternate model - make sure SKO is consistent, though!
+    # p_00 = 0
+    # p_1 = 0
+    # p_2 = 0
+
     p_12 = guide_eff_1 * guide_eff_2
 
     g1 = jnp.clip(library_bias * gene_ko_growth_1, -1000, 1000)
@@ -324,10 +330,12 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
 
         # But I can't pass a NaN here, so mask them off
 
+        growth_l_clean = jnp.where(jnp.isnan(growth_l), 0.0, growth_l)
+        growth_s_clean = jnp.where(jnp.isnan(growth_s), 0.0, growth_s)
         mask = ~jnp.isnan(growth_l)
 
         gene_ko_growth = numpyro.sample(
-            "gene_ko_growth", dist.Normal(growth_l, growth_s).mask(mask)
+            "gene_ko_growth", dist.Normal(growth_l_clean, growth_s_clean).mask(mask)
         )
 
     return gene_ko_growth
@@ -464,7 +472,7 @@ def sample_cell_line_distributions(
         cell_line_growth = jnp.clip(cell_line_growth, -1000, 1000)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.1))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.001))
 
         p_zi = numpyro.sample(
             "p_zi",
