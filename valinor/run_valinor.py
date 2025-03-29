@@ -1,5 +1,6 @@
 import argparse
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
@@ -32,6 +33,10 @@ from typing import Dict, List, Tuple, Any
 
 import json
 
+gpu_available = any(device.platform == 'gpu' for device in jax.devices())
+
+if gpu_available:
+    numpyro.set_platform('gpu')
 
 def get_model_sites(model, *args):
     model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args)
@@ -198,7 +203,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for controls
     if "controls" in data["final"] and data["final"]["controls"] is not None:
 
-        controls_guide = AutoNormal(models.valinorControls)
+        controls_guide = AutoNormal(models.valinorControls, init_loc_fn=numpyro.infer.init_to_median())
         # controls_guide = valinor_controls_guide
 
         svi_controls = initialize_svi(
@@ -220,7 +225,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
 
-        singles_guide = AutoNormal(models.valinorSingles)
+        singles_guide = AutoNormal(models.valinorSingles, init_loc_fn=numpyro.infer.init_to_median())
         # singles_guide = valinor_singles_guide
 
         svi_singles = initialize_svi(
@@ -282,7 +287,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for combinations
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
 
-        full_guide = AutoNormal(models.valinorHierarchy)
+        full_guide = AutoNormal(models.valinorHierarchy, init_loc_fn=numpyro.infer.init_to_median())
         # full_guide = valinor_full_guide
 
         svi_full = initialize_svi(

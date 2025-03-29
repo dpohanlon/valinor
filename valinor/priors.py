@@ -39,6 +39,10 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
 def calculate_cell_line_stats(df):
 
+    # For when these are controls
+
+    # TODO:if they aren't controls, average over the dataset and make these the difference from the average
+
     grouped_by_cell = df.groupby(["cell_line_index"])
 
     if "lfc_norm_scaled" not in df.columns:
