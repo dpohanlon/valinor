@@ -330,9 +330,9 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
 
         # But I can't pass a NaN here, so mask them off
 
-        growth_l_clean = jnp.where(jnp.isnan(growth_l), 0.0, growth_l)
-        growth_s_clean = jnp.where(jnp.isnan(growth_s), 0.0, growth_s)
-        mask = ~jnp.isnan(growth_l)
+        growth_l_clean = jnp.where(~jnp.isfinite(growth_l), 0.0, growth_l)
+        growth_s_clean = jnp.where(~jnp.isfinite(growth_s), 0.0, growth_s)
+        mask = jnp.isfinite(growth_l)
 
         gene_ko_growth = numpyro.sample(
             "gene_ko_growth", dist.Normal(growth_l_clean, growth_s_clean).mask(mask)

@@ -1,6 +1,8 @@
 import argparse
 
 import jax
+jax.config.update("jax_debug_nans", True)
+
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
@@ -232,7 +234,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             models.valinorSingles, singles_guide, config
         )
         singles_rng_init, _ = random.split(prng_key_controls)
-        singles_args = {"guide_config": config["guide_config"], "zi": config["zi"]}
+        singles_args = {"guide_config": config["guide_config"], "zi": config["zi"], "stable_update": config["stable_update"]}
         state_singles = run_svi(
             svi_singles,
             singles_rng_init,
@@ -305,6 +307,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             "alternate": config["alternateLH"],
             "guide_config": config["guide_config"],
             "zi": config["zi"],
+            "stable_update": config["stable_update"],
         }
 
         # Run the full model with params from singles or controls (if singles are missing)

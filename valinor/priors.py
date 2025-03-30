@@ -47,12 +47,12 @@ def calculate_cell_line_stats(df):
 
     if "lfc_norm_scaled" not in df.columns:
         df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
-        means = grouped_by_cell["_computed_log"].mean()
+        means = np.clip(grouped_by_cell["_computed_log"].mean(), -10, 10)
         std_devs = grouped_by_cell["_computed_log"].std()
         df.drop(columns=["_computed_log"], inplace=True)
     else:
-        means = grouped_by_cell["lfc_norm_scaled"].mean()
-        std_devs = grouped_by_cell["lfc_norm_scaled"].std()
+        means = np.clip(grouped_by_cell["lfc_norm_scaled"].mean(), -10, 10)
+        std_devs = np.clip(grouped_by_cell["lfc_norm_scaled"].std(), 1E-6, 10)
 
     return means, std_devs
 
@@ -82,12 +82,12 @@ def calculate_gene_stats(df):
 
     if "lfc_norm_scaled" not in df.columns:
         df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
-        gene_means = grouped_by_gene_and_cell["_computed_log"].mean()
+        gene_means = np.clip(grouped_by_gene_and_cell["_computed_log"].mean(), -10, 10)
         gene_std_devs = grouped_by_gene_and_cell["_computed_log"].std()
         df.drop(columns=["_computed_log"], inplace=True)
     else:
-        gene_means = grouped_by_gene_and_cell["lfc_norm_scaled"].mean()
-        gene_std_devs = grouped_by_gene_and_cell["lfc_norm_scaled"].std()
+        gene_means = np.clip(grouped_by_gene_and_cell["lfc_norm_scaled"].mean(), -10, 10)
+        gene_std_devs = np.clip(grouped_by_gene_and_cell["lfc_norm_scaled"].std(), 1E-6, 10)
 
     pivot_mean = gene_means.unstack(fill_value=np.nan)
     pivot_std_dev = gene_std_devs.unstack(fill_value=np.nan)
