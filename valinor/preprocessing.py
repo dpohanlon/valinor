@@ -15,6 +15,7 @@ from valinor.priors import (
     defaultPriors,
     calculate_cell_line_stats,
     calculate_gene_stats,
+    calcInitCountParams,
 )
 
 from typing import Dict, List, Tuple, Any
@@ -44,7 +45,7 @@ def prepareData(
     datasets = loadData(data_files)
 
     finalCounts = getFinalCounts(datasets)
-    initialCounts = getInitialCounts(datasets)
+    initialCounts, initialCountIndices = getInitialCounts(datasets)
 
     meanOD, stdOD = calculateOverdispersion(
         datasets["combinations"]
@@ -76,6 +77,8 @@ def prepareData(
             np.mean(datasets["singletons"]["plasmid"]),
             np.std(datasets["singletons"]["plasmid"]),
         )
+
+        prior_params["init_count_s_vals"] = calcInitCountParams(datasets["singletons"], initCountVar = 'plasmid')[0]
 
     if not (datasets["controls"] is None):
         prior_params["init_count_c"] = (
@@ -129,6 +132,10 @@ def prepareData(
         singletons,
         controls,
     )
+
+    if singletons:
+        # Add the singleton specific indices to map plasmids to their initial values, with duplicates for the null guides that aren't parameterised
+        indices['guide_initial_s_idx'] = np.array(initialCountIndices['singletons'])
 
     lengths = calculateLengths(
         indices,

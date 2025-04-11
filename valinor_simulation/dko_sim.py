@@ -452,8 +452,6 @@ def makeDataset(
     dfCombs["gene1_index"] = dfCombs["gene1"]
     dfCombs["gene2_index"] = dfCombs["gene2"]
 
-    # V.different for cell lines other than 0!?
-
     sns.kdeplot(dfCombs, x="syn", clip=(-0.5, 0.5), hue = 'cell_line')
     plt.savefig("syn.pdf")
     plt.clf()
@@ -486,6 +484,7 @@ def makeDataset(
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
+    dfSgl["guide2_index"] = dfSgl["guide2_index_s"]
     dfSgl['GuidePair'] = dfSgl["guide_pair_index"]
 
     # Not unique wrt cell lines

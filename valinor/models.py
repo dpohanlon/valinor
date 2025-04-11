@@ -231,12 +231,10 @@ def sample_guide_distributions(
         with numpyro.plate("guides", lengths["len_guides"]) as g:
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
-                # dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
                 dist.Normal(loc=mean_l, scale=mean_s),
             )
             guide_eff_std = numpyro.sample(
                 "guide_eff_std",
-                # dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0, high=1.0),
                 dist.Normal(loc=std_l, scale=std_s),
             )
 
@@ -245,8 +243,8 @@ def sample_guide_distributions(
 
                 tilde_alpha = numpyro.sample(
                     "tilde_alpha",
-                    dist.Normal(0, 1).expand(
-                    # dist.Laplace(0, 1).expand(
+                    # dist.Normal(0, 1).expand(
+                    dist.Laplace(0, 1).expand(
                         [lengths["len_guides"], lengths["len_cell_lines"]]
                     ),
                 )
@@ -331,7 +329,8 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
         # But I can't pass a NaN here, so mask them off
 
         growth_l_clean = jnp.where(~jnp.isfinite(growth_l), 0.0, growth_l)
-        growth_s_clean = jnp.where(~jnp.isfinite(growth_s), 0.0, growth_s)
+        growth_s_clean = jnp.clip(jnp.where(~jnp.isfinite(growth_s), 1.0, growth_s), 1E-6, np.inf)
+
         mask = jnp.isfinite(growth_l)
 
         gene_ko_growth = numpyro.sample(
@@ -351,8 +350,10 @@ def sample_mv_cell_line_distributions(
     mv_mean_s = np.ones(lengths["len_cell_lines"]) * prior_params["mv_mean_scale"]
 
     mv_cell_line = numpyro.sample(
-        "mv_cell_line", dist.TruncatedNormal(od_means, od_stds, low=0.0)
+        "mv_cell_line", dist.Normal(od_means, od_stds)
     )
+
+    mv_cell_line = jax.nn.softplus(mv_cell_line)
 
     # Define the scale for non-centered deviations (could be learned or set as a prior)
     gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
@@ -366,8 +367,8 @@ def sample_pair_od_distributions(
 
     # Sample the non-centered deviations for each gene pair
     non_centered_deviation = numpyro.sample(
-        "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
-        # "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
+        # "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
+        "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
@@ -395,8 +396,8 @@ def sample_od_distributions(
 
     # Sample the non-centered deviations
     non_centered_deviation = numpyro.sample(
-        "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
-        # "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
+        # "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
+        "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
@@ -472,11 +473,11 @@ def sample_cell_line_distributions(
         cell_line_growth = jnp.clip(cell_line_growth, -1000, 1000)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.001))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.0001))
 
         p_zi = numpyro.sample(
             "p_zi",
-            dist.TruncatedNormal(loc=0.05, scale=0.1, low=0.0, high=1.0),
+            dist.Exponential(10.),
         )
 
     return cell_line_growth, library_bias, p_zi
@@ -500,8 +501,10 @@ def sample_dko_distributions(
 
         guide_init_count = numpyro.sample(
             "guide_init_count",
-            dist.TruncatedNormal(loc=init_l, scale=init_s, low=0.0),
+            dist.Normal(loc=init_l, scale=init_s),
         )
+
+    guide_init_count = jax.nn.softplus(guide_init_count)
 
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
@@ -603,8 +606,6 @@ def sample_dko_distributions(
     # as otherwise there is a problem with the sampling for unbounded
     # discrete distributions
 
-
-
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None)
     numpyro.sample("obs", lh, obs=data["final"]["combinations"] if not predict else None)
 
@@ -623,13 +624,18 @@ def sample_sko_distributions(
     p_zi=False,
     predict=False,
 ):
+
+    # p = numpyro.param('zip_zoop')
+
+    # Index unique singleton guides, rather than pairs (agg over null guides, etc, as these are not parameterised, unlike in pairs)
     with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
-
         guide_init_count_s = numpyro.sample(
             "guide_init_count_s",
-            dist.TruncatedNormal(loc=init_s_l, scale=init_s_s, low=0.0),
+            dist.Normal(loc=init_s_l, scale=init_s_s),
         )
+
+    guide_init_count_s = jax.nn.softplus(guide_init_count_s)
 
     guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
@@ -651,10 +657,14 @@ def sample_sko_distributions(
         library_bias[indices["cell_line_s_idx"]] if library_bias is not None else 1.0
     )
 
-    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
+    # Expand this to the init dataset size, with the repeated entries for pairs with different null guides, to match obs (50 -> 300)
+
+    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s[indices['guide_initial_s_idx']])
+
+    # Expand initial parameters to the final dataset size from the parameter size, with repeated entries for cell lines (plasmid, no replicates, etc) (50 -> 3600)
 
     lh_s, theta_s = skoLikelihoodFinal(
-        init_theta_s[indices["guide_pair_s_idx"]],
+        guide_init_count_s[indices['guide_s_idx']],
         guide_eff_s,
         cell_line_growth_s,
         gene_ko_growth_s,
@@ -687,8 +697,10 @@ def sample_control_distributions(
     with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_c"]):
         guide_init_count_c = numpyro.sample(
             "guide_init_count_c",
-            dist.TruncatedNormal(loc=init_c_l, scale=init_c_s, low=0.0),
+            dist.Normal(loc=init_c_l, scale=init_c_s),
         )
+
+    guide_init_count_c = jax.nn.softplus(guide_init_count_c)
 
     mv_c = mv_guide_pair_c[indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
 

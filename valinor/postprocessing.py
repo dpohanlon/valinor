@@ -126,8 +126,14 @@ def sampleParams(
     if singletons:
         singlesParams = {}
 
+        samples["guide_init_count_s"][:, indices["guide_initial_s_idx"]]
+
+        # compare to plasmids - do indices corresponding between initial and final?
+
         # Initialize Count for Singletons
-        singlesParams["init_count_s"] = samples["guide_init_count_s"][:, indices["guide_pair_s_idx"]]
+        singlesParams["init_count_s"] = samples["guide_init_count_s"][:, indices["guide_s_idx"]]
+
+        singlesParams["init_count_s"] = jax.nn.softplus(singlesParams["init_count_s"])
 
         # Tilde Alpha
         singlesParams["tilde_alpha"] = samples["tilde_alpha"][:, indices["guide_s_idx"], indices["cell_line_s_idx"]]
@@ -165,6 +171,8 @@ def sampleParams(
         if zi:
             singlesParams["p_zi"] = samples["p_zi"][:, indices["cell_line_s_idx"]]
 
+        # Match this inc indexing from model
+
         # Sample from Initial Likelihood
         init_lh, theta_init = models.skoLikelihoodInitial(singlesParams["init_count_s"])
         singlesParams["samples_s_init"] = init_lh.sample(random.split(keys[key_counter])[0])
@@ -185,14 +193,19 @@ def sampleParams(
         singlesParams["samples_s"] = lh_s.sample(random.split(keys[key_counter])[0])
         key_counter += 1
 
-        singlesParams['obs_init_s'] = samples["obs_init_s"][:, indices["guide_pair_s_idx"]]
+        if 'obs_init_s' in samples:
 
-        singlesParams['obs_s'] = samples["obs_s"]
+            singlesParams['obs_init_s'] = samples["obs_init_s"][:, indices["guide_s_idx"]]
 
-        with h5py.File('obs_init_s.h5', 'w') as h5f:
-            h5f.create_dataset('obs_init_s', data=singlesParams['obs_init_s'])
-        with h5py.File('obs_s.h5', 'w') as h5f:
-            h5f.create_dataset('obs_s', data=singlesParams['obs_s'])
+            with h5py.File('obs_init_s.h5', 'w') as h5f:
+                h5f.create_dataset('obs_init_s', data=singlesParams['obs_init_s'])
+
+        if 'obs_s' in samples:
+
+            singlesParams['obs_s'] = samples["obs_s"]
+
+            with h5py.File('obs_s.h5', 'w') as h5f:
+                h5f.create_dataset('obs_s', data=singlesParams['obs_s'])
 
         params["singles"] = singlesParams
 
@@ -204,6 +217,8 @@ def sampleParams(
 
         # Initialize Count for Controls
         controlsParams["init_count_c"] = samples["guide_init_count_c"][:, indices["guide_pair_c_idx"]]
+
+        controlsParams["init_count_c"] = jax.nn.softplus(controlsParams["init_count_c"])
 
         # Cell Line Growth for Controls
         controlsParams["cell_growth_c"] = samples["cell_line_growth"][:, indices["cell_line_c_idx"]]

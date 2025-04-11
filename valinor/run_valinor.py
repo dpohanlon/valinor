@@ -26,6 +26,7 @@ from valinor.utils import (
     saveModelParams,
     loadPriors,
     getBatchData,
+    configure_custom_init,
 )
 from valinor.preprocessing import prepareData, getDeltaLFC
 from valinor.postprocessing import sampleParams, createDataFrame
@@ -211,6 +212,12 @@ def runValinor(lengths, indices, prior_params, data, config):
         svi_controls = initialize_svi(
             models.valinorControls, controls_guide, config
         )
+
+        # Shape should be okay, as these are plasmids with single counts, no replicates
+        init_params_controls = {
+            "guide_init_count_c": data["initial"]["controls"],
+        }
+
         state_controls = run_svi(
             svi_controls,
             prng_key_controls,
@@ -219,6 +226,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             lengths,
             indices,
             prior_params,
+            init_params = init_params_controls
         )
         params_controls = state_controls.params
     else:
@@ -227,12 +235,18 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for singles
     if "singletons" in data["final"] and data["final"]["singletons"] is not None:
 
-        singles_guide = AutoNormal(models.valinorSingles, init_loc_fn=numpyro.infer.init_to_median())
+        init_params_singles = params_controls if params_controls != None else {}
+        init_params_singles["guide_init_count_s"] = prior_params["init_count_s_vals"]
+
+        custom_init = configure_custom_init(init_params_singles)
+
+        singles_guide = AutoNormal(models.valinorSingles, init_loc_fn=custom_init())
         # singles_guide = valinor_singles_guide
 
         svi_singles = initialize_svi(
             models.valinorSingles, singles_guide, config
         )
+
         singles_rng_init, _ = random.split(prng_key_controls)
         singles_args = {"guide_config": config["guide_config"], "zi": config["zi"], "stable_update": config["stable_update"]}
         state_singles = run_svi(
@@ -243,7 +257,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             lengths,
             indices,
             prior_params,
-            init_params=params_controls,
+            init_params=init_params_singles,
             **singles_args,
         )
         params_singles = state_singles.params
@@ -289,15 +303,21 @@ def runValinor(lengths, indices, prior_params, data, config):
     # Check for combinations
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
 
-        full_guide = AutoNormal(models.valinorHierarchy, init_loc_fn=numpyro.infer.init_to_median())
-        # full_guide = valinor_full_guide
+        init_params_combinations = params_singles if params_singles != None else {}
+        # init_params_combinations["guide_init_count"] = data["initial"]["combinations"]
+
+        if "dLFC" in prior_params:
+            print('DLFC')
+            exit(0)
+            init_params_combinations["pair_growth_mean"] = prior_params["dLFC"].values
+
+        custom_init = configure_custom_init(init_params_combinations)
+
+        full_guide = AutoNormal(models.valinorHierarchy, init_loc_fn=custom_init())
 
         svi_full = initialize_svi(
             models.valinorHierarchy, full_guide, config
         )
-
-        if params_singles is not None and "dLFC" in prior_params:
-            params_singles["pair_growth_mean"] = prior_params["dLFC"].values
 
         full_rng_init, _ = random.split(prng_key_controls)
         full_args = {
@@ -314,12 +334,13 @@ def runValinor(lengths, indices, prior_params, data, config):
         state_full = run_svi(
             svi_full,
             full_rng_init,
-            config["epochs"],
+            # config["epochs"],
+            1,
             data,
             lengths,
             indices,
             prior_params,
-            init_params=params_singles,
+            init_params=init_params_combinations,
             **full_args,
         )
 

@@ -4,6 +4,10 @@ import numpy as np
 def getContextMatrix(
     nCellLines=30, nGenes=100, nContexts=10, nVariantFrac=0.05, variance=0.1
 ):
+
+    # Add something in here that gives a random nudge to each cell line?
+    # Or handle with offsets?
+
     linesPerContext = nCellLines // nContexts
     nVariantGenes = int(nVariantFrac * nGenes)
     contexts = np.zeros((nContexts, nGenes))

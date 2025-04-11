@@ -4,11 +4,15 @@ import pandas as pd
 
 import numpy as np
 
+from functools import partial
+
 import h5py
 
 import yaml
 
 import json
+
+from numpyro.infer.initialization import init_to_median
 
 from typing import Dict, List, Tuple, Optional
 
@@ -54,14 +58,26 @@ def getFinalCounts(datasets: Dict[str, str], finalCountVar: str = "value"):
 
 def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
     counts = {}
+    count_indices = {}
 
     for n, d in datasets.items():
-        counts[n] = getInitialCountsDF(d, initCountVar) if not (d is None) else None
 
-    return counts
+        if not (d is None):
+
+            singletons = "singletons" in n.lower()
+            count, indices = getInitialCountsDF(d, initCountVar, singletons)
+            counts[n] = count
+            count_indices[n] = indices
+
+        else:
+
+            counts[n] = None
+            count_indices[n] = None
+
+    return counts, count_indices
 
 
-def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
+def getInitialCountsDF(df: pd.DataFrame, initCountVar: str, singletons : bool = False) -> pd.Series:
     """
     Get initial counts from the DataFrame.
 
@@ -73,16 +89,16 @@ def getInitialCountsDF(df: pd.DataFrame, initCountVar: str) -> pd.Series:
         pd.Series: Initial counts.
     """
 
+    guideVar = "guide_pair_index" if not singletons else "guide1_index"
+
     initial_counts = (
-        df.groupby("guide_pair_index")
-        .agg({"guide_pair_index": "first", f"{initCountVar}": "first"})[
-            ["guide_pair_index", f"{initCountVar}"]
-        ]
-        .reset_index(drop=True)
-        .sort_values("guide_pair_index")[f"{initCountVar}"]
+            df.groupby("guide_pair_index")
+            .agg({"guide_pair_index": "first", initCountVar : "first", "guide1_index" : 'first', "guide2_index" : "first"})
+            .reset_index(drop=True)
+            .sort_values("guide_pair_index")[[initCountVar, guideVar]]
     )
 
-    return initial_counts.values
+    return initial_counts[initCountVar].values.astype(np.int32), initial_counts[guideVar].values.astype(np.int32)
 
 
 def getUniqueGeneGuideIndices(
@@ -264,7 +280,10 @@ def calculateLengths(
     )
 
     if singletons:
-        lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
+        # lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
+
+        # Unique guides, not including duplicates with different nulls, as these are not parameterised
+        lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_s_idx"]))
 
     if neg_controls:
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))
@@ -343,14 +362,11 @@ def checkBounds(
 
     if singletons:
         assert np.max(indices["cell_line_s_idx"]) < lengths["len_cell_lines"]
-
-        # print(np.max(indices["guide_pair_s_idx"]), lengths["len_guide_pairs_s"])
         # assert np.max(indices["guide_pair_s_idx"]) < lengths["len_guide_pairs_s"]
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
-
-        # assert np.max(indices["guide_pair_c_idx"]) < lengths["len_guide_pairs_c"]
+        assert np.max(indices["guide_pair_c_idx"]) < lengths["len_guide_pairs_c"]
 
     # Also, warn if there are some parameters that remain unused, which is sus
 
@@ -408,3 +424,18 @@ def getBatchData(data, indices, start_idx, end_idx):
     batch_indices = {k: v[start_idx:end_idx] for k, v in indices.items()}
 
     return batch_data, batch_indices
+
+def configure_custom_init(init_dict):
+
+    def custom_init(site=None):
+
+        if site is None:
+            return partial(custom_init)
+
+        if site["name"] in init_dict:
+            print(f'Setting {site["name"]}')
+            return init_dict[site["name"]]
+        else:
+            return init_to_median(site)
+
+    return custom_init

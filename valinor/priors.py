@@ -36,6 +36,33 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
     return repsC["mean"].values, repsC["std"].values
 
+def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
+
+    # Initial values for the count parameters
+
+    # Params are common to all measurements with the same guide pair (or guide 1) index, incorporating all replicates and null guides, so average over these
+
+    guideVar = "guide_pair_index" if not singletons else "guide1_index"
+
+    initial_counts = (
+            df.groupby("guide_pair_index")
+            .agg({"guide_pair_index": "first", initCountVar : "first", "guide1_index" : 'first', "guide2_index" : "first"})
+            .reset_index(drop=True)
+            .sort_values("guide_pair_index")[[initCountVar, guideVar]]
+    )
+
+    guideAvgInitialCounts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean'}).reset_index()
+
+    final_counts = (
+            df.groupby("guide_pair_index")
+            .agg({"guide_pair_index": "first", 'value' : "first", "guide1_index" : 'first', "guide2_index" : "first"})
+            .reset_index(drop=True)
+            .sort_values("guide_pair_index")[['value', guideVar]]
+    )
+
+    guideAvgFinalCounts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
+
+    return guideAvgInitialCounts[initCountVar].values.astype(np.float32), guideAvgFinalCounts['value'].values.astype(np.float32)
 
 def calculate_cell_line_stats(df):
 
@@ -89,11 +116,11 @@ def calculate_gene_stats(df):
         gene_means = np.clip(grouped_by_gene_and_cell["lfc_norm_scaled"].mean(), -10, 10)
         gene_std_devs = np.clip(grouped_by_gene_and_cell["lfc_norm_scaled"].std(), 0.1, 10)
 
-    pivot_mean = gene_means.unstack(fill_value=np.nan)
-    pivot_std_dev = gene_std_devs.unstack(fill_value=np.nan)
+    pivot_mean = np.clip(gene_means.unstack(fill_value=np.nan), -10, 10)
+    pivot_std_dev = np.clip(gene_std_devs.unstack(fill_value=np.nan), 1E-6, 100)
 
-    gene_mean_array = pivot_mean.to_numpy()
-    gene_std_dev_array = pivot_std_dev.to_numpy()
+    gene_mean_array = pivot_mean.to_numpy().astype(np.float32)
+    gene_std_dev_array = pivot_std_dev.to_numpy().astype(np.float32)
 
     cell_line_indices = pivot_mean.index.to_numpy()
     gene_indices = pivot_mean.columns.to_numpy()
