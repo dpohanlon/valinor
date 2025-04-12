@@ -44,14 +44,17 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
     guideVar = "guide_pair_index" if not singletons else "guide1_index"
 
+    # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
             df.groupby("guide_pair_index")
-            .agg({"guide_pair_index": "first", initCountVar : "first", "guide1_index" : 'first', "guide2_index" : "first"})
+            .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first', "guide2_index" : "first"})
             .reset_index(drop=True)
             .sort_values("guide_pair_index")[[initCountVar, guideVar]]
     )
 
-    guideAvgInitialCounts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean'}).reset_index()
+    if singletons:
+        # Average over null guides if present
+        initial_counts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean'}).reset_index()
 
     final_counts = (
             df.groupby("guide_pair_index")
@@ -60,9 +63,11 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
             .sort_values("guide_pair_index")[['value', guideVar]]
     )
 
-    guideAvgFinalCounts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
+    if singletons:
+        # Average over null guides if present
+        final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
 
-    return guideAvgInitialCounts[initCountVar].values.astype(np.float32), guideAvgFinalCounts['value'].values.astype(np.float32)
+    return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
 
 def calculate_cell_line_stats(df):
 

@@ -304,10 +304,10 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "combinations" in data["final"] and data["final"]["combinations"] is not None:
 
         init_params_combinations = params_singles if params_singles != None else {}
-        # init_params_combinations["guide_init_count"] = data["initial"]["combinations"]
+        init_params_combinations["guide_init_count"] = prior_params["init_count_vals"]
 
         if "dLFC" in prior_params:
-            init_params_combinations["gene_pair_ko_growth"] = prior_params["dLFC"].values
+            init_params_combinations["gene_pair_ko_growth"] = prior_params["dLFC"]
 
         custom_init = configure_custom_init(init_params_combinations)
 
@@ -332,8 +332,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         state_full = run_svi(
             svi_full,
             full_rng_init,
-            # config["epochs"],
-            1,
+            config["epochs"],
             data,
             lengths,
             indices,

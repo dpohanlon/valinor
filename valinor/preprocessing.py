@@ -75,6 +75,8 @@ def prepareData(
         else:
             prior_params["dLFC"] = combinationLFCs(datasets["combinations"], datasets["singletons"])
 
+        prior_params["init_count_vals"] = calcInitCountParams(datasets["combinations"], initCountVar = 'plasmid', singletons = False)[0]
+
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (
             np.mean(datasets["singletons"]["plasmid"]),
