@@ -8,6 +8,7 @@ from valinor.utils import (
     calculateLengths,
     checkBounds,
     reindexDF,
+    combinationLFCs
 )
 
 from valinor.priors import (
@@ -71,6 +72,8 @@ def prepareData(
 
         if "dLFC" in datasets["combinations"]:
             prior_params["dLFC"] = getDeltaLFC(datasets["combinations"])
+        else:
+            prior_params["dLFC"] = combinationLFCs(datasets["combinations"], datasets["singletons"])
 
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (

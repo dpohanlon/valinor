@@ -307,9 +307,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         # init_params_combinations["guide_init_count"] = data["initial"]["combinations"]
 
         if "dLFC" in prior_params:
-            print('DLFC')
-            exit(0)
-            init_params_combinations["pair_growth_mean"] = prior_params["dLFC"].values
+            init_params_combinations["gene_pair_ko_growth"] = prior_params["dLFC"].values
 
         custom_init = configure_custom_init(init_params_combinations)
 
@@ -595,9 +593,6 @@ def run():
     )
 
     runValinor(lengths, indices, prior_params, data, config)
-
-
-
 
 if __name__ == "__main__":
     run()

@@ -304,6 +304,46 @@ def lfc(final, reference):
 def deltaLFC(lfc_combination, lfc_1, lfc_2):
     return lfc_combination - (lfc_1 + lfc_2)
 
+def combinationLFCs(combinations, singles):
+
+    # Calculate gene-averaged dLFCs
+
+    # How am I indexing these into the parameters? -> gene_pair_idx -> gene_unq_pair_index
+
+    # Calculate LFCs
+
+    combinations['lfc'] = lfc(combinations['value'], combinations['plasmid'])
+    singles['lfc'] = lfc(singles['value'], singles['plasmid'])
+
+    # Average by gene, cell line
+
+    singles_gene = singles.groupby(['gene1', 'cell_line']).agg({'lfc' : 'mean', 'g1_idx' : 'first', 'plasmid' : 'mean'}).reset_index()
+    combs_gene = combinations.groupby(['gene1', 'gene2', 'cell_line', 'plasmid']).agg({'lfc' : 'mean', 'g1_idx' : 'first', 'g2_idx' : 'first'}).reset_index()
+
+    # Merge to associate singles with combinations
+
+    merged_gene = combs_gene.merge(singles_gene, on = ['gene1', 'cell_line'], suffixes = ('', '_1')).merge(singles_gene, left_on = ['gene2', 'cell_line'], right_on = ['gene1', 'cell_line'], suffixes = ('_comb', '_2')).reset_index()
+    merged_gene = merged_gene.rename(columns = {'gene1_comb' : 'gene1', 'gene2_comb' : 'gene2'})
+    merged_gene = merged_gene.groupby(['gene1', 'gene2', 'cell_line']).agg({'lfc_comb' : 'mean', 'lfc_1' : 'mean', 'lfc_2' : 'mean'}).reset_index()
+
+    # Calculate the dLFC
+
+    merged_gene['dLFC'] = deltaLFC(merged_gene['lfc_comb'], merged_gene['lfc_1'], merged_gene['lfc_2'])
+
+    # Merge back into full combinations dataset shape
+
+    combinations_dLFC = combinations.merge(merged_gene[['gene1', 'gene2', 'lfc_1', 'lfc_2', 'lfc_comb', 'cell_line', 'dLFC']], on = ['gene1', 'gene2', 'cell_line']).reset_index()[["gene_unq_pair_index", 'dLFC']]
+
+    assert len(combinations_dLFC) == len(combinations)
+
+    # Aggregate according to gene_pair_idx, for parameter
+
+    gene_pair_dlfc = combinations_dLFC.sort_values("gene_unq_pair_index").groupby("gene_unq_pair_index").agg({'dLFC' : 'mean'})['dLFC']
+
+    assert len(gene_pair_dlfc) == len(np.unique(combinations["gene_unq_pair_index"]))
+
+    return gene_pair_dlfc.values
+
 def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
     """
     Save model parameters to a file.
@@ -426,6 +466,8 @@ def getBatchData(data, indices, start_idx, end_idx):
     return batch_data, batch_indices
 
 def configure_custom_init(init_dict):
+
+    # Set to values from config dictionary, falling back to median
 
     def custom_init(site=None):
 

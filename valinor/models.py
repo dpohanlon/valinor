@@ -509,11 +509,9 @@ def sample_dko_distributions(
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
-        pair_growth_mean = numpyro.param("pair_growth_mean", init_value=pair_growth_l)
-
         gene_pair_ko_growth = numpyro.sample(
             "gene_pair_ko_growth",
-            dist.Normal(pair_growth_mean, pair_growth_s),
+            dist.Normal(pair_growth_l, pair_growth_s),
         )
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
