@@ -47,7 +47,7 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
             df.groupby("guide_pair_index")
-            .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first', "guide2_index" : "first"})
+            .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first'})
             .reset_index(drop=True)
             .sort_values("guide_pair_index")[[initCountVar, guideVar]]
     )
@@ -58,7 +58,7 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
     final_counts = (
             df.groupby("guide_pair_index")
-            .agg({"guide_pair_index": "first", 'value' : "first", "guide1_index" : 'first', "guide2_index" : "first"})
+            .agg({"guide_pair_index": "first", 'value' : "first", "guide1_index" : 'first'})
             .reset_index(drop=True)
             .sort_values("guide_pair_index")[['value', guideVar]]
     )
