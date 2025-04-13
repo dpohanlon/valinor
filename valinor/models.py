@@ -78,7 +78,12 @@ def dkoLikelihoodFinal(
     theta = jax.nn.softplus(theta) + 1E-6
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
-    return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
+    # dispersion = theta / (mv - 1)
+
+    log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
+    dispersion = jnp.exp(log_dispersion)
+
+    return negativeBinomial(theta, dispersion, p_zi), theta
 
 
 def dkoLikelihoodFullFinal(
@@ -147,7 +152,12 @@ def dkoLikelihoodFullFinal(
 
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
-    return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
+    # dispersion = theta / (mv - 1)
+
+    log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
+    dispersion = jnp.exp(log_dispersion)
+
+    return negativeBinomial(theta, dispersion, p_zi), theta
 
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
@@ -228,7 +238,12 @@ def controlLikelihoodFinal(
     theta = jax.nn.softplus(theta) + 1E-6
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
-    return negativeBinomial(theta, theta / (mv - 1)), theta
+    # dispersion = theta / (mv - 1)
+
+    log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
+    dispersion = jnp.exp(log_dispersion)
+
+    return negativeBinomial(theta, dispersion), theta
 
 
 def sample_guide_distributions(
@@ -256,8 +271,8 @@ def sample_guide_distributions(
 
                 tilde_alpha = numpyro.sample(
                     "tilde_alpha",
-                    # dist.Normal(0, 1).expand(
-                    dist.Laplace(0, 1).expand(
+                    dist.Normal(0, 1).expand(
+                    # dist.Laplace(0, 1).expand(
                         [lengths["len_guides"], lengths["len_cell_lines"]]
                     ),
                 )
@@ -380,8 +395,8 @@ def sample_pair_od_distributions(
 
     # Sample the non-centered deviations for each gene pair
     non_centered_deviation = numpyro.sample(
-        # "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
-        "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
+        "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
+        # "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
@@ -409,8 +424,8 @@ def sample_od_distributions(
 
     # Sample the non-centered deviations
     non_centered_deviation = numpyro.sample(
-        # "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
-        "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
+        "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
+        # "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
     )
 
     # Compute the outer product of gene_std and non_centered_deviation
