@@ -34,6 +34,9 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     )
     repsC = repsC.sort_values("cell_line_index")
 
+    repsC["mean"] = repsC["mean"].fillna(repsC["mean"].median())
+    repsC["std"] = repsC["std"].fillna(repsC["std"].median())
+
     return repsC["mean"].values, repsC["std"].values
 
 def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
