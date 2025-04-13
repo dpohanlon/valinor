@@ -389,7 +389,7 @@ def sample_mv_cell_line_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1
+    od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1 + 1E-6
     od_stds = prior_params["od_stds"]
 
     mv_mean_s = np.ones(lengths["len_cell_lines"]) * prior_params["mv_mean_scale"]
