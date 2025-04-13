@@ -141,22 +141,23 @@ def dkoLikelihoodFullFinal(
     # Combine the multiplicative factors:
     # Original multiplier: exp(cell_line_growth) * (p_00 + p_1 * exp(g1) + p_2 * exp(g2) + p_12 * exp(g1 + g2 + g12))
     # Compute the log multiplier:
-    # mult = p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
-    # log_multiplier = cell_line_growth + jnp.log(mult)
+    mult = p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12) if not singleKO else p_00 + p_1 * jnp.exp(g1)
 
-    logsumexp_args = jnp.array([
-                        jnp.log(p_00),
-                        jnp.log(p_1) + g1,
-                        jnp.log(p_2) + g2,
-                        jnp.log(p_12) + g1 + g2 + g12
-                    ]) if not singleKO else jnp.array([
-                       jnp.log(p_00),
-                       jnp.log(p_1) + g1,
-                   ])
+    log_multiplier = cell_line_growth + jnp.log(mult)
 
-    log_mult = jax.nn.logsumexp(logsumexp_args)
+    # logsumexp_args = jnp.array([
+    #                     jnp.log(p_00),
+    #                     jnp.log(p_1) + g1,
+    #                     jnp.log(p_2) + g2,
+    #                     jnp.log(p_12) + g1 + g2 + g12
+    #                 ]) if not singleKO else jnp.array([
+    #                    jnp.log(p_00),
+    #                    jnp.log(p_1) + g1,
+    #                ])
 
-    log_multiplier = cell_line_growth + log_mult
+    # log_mult = jax.nn.logsumexp(logsumexp_args)
+
+    # log_multiplier = cell_line_growth + log_mult
 
     # Add on the log scale and apply softplus for additional stability (optional)
     log_theta = jax.nn.softplus(log_init_theta + log_multiplier)
