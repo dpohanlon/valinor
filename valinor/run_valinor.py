@@ -47,7 +47,7 @@ def get_model_sites(model, *args):
 
 
 def initialize_svi(model, guide, config):
-    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm=10.0)
+    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm=1.0)
     svi = SVI(
         model,
         guide,
