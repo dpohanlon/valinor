@@ -116,9 +116,9 @@ def dkoLikelihoodFullFinal(
 
     p_12 = guide_eff_1 * guide_eff_2
 
-    g1 = jnp.clip(library_bias * gene_ko_growth_1, -1000, 1000)
-    g2 = jnp.clip(gene_ko_growth_2, -1000, 1000)
-    g12 = jnp.clip(gene_ko_growth_12, -1000, 1000)
+    g1 = jnp.clip(library_bias * gene_ko_growth_1, -20, 20)
+    g2 = jnp.clip(gene_ko_growth_2, -20, 20)
+    g12 = jnp.clip(gene_ko_growth_12, -20, 20)
 
     # theta = (
     #     init_theta
@@ -483,7 +483,7 @@ def sample_cell_line_distributions(
             "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
         )
 
-        cell_line_growth = jnp.clip(cell_line_growth, -1000, 1000)
+        cell_line_growth = jnp.clip(cell_line_growth, -20, 20)
 
         # TODO: Make me configurable
         library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.0001))
