@@ -75,7 +75,7 @@ def dkoLikelihoodFinal(
 
     theta *= init_theta
 
-    theta = jax.nn.softplus(theta)
+    theta = jax.nn.softplus(theta) + 1E-6
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
@@ -114,24 +114,37 @@ def dkoLikelihoodFullFinal(
     p_1 = guide_eff_1 * (1.0 - guide_eff_2)
     p_2 = guide_eff_2 * (1.0 - guide_eff_1)
 
-    # alternate model - make sure SKO is consistent, though!
-    # p_00 = 0
-    # p_1 = 0
-    # p_2 = 0
-
     p_12 = guide_eff_1 * guide_eff_2
 
     g1 = jnp.clip(library_bias * gene_ko_growth_1, -1000, 1000)
     g2 = jnp.clip(gene_ko_growth_2, -1000, 1000)
     g12 = jnp.clip(gene_ko_growth_12, -1000, 1000)
 
-    theta = (
-        init_theta
-        * jnp.exp(cell_line_growth)
-        * (p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12))
-    )
+    # theta = (
+    #     init_theta
+    #     * jnp.exp(cell_line_growth)
+    #     * (p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12))
+    # )
 
-    theta = jax.nn.softplus(theta)
+    # theta = jax.nn.softplus(theta) + 1E-6
+
+    # === Begin Modification: Log-space Reparameterization ===
+    epsilon = 1e-6  # Small constant to avoid log(0)
+    log_init_theta = jnp.log(init_theta + epsilon)
+
+    # Combine the multiplicative factors:
+    # Original multiplier: exp(cell_line_growth) * (p_00 + p_1 * exp(g1) + p_2 * exp(g2) + p_12 * exp(g1 + g2 + g12))
+    # Compute the log multiplier:
+    mult = p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12)
+    log_multiplier = cell_line_growth + jnp.log(mult)
+
+    # Add on the log scale and apply softplus for additional stability (optional)
+    log_theta = jax.nn.softplus(log_init_theta + log_multiplier)
+
+    # Exponentiate to recover theta on the original scale
+    theta = jnp.exp(log_theta)
+    # === End Modification ===
+
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     return negativeBinomial(theta, theta / (mv - 1), p_zi), theta
@@ -212,7 +225,7 @@ def controlLikelihoodFinal(
 ) -> Distribution:
     theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
-    theta = jax.nn.softplus(theta)
+    theta = jax.nn.softplus(theta) + 1E-6
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     return negativeBinomial(theta, theta / (mv - 1)), theta
@@ -353,7 +366,7 @@ def sample_mv_cell_line_distributions(
         "mv_cell_line", dist.Normal(od_means, od_stds)
     )
 
-    mv_cell_line = jax.nn.softplus(mv_cell_line)
+    mv_cell_line = jax.nn.softplus(mv_cell_line) + 1E-6
 
     # Define the scale for non-centered deviations (could be learned or set as a prior)
     gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
@@ -383,7 +396,7 @@ def sample_pair_od_distributions(
             "mv_gene_pair_", mv_cell_line[:, None] + outer_product
         )
 
-        mv_gene_pair_ = jax.nn.softplus(mv_gene_pair_)
+        mv_gene_pair_ = jax.nn.softplus(mv_gene_pair_) + 1E-6
 
         mv_gene_pair = numpyro.deterministic("mv_gene_pair", mv_gene_pair_ + 1)
 
@@ -414,7 +427,7 @@ def sample_od_distributions(
             mv_cell_line[:, None] + outer_product,
         )
 
-        mv_gene_ = jax.nn.softplus(mv_gene_)
+        mv_gene_ = jax.nn.softplus(mv_gene_) + 1E-6
 
         # Ensure the final result is in the correct range [1, inf]
         mv_gene = numpyro.deterministic("mv_gene", mv_gene_ + 1)
@@ -504,7 +517,7 @@ def sample_dko_distributions(
             dist.Normal(loc=init_l, scale=init_s),
         )
 
-    guide_init_count = jax.nn.softplus(guide_init_count)
+    guide_init_count = jax.nn.softplus(guide_init_count) + 1E-6
 
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
@@ -633,7 +646,7 @@ def sample_sko_distributions(
             dist.Normal(loc=init_s_l, scale=init_s_s),
         )
 
-    guide_init_count_s = jax.nn.softplus(guide_init_count_s)
+    guide_init_count_s = jax.nn.softplus(guide_init_count_s) + 1E-6
 
     guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
@@ -698,7 +711,7 @@ def sample_control_distributions(
             dist.Normal(loc=init_c_l, scale=init_c_s),
         )
 
-    guide_init_count_c = jax.nn.softplus(guide_init_count_c)
+    guide_init_count_c = jax.nn.softplus(guide_init_count_c) + 1E-6
 
     mv_c = mv_guide_pair_c[indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
 
