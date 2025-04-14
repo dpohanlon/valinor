@@ -110,6 +110,8 @@ def sampleParams(
     only_singletons = not "guide_init_count" in samples
     controls = "guide_init_count_c" in samples
 
+    print(singletons, only_singletons, controls)
+
     zi = "p_zi" in samples
 
     # Initialize JAX random keys
@@ -193,19 +195,19 @@ def sampleParams(
         singlesParams["samples_s"] = lh_s.sample(random.split(keys[key_counter])[0])
         key_counter += 1
 
-        if 'obs_init_s' in samples:
+        # if 'obs_init_s' in samples:
 
-            singlesParams['obs_init_s'] = samples["obs_init_s"][:, indices["guide_s_idx"]]
+        #     singlesParams['obs_init_s'] = samples["obs_init_s"][:, indices["guide_s_idx"]]
 
-            with h5py.File('obs_init_s.h5', 'w') as h5f:
-                h5f.create_dataset('obs_init_s', data=singlesParams['obs_init_s'])
+        #     with h5py.File('obs_init_s.h5', 'w') as h5f:
+        #         h5f.create_dataset('obs_init_s', data=singlesParams['obs_init_s'])
 
-        if 'obs_s' in samples:
+        # if 'obs_s' in samples:
 
-            singlesParams['obs_s'] = samples["obs_s"]
+        #     singlesParams['obs_s'] = samples["obs_s"]
 
-            with h5py.File('obs_s.h5', 'w') as h5f:
-                h5f.create_dataset('obs_s', data=singlesParams['obs_s'])
+        #     with h5py.File('obs_s.h5', 'w') as h5f:
+        #         h5f.create_dataset('obs_s', data=singlesParams['obs_s'])
 
         params["singles"] = singlesParams
 
@@ -345,15 +347,39 @@ def sampleParams(
         combsParams["samples"] = lh_comb.sample(random.split(keys[key_counter])[0])
         key_counter += 1
 
-        combsParams['obs_init'] = samples["obs_init"][:, indices["guide_pair_idx"]]
+        # combsParams['obs_init'] = samples["obs_init"][:, indices["guide_pair_idx"]]
 
-        combsParams['obs'] = samples["obs"]
+        # combsParams['obs'] = samples["obs"]
 
-        with h5py.File('obs_init.h5', 'w') as h5f:
-            h5f.create_dataset('obs_init', data=combsParams['obs_init'])
-        with h5py.File('obs.h5', 'w') as h5f:
-            h5f.create_dataset('obs', data=combsParams['obs'])
+        # with h5py.File('obs_init.h5', 'w') as h5f:
+        #     h5f.create_dataset('obs_init', data=combsParams['obs_init'])
+        # with h5py.File('obs.h5', 'w') as h5f:
+        #     h5f.create_dataset('obs', data=combsParams['obs'])
 
         params["combs"] = combsParams
 
     return params
+
+# Even when batching, it's easier just to sample the posterior predictive ('obs') in one go
+
+def samplePosteriorPredictive(samples, indices):
+
+    if 'obs_init_s' in samples:
+
+        with h5py.File('obs_init_s.h5', 'w') as h5f:
+            h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_s_idx"]])
+
+    if 'obs_s' in samples:
+
+        with h5py.File('obs_s.h5', 'w') as h5f:
+            h5f.create_dataset('obs_s', data=samples["obs_s"])
+
+    if 'obs_init' in samples:
+
+        with h5py.File('obs_init.h5', 'w') as h5f:
+            h5f.create_dataset('obs_init', data=samples["obs_init"][:, indices["guide_pair_idx"]])
+
+    if 'obs' in samples:
+
+        with h5py.File('obs.h5', 'w') as h5f:
+            h5f.create_dataset('obs', data=samples["obs"])

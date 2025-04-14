@@ -30,7 +30,7 @@ from valinor.utils import (
     configure_custom_init,
 )
 from valinor.preprocessing import prepareData, getDeltaLFC
-from valinor.postprocessing import sampleParams, createDataFrame
+from valinor.postprocessing import sampleParams, createDataFrame, samplePosteriorPredictive
 from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
@@ -85,6 +85,40 @@ def save_results(params, config, outputDir):
     saveModelParams(params, f'{outputDir}{config["paramsFileName"]}')
     with open(f"valinorrun_{config['name']}.json", "w") as outfile:
         json.dump(config, outfile)
+
+# Save the posterior predictive 'obs' independent of batches, etc, in one go.
+# Sample only obs sites, rather than the rest, to avoid running out of memory (hopefully)...
+def save_posterior_predictive(model, guide, params, num_samples, sites, data, lengths, indices, prior_params, config):
+
+    sites = list(filter(lambda x : 'obs' in x, sites))
+
+    predictive = Predictive(
+        model,
+        guide = guide,
+        params=params,
+        num_samples=num_samples,
+        return_sites=sites,
+    )
+
+    if config["only_singletons"] == False:
+        args = {'no_singletons' : config["no_singletons"],
+                'only_singletons' : config["only_singletons"],
+                'no_controls' : config["no_controls"]}
+    else:
+        args = {}
+
+    samples = predictive(
+        random.PRNGKey(42),
+        data=data,
+        lengths=lengths,
+        indices=indices,
+        prior_params=prior_params,
+        **args,
+        zi=config["zi"],
+        predict=True,
+    )
+
+    samplePosteriorPredictive(samples, indices)
 
 
 def sample_posterior(
@@ -167,13 +201,13 @@ def sample_posterior(
             "gene_effect_means" in prior_params,
         )
 
-        if config["only_singletons"] == False:
+        if "combs" in sampledParams:
             combsDFs.append(createDataFrame(sampledParams["combs"]))
-        if config["no_singletons"] == False:
+        if "singles" in sampledParams:
             singlesDFs.append(createDataFrame(sampledParams["singles"]))
 
-    combsDF = pd.concat(combsDFs) if config["only_singletons"] == False else None
-    singlesDF = pd.concat(singlesDFs) if config["no_singletons"] == False else None
+    combsDF = pd.concat(combsDFs) if len(combsDFs) > 0  else None
+    singlesDF = pd.concat(singlesDFs) if len(singlesDFs) > 0 == False else None
 
     return combsDF, singlesDF
 
@@ -297,6 +331,8 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         save_posterior_samples(combsDF, singlesDF, config, outputDir)
 
+        save_posterior_predictive(models.valinorSingles, singles_guide, params_singles, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config)
+
     else:
         print("No singles data found. Skipping singles step.")
         params_singles = params_controls
@@ -381,6 +417,9 @@ def runValinor(lengths, indices, prior_params, data, config):
             batch=config["batch_sample"],
         )
         save_posterior_samples(combsDF, singlesDF, config, outputDir)
+
+        save_posterior_predictive(models.valinorHierarchy, full_guide, params, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config)
+
     else:
         print("No combinations data found. Skipping combinations step.")
 
