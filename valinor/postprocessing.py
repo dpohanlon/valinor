@@ -110,8 +110,6 @@ def sampleParams(
     only_singletons = not "guide_init_count" in samples
     controls = "guide_init_count_c" in samples
 
-    print(singletons, only_singletons, controls)
-
     zi = "p_zi" in samples
 
     # Initialize JAX random keys
