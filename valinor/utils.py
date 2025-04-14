@@ -136,6 +136,16 @@ def getUniqueGeneGuideIndices(
         np.concatenate(guide_indices)
     )
 
+# Only for final counts
+def countZeros(df):
+
+    data_sorted = df.sort_values('cell_line_index').reset_index()
+    counts = data_sorted.groupby('cell_line_index').size()
+    zero_counts = data_sorted[data_sorted['value'] == 0].groupby('cell_line_index').size().reindex(counts.index, fill_value=0)
+
+    zeros_frac = zero_counts.values / counts.values
+
+    return zeros_frac + 1E-6
 
 def reindexVar(df, var):
 

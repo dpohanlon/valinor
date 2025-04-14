@@ -8,7 +8,8 @@ from valinor.utils import (
     calculateLengths,
     checkBounds,
     reindexDF,
-    combinationLFCs
+    combinationLFCs,
+    countZeros
 )
 
 from valinor.priors import (
@@ -77,6 +78,8 @@ def prepareData(
 
         prior_params["init_count_vals"] = calcInitCountParams(datasets["combinations"], initCountVar = 'plasmid', singletons = False)[0]
 
+        prior_params['p_zi'] = countZeros(datasets['combinations'])
+
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (
             np.mean(datasets["singletons"]["plasmid"]),
@@ -84,6 +87,8 @@ def prepareData(
         )
 
         prior_params["init_count_s_vals"] = calcInitCountParams(datasets["singletons"], initCountVar = 'plasmid')[0]
+
+        prior_params['p_zi_s'] = countZeros(datasets['singletons'])
 
     if not (datasets["controls"] is None):
         prior_params["init_count_c"] = (

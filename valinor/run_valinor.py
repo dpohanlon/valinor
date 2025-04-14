@@ -42,8 +42,8 @@ gpu_available = any(device.platform == 'gpu' for device in jax.devices())
 if gpu_available:
     numpyro.set_platform('gpu')
 
-def get_model_sites(model, *args):
-    model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args)
+def get_model_sites(model, *args, **kwargs):
+    model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args, **kwargs)
     return list(model_trace.keys())
 
 
@@ -87,7 +87,7 @@ def save_results(params, config, outputDir):
         json.dump(config, outfile)
 
 # Save the posterior predictive 'obs' independent of batches, etc, in one go.
-# Sample only obs sites, rather than the rest, to avoid running out of memory (hopefully)...
+# Sample only obs sites, rather than the rest, to avoid running out of memory. Can also batch this separately over num_samples.
 def save_posterior_predictive(model, guide, params, num_samples, sites, data, lengths, indices, prior_params, config):
 
     sites = list(filter(lambda x : 'obs' in x, sites))
@@ -272,6 +272,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         init_params_singles = params_controls if params_controls != None else {}
         init_params_singles["guide_init_count_s"] = prior_params["init_count_s_vals"]
+        init_params_singles['p_zi_s'] = prior_params['p_zi_s']
 
         custom_init = configure_custom_init(init_params_singles)
 
@@ -283,7 +284,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         singles_rng_init, _ = random.split(prng_key_controls)
-        singles_args = {"guide_config": config["guide_config"], "zi": config["zi"], "stable_update": config["stable_update"]}
+        singles_args = {"guide_config": config["guide_config"], "zi": config['zi']}
+        singles_svi_args = {"stable_update": config["stable_update"]}
         state_singles = run_svi(
             svi_singles,
             singles_rng_init,
@@ -294,6 +296,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             prior_params,
             init_params=init_params_singles,
             **singles_args,
+            **singles_svi_args
         )
         params_singles = state_singles.params
 
@@ -306,8 +309,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             lengths,
             indices,
             prior_params,
-            config["guide_config"],
-            config["zi"],
+            **singles_args
         )
 
         predictive = Predictive(
@@ -342,6 +344,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         init_params_combinations = params_singles if params_singles != None else {}
         init_params_combinations["guide_init_count"] = prior_params["init_count_vals"]
+        init_params_combinations['p_zi'] = prior_params['p_zi']
 
         if "dLFC" in prior_params:
             init_params_combinations["gene_pair_ko_growth"] = prior_params["dLFC"]
@@ -362,8 +365,8 @@ def runValinor(lengths, indices, prior_params, data, config):
             "alternate": config["alternateLH"],
             "guide_config": config["guide_config"],
             "zi": config["zi"],
-            "stable_update": config["stable_update"],
         }
+        full_svi_args = {"stable_update": config["stable_update"]}
 
         # Run the full model with params from singles or controls (if singles are missing)
         state_full = run_svi(
@@ -376,6 +379,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             prior_params,
             init_params=init_params_combinations,
             **full_args,
+            **full_svi_args
         )
 
         # Plot and save results
@@ -390,12 +394,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             lengths,
             indices,
             prior_params,
-            config["no_singletons"],
-            config["only_singletons"],
-            config["no_controls"],
-            config["alternateLH"],
-            config["guide_config"],
-            config["zi"],
+            **full_args
         )
 
         predictive = Predictive(

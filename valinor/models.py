@@ -520,13 +520,29 @@ def sample_cell_line_distributions(
         # TODO: Make me configurable
         library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.0001))
 
+    return cell_line_growth, library_bias
+
+def sample_zero_inflation_s(lengths):
+
+    with numpyro.plate("cell_line_zi_s", lengths["len_cell_lines"]):
+
+        p_zi_s = numpyro.sample(
+            "p_zi_s",
+            dist.Exponential(10.),
+        )
+
+    return p_zi_s
+
+def sample_zero_inflation(lengths):
+
+    with numpyro.plate("cell_line_zi", lengths["len_cell_lines"]):
+
         p_zi = numpyro.sample(
             "p_zi",
             dist.Exponential(10.),
         )
 
-    return cell_line_growth, library_bias, p_zi
-
+    return p_zi
 
 def sample_dko_distributions(
     data: Dict[str, jnp.array],
@@ -628,7 +644,7 @@ def sample_dko_distributions(
             gene_ko_growth_12,
             mv,
             library_bias=1.0,
-            p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
+            p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
 
     else:
@@ -642,7 +658,7 @@ def sample_dko_distributions(
             gene_ko_growth_12,
             mv,
             library_bias=1.0,
-            p_zi=p_zi if p_zi is False else p_zi[indices["cell_line_idx"]],
+            p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
 
     # Only evaluate these when performing inference rather than predicting
@@ -664,7 +680,7 @@ def sample_sko_distributions(
     mv_gene,
     library_bias,
     alternate: bool = False,
-    p_zi=False,
+    p_zi_s=False,
     predict=False,
 ):
 
@@ -714,7 +730,7 @@ def sample_sko_distributions(
         mv_s,
         library_bias_s,
         alternate,
-        p_zi if p_zi is False else p_zi[indices["cell_line_s_idx"]],
+        False if p_zi_s is False else p_zi_s[indices["cell_line_s_idx"]],
     )
 
     numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"]  if not predict else None)
@@ -783,7 +799,6 @@ def valinorControls(
     (
         cell_line_growth,
         library_bias,
-        p_zi,
     ) = sample_cell_line_distributions(lengths, prior_params)
 
     mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
@@ -817,8 +832,10 @@ def valinorSingles(
     (
         cell_line_growth,
         library_bias,
-        p_zi,
     ) = sample_cell_line_distributions(lengths, prior_params)
+
+    if zi:
+        p_zi_s = sample_zero_inflation_s(lengths)
 
     # Common to all datasets
     mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
@@ -836,7 +853,7 @@ def valinorSingles(
         mv_gene,
         None,
         False,
-        p_zi if zi else False,
+        p_zi_s if zi else False,
         predict=predict,
     )
 
@@ -861,8 +878,11 @@ def valinorHierarchy(
     (
         cell_line_growth,
         library_bias,
-        p_zi,
     ) = sample_cell_line_distributions(lengths, prior_params)
+
+    if zi:
+        p_zi_s = sample_zero_inflation(lengths)
+        p_zi = sample_zero_inflation_s(lengths)
 
     # Common to all datasets
     mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
@@ -901,7 +921,7 @@ def valinorHierarchy(
             mv_gene,
             library_bias if not only_singletons else None,
             alternate,
-            p_zi if zi else False,
+            p_zi_s if zi else False,
             predict=predict,
         )
     if not no_controls:

@@ -110,7 +110,7 @@ def sampleParams(
     only_singletons = not "guide_init_count" in samples
     controls = "guide_init_count_c" in samples
 
-    zi = "p_zi" in samples
+    zi = ("p_zi" in samples) or ("p_zi_s" in samples)
 
     # Initialize JAX random keys
     # Split the key into multiple unique keys for different sampling operations
@@ -128,7 +128,7 @@ def sampleParams(
 
         samples["guide_init_count_s"][:, indices["guide_initial_s_idx"]]
 
-        # compare to plasmids - do indices corresponding between initial and final?
+        # compare to plasmids - do indices correspond between initial and final?
 
         # Initialize Count for Singletons
         singlesParams["init_count_s"] = samples["guide_init_count_s"][:, indices["guide_s_idx"]]
@@ -169,7 +169,7 @@ def sampleParams(
 
         # p_zi if applicable
         if zi:
-            singlesParams["p_zi"] = samples["p_zi"][:, indices["cell_line_s_idx"]]
+            singlesParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_s_idx"]]
 
         # Match this inc indexing from model
 
@@ -188,24 +188,10 @@ def sampleParams(
             mv=singlesParams["mv_s"],
             library_bias=singlesParams["library_bias_s"],  # Use sampled library_bias
             alternate=alternate,
-            p_zi=singlesParams["p_zi"] if zi else False,
+            p_zi=singlesParams["p_zi_s"] if zi else False,
         )
         singlesParams["samples_s"] = lh_s.sample(random.split(keys[key_counter])[0])
         key_counter += 1
-
-        # if 'obs_init_s' in samples:
-
-        #     singlesParams['obs_init_s'] = samples["obs_init_s"][:, indices["guide_s_idx"]]
-
-        #     with h5py.File('obs_init_s.h5', 'w') as h5f:
-        #         h5f.create_dataset('obs_init_s', data=singlesParams['obs_init_s'])
-
-        # if 'obs_s' in samples:
-
-        #     singlesParams['obs_s'] = samples["obs_s"]
-
-        #     with h5py.File('obs_s.h5', 'w') as h5f:
-        #         h5f.create_dataset('obs_s', data=singlesParams['obs_s'])
 
         params["singles"] = singlesParams
 
@@ -344,15 +330,6 @@ def sampleParams(
 
         combsParams["samples"] = lh_comb.sample(random.split(keys[key_counter])[0])
         key_counter += 1
-
-        # combsParams['obs_init'] = samples["obs_init"][:, indices["guide_pair_idx"]]
-
-        # combsParams['obs'] = samples["obs"]
-
-        # with h5py.File('obs_init.h5', 'w') as h5f:
-        #     h5f.create_dataset('obs_init', data=combsParams['obs_init'])
-        # with h5py.File('obs.h5', 'w') as h5f:
-        #     h5f.create_dataset('obs', data=combsParams['obs'])
 
         params["combs"] = combsParams
 
