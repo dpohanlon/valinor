@@ -272,7 +272,8 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         init_params_singles = params_controls if params_controls != None else {}
         init_params_singles["guide_init_count_s"] = prior_params["init_count_s_vals"]
-        init_params_singles['p_zi_s'] = prior_params['p_zi_s']
+        if config["zi"]:
+            init_params_singles['p_zi_s'] = prior_params['p_zi_s']
 
         custom_init = configure_custom_init(init_params_singles)
 
@@ -344,7 +345,8 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         init_params_combinations = params_singles if params_singles != None else {}
         init_params_combinations["guide_init_count"] = prior_params["init_count_vals"]
-        init_params_combinations['p_zi'] = prior_params['p_zi']
+        if config["zi"]:
+            init_params_combinations['p_zi'] = prior_params['p_zi']
 
         if "dLFC" in prior_params:
             init_params_combinations["gene_pair_ko_growth"] = prior_params["dLFC"]
