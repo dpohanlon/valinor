@@ -394,14 +394,16 @@ def sample_mv_cell_line_distributions(
 
     mv_mean_s = np.ones(lengths["len_cell_lines"]) * prior_params["mv_mean_scale"]
 
-    mv_cell_line = numpyro.sample(
-        "mv_cell_line", dist.Normal(od_means, od_stds)
-    )
+    with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
 
-    mv_cell_line = jax.nn.softplus(mv_cell_line) + 1E-6
+        mv_cell_line = numpyro.sample(
+            "mv_cell_line", dist.Normal(od_means, od_stds)
+        )
 
-    # Define the scale for non-centered deviations (could be learned or set as a prior)
-    gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
+        mv_cell_line = jax.nn.softplus(mv_cell_line) + 1E-6
+
+        # Define the scale for non-centered deviations (could be learned or set as a prior)
+        gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
 
     return mv_cell_line, gene_std
 
@@ -410,18 +412,18 @@ def sample_pair_od_distributions(
     mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    # Sample the non-centered deviations for each gene pair
-    non_centered_deviation = numpyro.sample(
-        "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
-        # "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
-    )
-
-    # Compute the outer product of gene_std and non_centered_deviation
-    outer_product = jnp.outer(
-        gene_std, non_centered_deviation
-    )  # Shape: [len_cell_lines, len_gene_pairs]
-
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
+
+        # Sample the non-centered deviations for each gene pair
+        non_centered_deviation = numpyro.sample(
+            "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
+            # "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
+        )
+
+        # Compute the outer product of gene_std and non_centered_deviation
+        outer_product = jnp.outer(
+            gene_std, non_centered_deviation
+        )  # Shape: [len_cell_lines, len_gene_pairs]
 
         # Compute the gene pair-specific OD using the non-centered parameterization
         mv_gene_pair_ = numpyro.deterministic(
@@ -439,18 +441,14 @@ def sample_od_distributions(
     mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    # Sample the non-centered deviations
-    non_centered_deviation = numpyro.sample(
-        "non_centered_deviation_gene", dist.Normal(0, 1).expand([lengths["len_genes"]])
-        # "non_centered_deviation_gene", dist.Laplace(0, 1).expand([lengths["len_genes"]])
-    )
-
-    # Compute the outer product of gene_std and non_centered_deviation
-    outer_product = jnp.outer(
-        gene_std, non_centered_deviation
-    )  # Shape: [len_cell_lines, len_genes]
-
     with numpyro.plate("genes", lengths["len_genes"]):
+        non_centered_deviation = numpyro.sample(
+            "non_centered_deviation_gene", dist.Normal(0, 1)
+        )
+
+        outer_product = jnp.outer(
+            gene_std, non_centered_deviation
+        )  # Shape: [len_cell_lines, len_genes]
 
         # Compute the gene specific OD using the non-centered parameterization
         mv_gene_ = numpyro.deterministic(
@@ -733,7 +731,11 @@ def sample_sko_distributions(
         False if p_zi_s is False else p_zi_s[indices["cell_line_s_idx"]],
     )
 
+    # with numpyro.plate("guides_counts_init_s_obs", data["initial"]["singletons"].shape[0]):
+
     numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"]  if not predict else None)
+
+    # with numpyro.plate("guides_counts_s_obs", data["final"]["singletons"].shape[0]):
 
     numpyro.sample(
         "obs_s",
