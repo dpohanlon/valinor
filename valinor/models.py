@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 
 from numpyro.distributions import Distribution
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 import numpy as np
 
@@ -126,49 +126,20 @@ def dkoLikelihoodFullFinal(
     g2 = jnp.clip(gene_ko_growth_2, -20, 20)
     g12 = jnp.clip(gene_ko_growth_12, -20, 20)
 
-    # theta = (
-    #     init_theta
-    #     * jnp.exp(cell_line_growth)
-    #     * (p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12))
-    # )
-
-    # theta = jax.nn.softplus(theta) + 1E-6
-
-    # === Begin Modification: Log-space Reparameterization ===
     epsilon = 1e-6  # Small constant to avoid log(0)
     log_init_theta = jnp.log(init_theta + epsilon)
 
-    # Combine the multiplicative factors:
-    # Original multiplier: exp(cell_line_growth) * (p_00 + p_1 * exp(g1) + p_2 * exp(g2) + p_12 * exp(g1 + g2 + g12))
-    # Compute the log multiplier:
     mult = p_00 + p_1 * jnp.exp(g1) + p_2 * jnp.exp(g2) + p_12 * jnp.exp(g1 + g2 + g12) if not singleKO else p_00 + p_1 * jnp.exp(g1)
 
     log_multiplier = cell_line_growth + jnp.log(mult)
-
-    # logsumexp_args = jnp.array([
-    #                     jnp.log(p_00),
-    #                     jnp.log(p_1) + g1,
-    #                     jnp.log(p_2) + g2,
-    #                     jnp.log(p_12) + g1 + g2 + g12
-    #                 ]) if not singleKO else jnp.array([
-    #                    jnp.log(p_00),
-    #                    jnp.log(p_1) + g1,
-    #                ])
-
-    # log_mult = jax.nn.logsumexp(logsumexp_args)
-
-    # log_multiplier = cell_line_growth + log_mult
 
     # Add on the log scale and apply softplus for additional stability (optional)
     log_theta = jax.nn.softplus(log_init_theta + log_multiplier)
 
     # Exponentiate to recover theta on the original scale
     theta = jnp.exp(log_theta)
-    # === End Modification ===
 
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
-
-    # dispersion = theta / (mv - 1)
 
     log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
     dispersion = jnp.exp(log_dispersion)
@@ -389,22 +360,28 @@ def sample_mv_cell_line_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1 + 1E-6
-    od_stds = np.clip(prior_params["od_stds"], 1E-4, np.inf)
+    # your old natural‐scale params
+    od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1.0
+    od_stds  = np.clip(prior_params["od_stds"], 1e-4, np.inf)
 
-    mv_mean_s = np.ones(lengths["len_cell_lines"]) * prior_params["mv_mean_scale"]
+    # compute log–priors
+    log_od_means = jnp.log(od_means + 1e-6)
+    log_od_stds  = od_stds / (od_means + 1e-6)
 
+    mv_mean_s = prior_params["mv_mean_scale"]
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-
-        mv_cell_line = numpyro.sample(
-            "mv_cell_line", dist.Normal(od_means, od_stds)
+        # sample raw log‐dispersion
+        raw_mv = numpyro.sample(
+            "raw_mv_cell_line",
+            dist.Normal(log_od_means, log_od_stds)
         )
+        # exponentiate +1 to get >1
+        mv_cell_line = jnp.exp(raw_mv) + 1.0
 
-        mv_cell_line = jax.nn.softplus(mv_cell_line) + 1E-6
-
-        # Define the scale for non-centered deviations (could be learned or set as a prior)
-        gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
-
+        gene_std = numpyro.sample(
+            "gene_std",
+            dist.HalfNormal(mv_mean_s)
+        )
     return mv_cell_line, gene_std
 
 
@@ -413,26 +390,26 @@ def sample_pair_od_distributions(
 ):
 
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
-
-        # Sample the non-centered deviations for each gene pair
-        non_centered_deviation = numpyro.sample(
-            "non_centered_deviation", dist.Normal(0, 1).expand([lengths["len_gene_pairs"]])
-            # "non_centered_deviation", dist.Laplace(0, 1).expand([lengths["len_gene_pairs"]])
+        # Draw standard Normal for each pair
+        z_pair = numpyro.sample(
+            "z_pair",
+            dist.Normal(0.0, 1.0).expand([lengths["len_gene_pairs"]])
         )
 
-        # Compute the outer product of gene_std and non_centered_deviation
-        outer_product = jnp.outer(
-            gene_std, non_centered_deviation
-        )  # Shape: [len_cell_lines, len_gene_pairs]
+        # But we need access to the *raw* mv_cell_line log-values.
+        # If you named it above "raw_mv_cell_line", grab it via numpyro.param or
+        # re-sample with the same name+shape.  Here I'll assume you called it raw_mv_cell_line.
 
-        # Compute the gene pair-specific OD using the non-centered parameterization
-        mv_gene_pair_ = numpyro.deterministic(
-            "mv_gene_pair_", mv_cell_line[:, None] + outer_product
-        )
+        raw_mv_cl = numpyro.param("raw_mv_cell_line")
+        # raw_mv_cl.shape == [len_cell_lines]
 
-        mv_gene_pair_ = jax.nn.softplus(mv_gene_pair_) + 1E-6
+        # broadcast to pairs:
+        raw_pair = raw_mv_cl[:, None] + gene_std[:, None] * z_pair
 
-        mv_gene_pair = numpyro.deterministic("mv_gene_pair", mv_gene_pair_ + 1)
+        # final MV for each gene-pair:
+        mv_gene_pair = jnp.exp(raw_pair) + 1.0
+
+        numpyro.deterministic("mv_gene_pair", mv_gene_pair)
 
     return mv_gene_pair
 
