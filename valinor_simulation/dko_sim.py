@@ -113,6 +113,7 @@ def genCellLine(
     )
 
     newDKO = DoubleKO(
+        prototype = False,
         nGenes=prototypeDKO.nGenes,
         context=context,
         geneEssentiality=newGeneEss,
@@ -120,11 +121,13 @@ def genCellLine(
         sgRNAEfficiencies=newRNAEfficiencies,
         pairEfficiency=newPairEfficiency,
         gi_contexts=gi_contexts,
-        nInitialCells=prototypeDKO.nInitialCellsV,
+        nInitialCells=prototypeDKO.nInitialCells,
         gi_context_lists=gi_context_lists,
         nGuidesPerGene=prototypeDKO.nGuidesPerGene,
         od=newOD,
     )
+
+    newDKO.nInitialCellsV = prototypeDKO.nInitialCellsV
 
     return newDKO
 

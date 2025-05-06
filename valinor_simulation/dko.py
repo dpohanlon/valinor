@@ -13,6 +13,8 @@ rcParams.update({"figure.autolayout": True})
 
 import seaborn as sns
 
+import numbers
+
 import numpy as np
 
 from valinor_simulation.utils import negativeBinomial
@@ -21,6 +23,7 @@ from valinor_simulation.utils import negativeBinomial
 class DoubleKO(object):
     def __init__(
         self,
+        prototype = True,
         nInitialCells=3000,
         nGenes=100,
         nGuidesPerGene=2,
@@ -38,7 +41,15 @@ class DoubleKO(object):
     ):
         np.random.seed(seed)
 
-        self.nInitialCellsV = nInitialCells
+        self.prototype = prototype
+
+        # Can be either a containers of counts or the central value to
+        # generate from
+
+        if isinstance(nInitialCells, numbers.Number):
+            self.nInitialCellsV = nInitialCells
+        else:
+            self.nInitialCells = nInitialCells
         self.nGenes = nGenes
         self.nGuidesPerGene = nGuidesPerGene
 
@@ -135,7 +146,7 @@ class DoubleKO(object):
 
         self.nInitialCells = np.random.poisson(
             self.nInitialCellsV, size=self.nGuidePairs
-        )
+        ) if prototype else self.nInitialCells
 
     def combinedEssEff(
         self,
@@ -283,6 +294,10 @@ class DoubleKO(object):
         # Forget about gene/guides for now
         # Keep offset the same for pos, neg controls (just a shift)
         # Pos control essentiality is 0.7
+
+        if not self.prototype:
+            print('Only call this on the prototype')
+            return
 
         lfcs = []
         for offset in offsets:
