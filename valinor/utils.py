@@ -105,6 +105,7 @@ def getUniqueGeneGuideIndices(
     indices: Dict[str, np.ndarray],
     singletons: bool = True,
     only_singletons=False,
+    shared = False
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get unique gene and guide indices.
@@ -121,16 +122,16 @@ def getUniqueGeneGuideIndices(
         indices["guide_1_idx"],
     ]
     gene_indices = [
-        indices["gene_1_idx"],
+        indices["gene_1_idx"] if not shared else indices["gene_1_common_idx"],
     ]
 
     if not only_singletons:
         guide_indices += [indices["guide_2_idx"]]
-        gene_indices += [indices["gene_2_idx"]]
+        gene_indices += [indices["gene_2_idx"] if not shared else indices["gene_2_common_idx"]]
 
     if singletons:
         guide_indices += [indices["guide_s_idx"]]
-        gene_indices += [indices["gene_s_idx"]]
+        gene_indices += [indices["gene_s_idx"] if not shared else indices["gene_s_common_idx"]]
 
     return np.unique(np.concatenate(gene_indices)), np.unique(
         np.concatenate(guide_indices)
@@ -234,6 +235,16 @@ def getIndices(
         indices["guide_2_idx"] = jnp.array(df["guide2_index"].values)
         indices["gene_pair_idx"] = jnp.array(df["gene_unq_pair_index"].values)
 
+        # Rather than indexing for observations, these index for the gene pairs array to specify which gene index corresponds to this pair
+
+        # At the moment these take the first ocurrance to be the gene indices, so if this contains reversed orderings as well this gets ignored
+
+        pair_indices = df.drop_duplicates(subset='gene_unq_pair_index', keep='first')[['gene_unq_pair_index', 'gene1_unq_index', 'gene2_unq_index', 'cell_line_index']].sort_values('gene_unq_pair_index').reset_index(drop=True)
+
+        indices['cell_line_in_pair_idx'] = jnp.array(pair_indices['cell_line_index'].values)
+        indices['gene_1_in_pair_idx'] = jnp.array(pair_indices['gene1_unq_index'].values)
+        indices['gene_2_in_pair_idx'] = jnp.array(pair_indices['gene2_unq_index'].values)
+
     if singletons:
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
 
@@ -303,6 +314,12 @@ def calculateLengths(
 
     # Unique genes, including each category in case we have unique ones there
     lengths["len_genes"] = len(gene_indices)
+
+    gene_indices_shared, _ = getUniqueGeneGuideIndices(
+        indices, singletons=singletons, only_singletons=only_singletons, shared = True
+    )
+
+    lengths["len_genes_common"] = len(gene_indices_shared)
 
     return lengths
 

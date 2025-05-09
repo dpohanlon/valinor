@@ -146,7 +146,7 @@ def sample_posterior(
         )
 
         sampledParams = sampleParams(
-            samples, indices, config["alternateLH"], "gene_effect_means" in prior_params
+            samples, indices, prior_params, config["alternateLH"], "gene_effect_means" in prior_params
         )
 
         combsDF = (
@@ -197,6 +197,7 @@ def sample_posterior(
         sampledParams = sampleParams(
             samples,
             batch_indices,
+            prior_params,
             config["alternateLH"],
             "gene_effect_means" in prior_params,
         )

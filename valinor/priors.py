@@ -148,6 +148,7 @@ def defaultPriors():
 
     prior_params["mv_mean_scale"] = 1.0
     prior_params["mv_std_scale"] = 1.0
+    prior_params["od_pair_scale"] = 0.1
 
     prior_params["pair_eff_mean"] = (0.9, 0.1)
     prior_params["pair_eff_std"] = (0.1, 0.1)

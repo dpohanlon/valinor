@@ -28,8 +28,8 @@ def averageOverSamples(
         and the second element is a numpy array of standard deviations for each sample.
     """
 
-    means = {k: np.mean(s, 0) for k, s in samples.items()}
-    stds = {k: np.std(s, 0) for k, s in samples.items()}
+    means = {k: np.mean(s, 0) if s.ndim >= 2 else s for k, s in samples.items()}
+    stds = {k: np.std(s, 0) if s.ndim >= 2 else np.zeros_like(s) for k, s in samples.items()}
 
     return means, stds
 
@@ -70,11 +70,24 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
     means, stds = averageOverSamples(paramSamples)
 
     for k in set(paramSamples.keys()) - set(lhSamples):
-        df[f"{k}_mean"] = means[k] if len(means[k]) > 1 else list(means[k])[0]
-        df[f"{k}_std"] = stds[k] if len(stds[k]) > 1 else list(stds[k])[0]
+        mean_k = means[k]
+        std_k  = stds[k]
 
-        df[f"{k}_mean"] = df[f"{k}_mean"].astype(float)
-        df[f"{k}_std"] = df[f"{k}_std"].astype(float)
+        # If scalar (Python or numpy), treat as single value
+        if np.isscalar(mean_k):
+            df[f"{k}_mean"] = float(mean_k)
+            df[f"{k}_std"]  = 0.0
+        else:
+            # assume mean_k is a sequence/array
+            if len(mean_k) > 1:
+                df[f"{k}_mean"] = mean_k
+                df[f"{k}_std"]  = std_k
+            else:
+                df[f"{k}_mean"] = mean_k[0]
+                df[f"{k}_std"]  = std_k[0]
+            # ensure floats
+            df[f"{k}_mean"] = df[f"{k}_mean"].astype(float)
+            df[f"{k}_std"]  = df[f"{k}_std"].astype(float)
 
     return df
 
@@ -87,6 +100,7 @@ def sigmoid(x):
 def sampleParams(
     samples: Dict[str, np.ndarray],
     indices: Dict[str, np.ndarray],
+    prior_params: Dict[str, np.ndarray],
     alternate: bool = False,
     empirical_gene_priors: bool = False,
 ) -> Dict[str, Dict[str, np.ndarray]]:
@@ -111,6 +125,9 @@ def sampleParams(
     controls = "guide_init_count_c" in samples
 
     zi = ("p_zi" in samples) or ("p_zi_s" in samples)
+
+    raw_mv_cl = samples["raw_mv_cell_line"]         # [S, n_cell_lines]
+    mv_cl     = jnp.exp(raw_mv_cl) + 1.0            # [S, n_cell_lines]
 
     # Initialize JAX random keys
     # Split the key into multiple unique keys for different sampling operations
@@ -161,11 +178,13 @@ def sampleParams(
         else:
             singlesParams["ko_growth_s"] = samples["gene_ko_growth"][:, indices["gene_s_idx"]]
 
-        # Compute MV with Softplus Transformation
-        mvProd = samples["gene_std"][:, :, None] * samples["non_centered_deviation_gene"][:, None, :]
-        mv_raw = samples["mv_cell_line"][:, :, None] + mvProd
-        mv_transformed = jax.nn.softplus(mv_raw - 1.0) + 1.0 + 1e-6  # Matching model's transformation
-        singlesParams["mv_s"] = mv_transformed[:, indices["cell_line_s_idx"], indices["gene_s_idx"]]
+        mv_gene = samples["mv_gene"]
+        # now index into it exactly as you do in the model
+        singlesParams["mv_s"] = mv_gene[
+            :,
+            indices["cell_line_s_idx"],
+            indices["gene_s_idx"]
+        ]  # shape [S, n_singleton_obs]
 
         # p_zi if applicable
         if zi:
@@ -209,11 +228,10 @@ def sampleParams(
         # Cell Line Growth for Controls
         controlsParams["cell_growth_c"] = samples["cell_line_growth"][:, indices["cell_line_c_idx"]]
 
-        # Compute MV for Controls with Softplus Transformation
-        mvProd_c = samples["gene_std"][:, :, None] * samples["non_centered_deviation_gene_c"][:, None, :]
-        mv_raw_c = samples["mv_cell_line"][:, :, None] + mvProd_c
-        mv_transformed_c = jax.nn.softplus(mv_raw_c - 1.0) + 1.0 + 1e-6  # Matching model's transformation
-        controlsParams["mv_c"] = mv_transformed_c[:, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
+        mvProd_c = samples["gene_std"][:, :, None] \
+                * samples["non_centered_deviation_gene_c"][:, None, :]  # [S, n_cell_lines, n_guide_pairs_c]
+        mv_c     = mv_cl[:, :, None] + mvProd_c + 1.0                   # [S, n_cell_lines, n_guide_pairs_c]
+        controlsParams["mv_c"] = mv_c[:, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
 
         # Sample from Initial Control Likelihood
         init_lh_c, theta_init_c = models.skoLikelihoodInitial(controlsParams["init_count_c"])
@@ -281,11 +299,15 @@ def sampleParams(
         # Gene Pair Knockout Growth
         combsParams["gene_ko_growth_12"] = samples["gene_pair_ko_growth"][:, indices["gene_pair_idx"]]
 
-        # Compute MV for Combinations with Softplus Transformation
-        mvProd_comb = samples["gene_std"][:, :, None] * samples["non_centered_deviation"][:, None, :]
-        mv_raw_comb = samples["mv_cell_line"][:, :, None] + mvProd_comb
-        mv_transformed_comb = jax.nn.softplus(mv_raw_comb - 1.0) + 1.0 + 1e-6  # Matching model's transformation
-        combsParams["mv"] = mv_transformed_comb[:, indices["cell_line_idx"], indices["gene_pair_idx"]]
+        if 'dLFC' in prior_params:
+            combsParams["dLFC"] = prior_params["dLFC"][indices["gene_pair_idx"]]
+
+        mv_pair = samples["mv_gene_pair"]
+        # index that flat vector by your observation‐level pair indices
+        combsParams["mv"] = mv_pair[
+            :,
+            indices["gene_pair_idx"]
+        ]  # shape [S, n_combo_obs]
 
         # p_zi if applicable
         if zi:

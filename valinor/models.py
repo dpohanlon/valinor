@@ -139,6 +139,28 @@ def dkoLikelihoodFullFinal(
     # Exponentiate to recover theta on the original scale
     theta = jnp.exp(log_theta)
 
+    ###
+    # if not singleKO:
+    #     # full DKO additive log‐link
+    #     log_theta = (
+    #         jnp.log(init_theta + 1e-6)
+    #         + cell_line_growth
+    #         + p_1 * g1
+    #         + p_2 * g2
+    #         + p_12 * (g1 + g2 + g12)
+    #     )
+    # else:
+    #     # singleKO == True: g2, g12 are zero (and p_2=p_12=0)
+    #     log_theta = (
+    #         jnp.log(init_theta + 1e-6)
+    #         + cell_line_growth
+    #         + p_1 * g1
+    #     )
+    # # optional softplus for stability
+    # log_theta = jax.nn.softplus(log_theta)
+    # theta     = jnp.exp(log_theta)
+    ###
+
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
@@ -375,71 +397,72 @@ def sample_mv_cell_line_distributions(
             "raw_mv_cell_line",
             dist.Normal(log_od_means, log_od_stds)
         )
-        # exponentiate +1 to get >1
-        mv_cell_line = jnp.exp(raw_mv) + 1.0
 
         gene_std = numpyro.sample(
             "gene_std",
             dist.HalfNormal(mv_mean_s)
         )
-    return mv_cell_line, gene_std
+    return raw_mv, gene_std
 
 
 def sample_pair_od_distributions(
-    mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+    mv_cell_line_raw, raw_mv_gene, lengths: Dict[str, int], indices, prior_params: Dict[str, Any]
 ):
 
-    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
-        # Draw standard Normal for each pair
-        z_pair = numpyro.sample(
-            "z_pair",
-            dist.Normal(0.0, 1.0).expand([lengths["len_gene_pairs"]])
-        )
+    # Set scale of overdispersion
+    sigma_pair = numpyro.sample(
+        "sigma_pair", dist.HalfNormal(prior_params["od_pair_scale"])
+    )
 
-        # But we need access to the *raw* mv_cell_line log-values.
-        # If you named it above "raw_mv_cell_line", grab it via numpyro.param or
-        # re-sample with the same name+shape.  Here I'll assume you called it raw_mv_cell_line.
+    # We may not have all genes pair with others though! -> Flatten
 
-        raw_mv_cl = numpyro.param("raw_mv_cell_line")
-        # raw_mv_cl.shape == [len_cell_lines]
+    with numpyro.plate("gene_pairs_common", lengths["len_gene_pairs"]):
 
-        # broadcast to pairs:
-        raw_pair = raw_mv_cl[:, None] + gene_std[:, None] * z_pair
+        z_p = numpyro.sample("z_pair", dist.Normal(0.0, 1.0))
+        # z_p = numpyro.sample("z_pair", dist.Normal(0.0, 0.01))
 
-        # final MV for each gene-pair:
-        mv_gene_pair = jnp.exp(raw_pair) + 1.0
+        c = mv_cell_line_raw[indices['cell_line_in_pair_idx']]
 
+        g1 = raw_mv_gene[indices['cell_line_in_pair_idx'], indices["gene_1_in_pair_idx"]]
+        g2 = raw_mv_gene[indices['cell_line_in_pair_idx'], indices["gene_2_in_pair_idx"]]
+
+        # Configure these manually?
+
+        # raw_mv_pair = g1 + g2 + sigma_pair * z_p
+        # raw_mv_pair = g1 + sigma_pair * z_p
+        # raw_mv_pair = sigma_pair * z_p
+        # raw_mv_pair = c + sigma_pair * z_p
+        # raw_mv_pair = g1 + g2 - c + 0.1 * z_p
+        raw_mv_pair = c # Not as good - why doesn't it update g_12?!
+
+        mv_gene_pair = jnp.exp(raw_mv_pair) + 1.0
         numpyro.deterministic("mv_gene_pair", mv_gene_pair)
 
     return mv_gene_pair
 
 
 def sample_od_distributions(
-    mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+    raw_mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
 
-    with numpyro.plate("genes", lengths["len_genes"]):
-        non_centered_deviation = numpyro.sample(
-            "non_centered_deviation_gene", dist.Normal(0, 1)
-        )
+    # a) draw one z_g per (gene,cell_line)
+    with numpyro.plate("genes_common", lengths["len_genes_common"]):
+        z_g = numpyro.sample(
+            "z_gene", dist.Normal(0.0, 1.0)
+        )  # shape [len_genes]
 
-        outer_product = jnp.outer(
-            gene_std, non_centered_deviation
-        )  # Shape: [len_cell_lines, len_genes]
+    # b) raw log-OD per (cell_line, gene)
+    # [n_cell_lines, n_genes]
+    raw_mv_gene = raw_mv_cell_line[:, None] + gene_std[:, None] * z_g
 
-        # Compute the gene specific OD using the non-centered parameterization
-        mv_gene_ = numpyro.deterministic(
-            "mv_gene_",
-            # mv_cell_line[:, None] * (1 + outer_product) # Double plus ungood (NaN)
-            mv_cell_line[:, None] + outer_product,
-        )
+    # c) store it for later
+    numpyro.deterministic("raw_mv_gene", raw_mv_gene)
 
-        mv_gene_ = jax.nn.softplus(mv_gene_) + 1E-6
+    # d) final gene-level OD
+    mv_gene = jnp.exp(raw_mv_gene) + 1.0
+    numpyro.deterministic("mv_gene", mv_gene)
 
-        # Ensure the final result is in the correct range [1, inf]
-        mv_gene = numpyro.deterministic("mv_gene", mv_gene_ + 1)
-
-    return mv_gene
+    return raw_mv_gene, mv_gene
 
 
 def sample_control_od_distributions(
@@ -493,30 +516,34 @@ def sample_cell_line_distributions(
         cell_line_growth = jnp.clip(cell_line_growth, -20, 20)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.0001))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.01))
 
     return cell_line_growth, library_bias
 
-def sample_zero_inflation_s(lengths):
+def sample_zero_inflation_s(lengths, prior_params):
+    f0 = prior_params['p_zi_s']
+    K  = prior_params.get('zi_strength_s', 20.0)
+    alpha = f0 * K
+    beta  = (1.0 - f0) * K
 
     with numpyro.plate("cell_line_zi_s", lengths["len_cell_lines"]):
-
-        p_zi_s = numpyro.sample(
+        p_zi = numpyro.sample(
             "p_zi_s",
-            dist.Exponential(10.),
+            dist.Beta(concentration1=alpha, concentration0=beta),
         )
+    return p_zi
 
-    return p_zi_s
-
-def sample_zero_inflation(lengths):
+def sample_zero_inflation(lengths, prior_params):
+    f0 = prior_params['p_zi']
+    K  = prior_params.get('zi_strength', 20.0)
+    alpha = f0 * K
+    beta  = (1.0 - f0) * K
 
     with numpyro.plate("cell_line_zi", lengths["len_cell_lines"]):
-
         p_zi = numpyro.sample(
             "p_zi",
-            dist.Exponential(10.),
+            dist.Beta(concentration1=alpha, concentration0=beta),
         )
-
     return p_zi
 
 def sample_dko_distributions(
@@ -547,7 +574,8 @@ def sample_dko_distributions(
 
         gene_pair_ko_growth = numpyro.sample(
             "gene_pair_ko_growth",
-            dist.Normal(pair_growth_l, pair_growth_s),
+            # dist.Normal(pair_growth_l, pair_growth_s),
+            dist.Laplace(pair_growth_l, pair_growth_s),
         )
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
@@ -557,9 +585,9 @@ def sample_dko_distributions(
     # Whereas now this is DIFFERENT even for REPLICATES,
     # so should at least be the same for all replicates!
 
-    # Hierarchy reversed wrt above
+    # Indexed according to cell line and individual genes corresponding to the gene_pair _idx
 
-    mv = mv_gene_pair[indices["cell_line_idx"], indices["gene_pair_idx"]]
+    mv = mv_gene_pair[indices["gene_pair_idx"]]
 
     if not "gene_effect_means" in prior_params:
 
@@ -659,8 +687,6 @@ def sample_sko_distributions(
     predict=False,
 ):
 
-    # p = numpyro.param('zip_zoop')
-
     # Index unique singleton guides, rather than pairs (agg over null guides, etc, as these are not parameterised, unlike in pairs)
     with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
@@ -673,7 +699,7 @@ def sample_sko_distributions(
 
     guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
-    mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_idx"]]
+    mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_common_idx"]]
 
     if not "gene_effect_means" in prior_params:
 
@@ -780,10 +806,10 @@ def valinorControls(
         library_bias,
     ) = sample_cell_line_distributions(lengths, prior_params)
 
-    mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
+    mv_cell_line_raw, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
 
     mv_guide_pair_c = sample_control_od_distributions(
-        mv_cell_line, gene_std, lengths, prior_params
+        mv_cell_line_raw, gene_std, lengths, prior_params
     )
 
     sample_control_distributions(
@@ -814,12 +840,12 @@ def valinorSingles(
     ) = sample_cell_line_distributions(lengths, prior_params)
 
     if zi:
-        p_zi_s = sample_zero_inflation_s(lengths)
+        p_zi_s = sample_zero_inflation_s(lengths, prior_params)
 
-    # Common to all datasets
-    mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
+    # Common to all datasets, sample the 'raw' (log) version
+    mv_cell_line_raw, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
 
-    mv_gene = sample_od_distributions(mv_cell_line, gene_std, lengths, prior_params)
+    raw_mv_gene, mv_gene = sample_od_distributions(mv_cell_line_raw, gene_std, lengths, prior_params)
 
     sample_sko_distributions(
         data,
@@ -860,17 +886,22 @@ def valinorHierarchy(
     ) = sample_cell_line_distributions(lengths, prior_params)
 
     if zi:
-        p_zi_s = sample_zero_inflation(lengths)
-        p_zi = sample_zero_inflation_s(lengths)
+        p_zi = sample_zero_inflation(lengths, prior_params)
+        if not no_singletons:
+            p_zi_s = sample_zero_inflation_s(lengths, prior_params)
 
     # Common to all datasets
-    mv_cell_line, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
+    mv_cell_line_raw, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
+
+    raw_mv_gene, mv_gene = sample_od_distributions(mv_cell_line_raw, gene_std, lengths, prior_params)
 
     if not only_singletons:
 
         mv_gene_pair = sample_pair_od_distributions(
-            mv_cell_line, gene_std, lengths, prior_params
+            mv_cell_line_raw, raw_mv_gene, lengths, indices, prior_params
         )
+
+        # print(mv_cell_line_raw.shape, raw_mv_gene.shape, mv_gene_pair.shape)
 
         sample_dko_distributions(
             data,
@@ -886,8 +917,6 @@ def valinorHierarchy(
             predict=predict,
         )
     if not no_singletons:
-
-        mv_gene = sample_od_distributions(mv_cell_line, gene_std, lengths, prior_params)
 
         sample_sko_distributions(
             data,
@@ -906,7 +935,7 @@ def valinorHierarchy(
     if not no_controls:
 
         mv_guide_pair_c = sample_control_od_distributions(
-            mv_cell_line, gene_std, lengths, prior_params
+            mv_cell_line_raw, gene_std, lengths, prior_params
         )
 
         sample_control_distributions(

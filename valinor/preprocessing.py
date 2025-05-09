@@ -73,8 +73,9 @@ def prepareData(
 
         if "dLFC" in datasets["combinations"]:
             prior_params["dLFC"] = getDeltaLFC(datasets["combinations"])
-        else:
+        elif not (datasets['singletons'] is None):
             prior_params["dLFC"] = combinationLFCs(datasets["combinations"], datasets["singletons"])
+
 
         prior_params["init_count_vals"] = calcInitCountParams(datasets["combinations"], initCountVar = 'plasmid', singletons = False)[0]
 
