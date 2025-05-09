@@ -87,7 +87,7 @@ class DoubleKO(object):
 
         if geneEssentiality is None:
             # We could even populate this with real data from the essentiality scores
-            self.geneEssentiality = np.random.normal(0.05, 0.2, size=self.nGenes)
+            self.geneEssentiality = np.random.normal(0.05, 0.5, size=self.nGenes)
 
         else:
             self.geneEssentiality = geneEssentiality
@@ -102,7 +102,7 @@ class DoubleKO(object):
 
         if sgRNAEfficiencies is None:
             self.sgRNAEfficiencies = np.clip(
-                np.random.normal(0.95, 0.02, size=self.nGenes * self.nGuidesPerGene),
+                np.random.normal(0.90, 0.1, size=self.nGenes * self.nGuidesPerGene),
                 0,
                 1,
             )
@@ -119,8 +119,8 @@ class DoubleKO(object):
             # Efficiency for guide pair term (synergy prefactor)
             self.pairEfficiency = np.clip(
                 np.random.normal(
-                    0.95,
-                    0.02,
+                    0.90,
+                    0.1,
                     size=(
                         self.nGenes * self.nGuidesPerGene,
                         self.nGenes * self.nGuidesPerGene,
@@ -272,9 +272,9 @@ class DoubleKO(object):
             else np.random.poisson(gamma_prime * d_sg.ravel())
         )
 
-        y_sg[y_sg == 0] = 1
+        # y_sg[y_sg == 0] = 1
 
-        lfcs = np.log2((y_sg / self.nInitialCells) + 1e-8)
+        lfcs = np.log2((y_sg / (self.nInitialCells + 1E-8)) + 1e-8)
 
         if not returnCounts:
             return lfcs, sgRNAEssentialities

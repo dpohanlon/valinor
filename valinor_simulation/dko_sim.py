@@ -75,7 +75,7 @@ def genCellLine(
     newGeneEss = prototypeDKO.geneEssentiality + np.random.normal(
         0, fluctuateStd, len(prototypeDKO.geneEssentiality)
     )
-    newGeneEss[resampleIdx] = np.random.normal(0.1, 0.2, size=len(resampleIdx))
+    newGeneEss[resampleIdx] = np.random.normal(0.05, 0.5, size=len(resampleIdx))
 
     # If we're adding more context, don't include the prototype context GIs!
 
@@ -109,7 +109,7 @@ def genCellLine(
 
     # Fluctuate OD by 10%
     newOD = np.clip(
-        prototypeDKO.od + np.random.normal(0, prototypeDKO.od / 10.0), 1, np.inf
+        prototypeDKO.od + np.random.normal(0, prototypeDKO.od * 0.1), 1, np.inf
     )
 
     newDKO = DoubleKO(
