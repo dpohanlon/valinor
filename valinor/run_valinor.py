@@ -13,10 +13,10 @@ from tqdm import tqdm
 from jax import random
 import numpyro
 
-from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO
+from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO, MCMC, NUTS
 from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
 
-from numpyro.handlers import seed, trace
+from numpyro.handlers import seed, trace, substitute
 
 from valinor import models
 from valinor.guides import valinor_full_guide, valinor_singles_guide, valinor_controls_guide
@@ -36,6 +36,22 @@ from valinor.plotting import plotDiagPlots
 from typing import Dict, List, Tuple, Any
 
 import json
+
+import matplotlib as mpl
+
+mpl.use("Agg")
+import matplotlib.pyplot as plt
+
+import matplotlib.gridspec as gridspec
+
+from matplotlib import rcParams
+
+rcParams["axes.facecolor"] = "FFFFFF"
+rcParams["savefig.facecolor"] = "FFFFFF"
+rcParams["xtick.direction"] = "in"
+rcParams["ytick.direction"] = "in"
+
+rcParams.update({"figure.autolayout": True})
 
 gpu_available = any(device.platform == 'gpu' for device in jax.devices())
 
@@ -392,6 +408,56 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_full, name=config["name"], outputDir=outputDir)
         params = state_full.params
         save_results(params, config, outputDir)
+
+        ####
+
+        target_idxs = [1]
+
+        fixed_params = {
+            name: val
+            for name, val in params.items()
+            if name != "gene_pair_ko_growth"
+        }
+        sub_model = substitute(models.valinorHierarchy, fixed_params)
+
+        # 2) Run NUTS on the *full* data
+        kernel = NUTS(sub_model)
+        mcmc = MCMC(
+            kernel,
+            num_warmup  = 100,
+            num_samples = 500,
+        )
+        mcmc.run(
+            random.PRNGKey(1),
+            # here we pass the original, un‐masked data & indices
+            data         = data,
+            lengths      = lengths,
+            indices      = indices,
+            prior_params = prior_params,
+            # and the same flags you used for SVI
+            no_singletons  = config["no_singletons"],
+            only_singletons= config["only_singletons"],
+            no_controls    = config["no_controls"],
+            alternate      = config["alternateLH"],
+            guide_config   = config["guide_config"],
+            zi             = config["zi"],
+            zi_s           = config["zi"] and not config["zi_ns"],
+        )
+
+        # 3) Grab the full vector of g12 samples
+        g12_full = mcmc.get_samples()["gene_pair_ko_growth"]
+        # If you only care about target_idxs, just index into g12_full:
+        g12_sub = g12_full[:, target_idxs]
+
+        print(g12_full.shape)
+        print(g12_sub.shape)
+        plt.hist(g12_sub.flatten(), bins = 50)
+        plt.savefig('test.png')
+        plt.clf()
+
+        exit(0)
+
+        ######
 
         # Sample from the model
         sites_from_model = get_model_sites(
