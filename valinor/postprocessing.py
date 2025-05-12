@@ -124,7 +124,8 @@ def sampleParams(
     only_singletons = not "guide_init_count" in samples
     controls = "guide_init_count_c" in samples
 
-    zi = ("p_zi" in samples) or ("p_zi_s" in samples)
+    zi = ("p_zi" in samples)
+    zi_s = ("p_zi_s" in samples)
 
     raw_mv_cl = samples["raw_mv_cell_line"]         # [S, n_cell_lines]
     mv_cl     = jnp.exp(raw_mv_cl) + 1.0            # [S, n_cell_lines]
@@ -187,7 +188,7 @@ def sampleParams(
         ]  # shape [S, n_singleton_obs]
 
         # p_zi if applicable
-        if zi:
+        if zi_s:
             singlesParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_s_idx"]]
 
         # Match this inc indexing from model
@@ -207,7 +208,7 @@ def sampleParams(
             mv=singlesParams["mv_s"],
             library_bias=singlesParams["library_bias_s"],  # Use sampled library_bias
             alternate=alternate,
-            p_zi=singlesParams["p_zi_s"] if zi else False,
+            p_zi=singlesParams["p_zi_s"] if zi_s else False,
         )
         singlesParams["samples_s"] = lh_s.sample(random.split(keys[key_counter])[0])
         key_counter += 1
@@ -312,6 +313,8 @@ def sampleParams(
         # p_zi if applicable
         if zi:
             combsParams["p_zi"] = samples["p_zi"][:, indices["cell_line_idx"]]
+        if zi_s:
+            combsParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_idx"]]
 
         # Sample from Initial Likelihood for Combinations
         init_lh_comb, theta_init_comb = models.dkoLikelihoodInitial(combsParams["init_count"])

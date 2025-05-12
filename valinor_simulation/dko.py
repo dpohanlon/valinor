@@ -64,7 +64,8 @@ class DoubleKO(object):
 
         if synergies is None:
             # Additive on essentiality, but modified multiplicatively by context
-            self.synergies = np.random.normal(0.0, 0.25, (self.nGenes, self.nGenes))
+            # self.synergies = np.random.normal(0.0, 0.25, (self.nGenes, self.nGenes))
+            self.synergies = np.random.laplace(0.0, 0.2, (self.nGenes, self.nGenes))
             np.fill_diagonal(self.synergies, 0)
 
             # Symmetrise
@@ -87,7 +88,7 @@ class DoubleKO(object):
 
         if geneEssentiality is None:
             # We could even populate this with real data from the essentiality scores
-            self.geneEssentiality = np.random.normal(0.05, 0.5, size=self.nGenes)
+            self.geneEssentiality = np.random.normal(0.05, 0.1, size=self.nGenes)
 
         else:
             self.geneEssentiality = geneEssentiality

@@ -273,7 +273,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         init_params_singles = params_controls if params_controls != None else {}
         init_params_singles["guide_init_count_s"] = prior_params["init_count_s_vals"]
-        if config["zi"]:
+        if config["zi"] and not config['zi_ns']:
             init_params_singles['p_zi_s'] = prior_params['p_zi_s']
 
         custom_init = configure_custom_init(init_params_singles)
@@ -286,7 +286,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         singles_rng_init, _ = random.split(prng_key_controls)
-        singles_args = {"guide_config": config["guide_config"], "zi": config['zi']}
+        singles_args = {"guide_config": config["guide_config"], "zi": config['zi'] and not config['zi_ns']}
         singles_svi_args = {"stable_update": config["stable_update"]}
         state_singles = run_svi(
             svi_singles,
@@ -348,6 +348,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         init_params_combinations["guide_init_count"] = prior_params["init_count_vals"]
         if config["zi"]:
             init_params_combinations['p_zi'] = prior_params['p_zi']
+        if config["zi"] and not config['zi_ns']:
+            init_params_combinations['p_zi_s'] = prior_params['p_zi_s']
 
         if "dLFC" in prior_params:
             init_params_combinations["gene_pair_ko_growth"] = prior_params["dLFC"]
@@ -368,6 +370,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             "alternate": config["alternateLH"],
             "guide_config": config["guide_config"],
             "zi": config["zi"],
+            "zi_s": config["zi"] and not config['zi_ns']
         }
         full_svi_args = {"stable_update": config["stable_update"]}
 
@@ -584,6 +587,14 @@ def makeArgs():
         default=False,
         action="store_true",
         help="Set final distributions to be zero inflated.",
+    )
+
+    argParser.add_argument(
+        "--ZINBNoSingles",
+        dest="zi_ns",
+        default=False,
+        action="store_true",
+        help="Set only the combination distributions to be zero inflated.",
     )
 
     argParser.add_argument(
