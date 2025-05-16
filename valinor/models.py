@@ -180,6 +180,7 @@ def dkoLikelihoodFullFinal(
             mix_cat,
             dist.ZeroInflatedNegativeBinomial2(mu_comps, phi_comps, gate=p_zi[..., None])
         )
+
         return mix_dist, jnp.sum(cat_probs * mu_comps, axis=-1)
 
 
@@ -914,8 +915,6 @@ def valinorHierarchy(
         mv_gene_pair = sample_pair_od_distributions(
             mv_cell_line_raw, raw_mv_gene, lengths, indices, prior_params
         )
-
-        # print(mv_cell_line_raw.shape, raw_mv_gene.shape, mv_gene_pair.shape)
 
         sample_dko_distributions(
             data,

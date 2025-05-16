@@ -12,6 +12,8 @@ import yaml
 
 import json
 
+from copy import deepcopy
+
 from numpyro.infer.initialization import init_to_median
 
 from typing import Dict, List, Tuple, Optional
@@ -508,3 +510,43 @@ def configure_custom_init(init_dict):
             return init_to_median(site)
 
     return custom_init
+
+
+def subset_for_mcmc(indices_to_subset, data, lengths, indices):
+
+    # Everything that touches g_12 needs consistent shapes
+
+    target_data = deepcopy(data)
+    target_lengths = deepcopy(lengths)
+    target_indices = deepcopy(indices)
+
+    # For the gene pair indices we selected, what corresponding entries are there
+    # in the full dataset (potentially many)
+
+    sel_mask = np.isin(indices['gene_pair_idx'], indices_to_subset)
+    sel_indices = np.array(list(range(len(indices['gene_pair_idx']))))[sel_mask]
+
+    # Select these from the dataset, via the global index
+
+    for k, v in indices.items():
+        if len(v) == len(indices['gene_pair_idx']):
+            target_indices[k] = target_indices[k][sel_indices]
+
+    target_data['final']['combinations'] = target_data['final']['combinations'][sel_indices]
+
+    # use guide pair indices that correspond to our gene pairs to index plasmids
+    #
+    # do I need to do this if its indexed in the model anyway? Do these shapes just mean that everything gets its indexed handled internally?
+
+    # Handled already in call to dkoLH
+    # target_data['initial']['combinations'] = target_data['initial']['combinations'][target_indices['guide_pair_idx']]
+
+    # theta_init[indices["guide_pair_idx"]]
+
+    for k, v in target_lengths.items():
+        if v == len(indices['gene_pair_idx']):
+            target_lengths[k] = len(target_indices['gene_pair_idx'])
+
+    # cell_line_in_pair_idx
+
+    return target_data, target_lengths, target_indices

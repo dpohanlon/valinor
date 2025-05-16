@@ -28,6 +28,7 @@ from valinor.utils import (
     loadPriors,
     getBatchData,
     configure_custom_init,
+    subset_for_mcmc
 )
 from valinor.preprocessing import prepareData, getDeltaLFC
 from valinor.postprocessing import sampleParams, createDataFrame, samplePosteriorPredictive
@@ -411,7 +412,11 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         ####
 
+        # I want to set the other parameters to the HPV, not just some random sampled value...
+
         target_idxs = [1]
+
+        target_data, target_lengths, target_indices = subset_for_mcmc(target_idxs, data, lengths, indices)
 
         fixed_params = {
             name: val
@@ -430,9 +435,9 @@ def runValinor(lengths, indices, prior_params, data, config):
         mcmc.run(
             random.PRNGKey(1),
             # here we pass the original, un‐masked data & indices
-            data         = data,
-            lengths      = lengths,
-            indices      = indices,
+            data         = target_data,
+            lengths      = target_lengths,
+            indices      = target_indices,
             prior_params = prior_params,
             # and the same flags you used for SVI
             no_singletons  = config["no_singletons"],
@@ -709,6 +714,32 @@ def run():
         not config["no_controls"],
         config["reindex"],
     )
+
+    # for k, v in indices.items():
+    #     print(k, len(v))
+    # print('')
+
+    # for c, v in data.items():
+    #     for d, vd in v.items():
+    #         if not (vd is None):
+    #             print(c, d, len(vd))
+    # print('')
+
+    # indices_to_subset = [0, 1]
+
+    # target_data, target_lengths, target_indices = subset_for_mcmc(indices_to_subset, data, lengths, indices)
+
+    # for k, v in target_indices.items():
+    #     print(k, len(v))
+    # print('')
+
+    # for c, v in target_data.items():
+    #     for d, vd in v.items():
+    #         if not (vd is None):
+    #             print(c, d, len(vd))
+
+    # print(target_indices['guide_pair_idx'])
+    # exit(0)
 
     runValinor(lengths, indices, prior_params, data, config)
 
