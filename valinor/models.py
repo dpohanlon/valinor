@@ -682,6 +682,9 @@ def sample_dko_distributions(
     # as otherwise there is a problem with the sampling for unbounded
     # discrete distributions
 
+    # len_guide_pairs, ?
+    print(init_lh.shape(), data["initial"]["combinations"].shape)
+
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None)
     numpyro.sample("obs", lh, obs=data["final"]["combinations"] if not predict else None)
 

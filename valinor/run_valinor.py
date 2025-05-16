@@ -414,7 +414,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         # I want to set the other parameters to the HPV, not just some random sampled value...
 
-        target_idxs = [1]
+        target_idxs = [245, 677, 545]
 
         target_data, target_lengths, target_indices = subset_for_mcmc(target_idxs, data, lengths, indices)
 
@@ -429,8 +429,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         kernel = NUTS(sub_model)
         mcmc = MCMC(
             kernel,
-            num_warmup  = 100,
-            num_samples = 500,
+            num_warmup  = 250,
+            num_samples = 1000,
         )
         mcmc.run(
             random.PRNGKey(1),
@@ -450,14 +450,20 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         # 3) Grab the full vector of g12 samples
-        g12_full = mcmc.get_samples()["gene_pair_ko_growth"]
-        # If you only care about target_idxs, just index into g12_full:
-        g12_sub = g12_full[:, target_idxs]
+        g12 = mcmc.get_samples()["gene_pair_ko_growth"]
 
-        print(g12_full.shape)
-        print(g12_sub.shape)
-        plt.hist(g12_sub.flatten(), bins = 50)
-        plt.savefig('test.png')
+        print(g12.shape)
+
+        plt.hist(g12[:, 0].flatten(), bins = 50)
+        plt.savefig('test0.png')
+        plt.clf()
+
+        plt.hist(g12[:, 1].flatten(), bins = 50)
+        plt.savefig('test1.png')
+        plt.clf()
+
+        plt.hist(g12[:, 2].flatten(), bins = 50)
+        plt.savefig('test2.png')
         plt.clf()
 
         exit(0)
@@ -715,30 +721,33 @@ def run():
         config["reindex"],
     )
 
-    # for k, v in indices.items():
-    #     print(k, len(v))
-    # print('')
+    print(lengths)
 
-    # for c, v in data.items():
-    #     for d, vd in v.items():
-    #         if not (vd is None):
-    #             print(c, d, len(vd))
-    # print('')
+    for k, v in indices.items():
+        print(k, len(v))
+    print('')
 
-    # indices_to_subset = [0, 1]
+    for c, v in data.items():
+        for d, vd in v.items():
+            if not (vd is None):
+                print(c, d, len(vd))
+    print('')
 
-    # target_data, target_lengths, target_indices = subset_for_mcmc(indices_to_subset, data, lengths, indices)
+    indices_to_subset = [245, 677, 545]
 
-    # for k, v in target_indices.items():
-    #     print(k, len(v))
-    # print('')
+    target_data, target_lengths, target_indices = subset_for_mcmc(indices_to_subset, data, lengths, indices)
 
-    # for c, v in target_data.items():
-    #     for d, vd in v.items():
-    #         if not (vd is None):
-    #             print(c, d, len(vd))
+    for k, v in target_indices.items():
+        print(k, len(v))
+    print('')
 
-    # print(target_indices['guide_pair_idx'])
+    for c, v in target_data.items():
+        for d, vd in v.items():
+            if not (vd is None):
+                print(c, d, len(vd))
+
+    print(target_indices['guide_pair_idx'])
+    print(target_lengths)
     # exit(0)
 
     runValinor(lengths, indices, prior_params, data, config)

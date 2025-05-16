@@ -514,6 +514,12 @@ def configure_custom_init(init_dict):
 
 def subset_for_mcmc(indices_to_subset, data, lengths, indices):
 
+    print(len(np.unique(indices['guide_pair_idx'])))
+    print(np.max(indices['guide_pair_idx']))
+    print(len(data['initial']['combinations']))
+
+    indices_to_subset = np.array(indices_to_subset)
+
     # Everything that touches g_12 needs consistent shapes
 
     target_data = deepcopy(data)
@@ -547,6 +553,34 @@ def subset_for_mcmc(indices_to_subset, data, lengths, indices):
         if v == len(indices['gene_pair_idx']):
             target_lengths[k] = len(target_indices['gene_pair_idx'])
 
-    # cell_line_in_pair_idx
+    target_gene_indices, target_guide_indices = getUniqueGeneGuideIndices(
+        target_indices, singletons=False,
+    )
+
+    target_gene_indices_shared, _ = getUniqueGeneGuideIndices(
+       target_indices, singletons=False, only_singletons=False, shared = True
+    )
+
+    target_lengths["len_genes_common"] = len(target_gene_indices_shared)
+
+    target_lengths['len_gene_pairs'] = len(np.unique(target_indices['gene_pair_idx']))
+    target_lengths["len_guide_pairs"] = len(np.unique(target_indices["guide_pair_idx"]))
+    target_lengths["len_cell_lines"] = len(np.unique(indices["cell_line_idx"]))
+    target_lengths["len_guides"] = len(np.unique(target_guide_indices))
+    target_lengths["len_genes"] = len(np.unique(target_gene_indices))
+
+    # These index the cell line and gene by the gene pair index, so should be okay
+    # just to index by the target indices
+
+    target_indices["cell_line_in_pair_idx"] = target_indices["cell_line_in_pair_idx"][indices_to_subset]
+
+    target_indices["gene_1_in_pair_idx"] = target_indices["gene_1_in_pair_idx"][indices_to_subset]
+    target_indices["gene_2_in_pair_idx"] = target_indices["gene_2_in_pair_idx"][indices_to_subset]
+
+    print(target_indices["guide_pair_idx"])
+
+    # Many to one, rather than the one to many in the model 
+    # Does the np.unique... give the correct order when discarding duplicates?
+    target_data['initial']['combinations'] = target_data['initial']['combinations'][np.unique(target_indices["guide_pair_idx"])]
 
     return target_data, target_lengths, target_indices
