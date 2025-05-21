@@ -175,4 +175,4 @@ def getDeltaLFC(combinations):
 
     pair_grouped = combinations.groupby("gene_unq_pair_index").agg({"dLFC": "mean"})
 
-    return pair_grouped["dLFC"]
+    return pair_grouped["dLFC"].values

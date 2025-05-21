@@ -85,7 +85,7 @@ def dkoLikelihoodFinal(
 
     return negativeBinomial(theta, dispersion, p_zi), theta
 
-
+# ORIGINAL
 def dkoLikelihoodFullFinal(
     init_theta: float,
     guide_eff_1: float,
@@ -140,9 +140,12 @@ def dkoLikelihoodFullFinal(
     # Exponentiate to recover theta on the original scale
     theta = jnp.exp(log_theta)
 
-    mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
+    # Should be a no-op
+    # mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
     if singleKO:
+
+        mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
 
         log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
         dispersion = jnp.exp(log_dispersion)
@@ -176,13 +179,18 @@ def dkoLikelihoodFullFinal(
         phi_comps = jnp.exp(log_disp)   # now has shape (batch,4), matching mu_comps
 
         # 5) form the mixture and return it (plus the overall mean for diagnostics):
-        mix_dist  = dist.MixtureSameFamily(
-            mix_cat,
-            dist.ZeroInflatedNegativeBinomial2(mu_comps, phi_comps, gate=p_zi[..., None])
-        )
+        # mix_dist  = dist.MixtureSameFamily(
+        #     mix_cat,
+        #     dist.NegativeBinomial2(mu_comps, phi_comps,) if p_zi is False else dist.ZeroInflatedNegativeBinomial2(mu_comps, phi_comps, gate=p_zi[..., None])
+        # )
+
+        mix_dist = dist.MixtureSameFamily(mix_cat,
+                    dist.NegativeBinomial2(mu_comps, phi_comps))
+
+        if not (p_zi is False):
+            mix_dist = dist.ZeroInflatedDistribution(mix_dist, gate=p_zi)
 
         return mix_dist, jnp.sum(cat_probs * mu_comps, axis=-1)
-
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
     """
@@ -426,7 +434,7 @@ def sample_pair_od_distributions(
 
     # Set scale of overdispersion
     sigma_pair = numpyro.sample(
-        "sigma_pair", dist.HalfNormal(prior_params["od_pair_scale"])
+        "sigma_pair", dist.HalfNormal(prior_params["od_pair_scale"] * 0.1)
     )
 
     # We may not have all genes pair with others though! -> Flatten
@@ -530,7 +538,7 @@ def sample_cell_line_distributions(
         cell_line_growth = jnp.clip(cell_line_growth, -20, 20)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.1))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.05))
 
     return cell_line_growth, library_bias
 
@@ -588,8 +596,8 @@ def sample_dko_distributions(
 
         gene_pair_ko_growth = numpyro.sample(
             "gene_pair_ko_growth",
-            dist.Normal(pair_growth_l, pair_growth_s),
-            # dist.Laplace(pair_growth_l, pair_growth_s),
+            # dist.Normal(pair_growth_l, pair_growth_s),
+            dist.Laplace(pair_growth_l, pair_growth_s * 3.0),
         )
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
@@ -731,8 +739,8 @@ def sample_sko_distributions(
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
     library_bias_s = (
-        library_bias[indices["cell_line_s_idx"]] if library_bias is not None else 1.0
-    )
+       library_bias[indices["cell_line_s_idx"]] if library_bias is not None else 1.0
+   )
 
     # Expand this to the init dataset size, with the repeated entries for pairs with different null guides, to match obs (50 -> 300)
 
@@ -770,7 +778,7 @@ def sample_control_distributions(
     indices,
     prior_params: Dict[str, Any],
     cell_line_growth,
-    mv_guide_pair_c,
+    mv_cell_line_raw,
     predict=False,
 ):
     init_c_l, init_c_s = prior_params["init_count_c"]
@@ -783,7 +791,7 @@ def sample_control_distributions(
 
     guide_init_count_c = jax.nn.softplus(guide_init_count_c) + 1E-6
 
-    mv_c = mv_guide_pair_c[indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
+    mv_c = mv_cell_line_raw[indices["cell_line_c_idx"]]
 
     cell_line_growth_c = cell_line_growth[indices["cell_line_c_idx"]]
 
@@ -823,14 +831,10 @@ def valinorControls(
         library_bias,
     ) = sample_cell_line_distributions(lengths, prior_params)
 
-    mv_cell_line_raw, gene_std = sample_mv_cell_line_distributions(lengths, prior_params)
-
-    mv_guide_pair_c = sample_control_od_distributions(
-        mv_cell_line_raw, gene_std, lengths, prior_params
-    )
+    mv_cell_line_raw, _ = sample_mv_cell_line_distributions(lengths, prior_params)
 
     sample_control_distributions(
-        data, lengths, indices, prior_params, cell_line_growth, mv_guide_pair_c
+        data, lengths, indices, prior_params, cell_line_growth, mv_cell_line_raw
     )
 
 
@@ -950,16 +954,12 @@ def valinorHierarchy(
         )
     if not no_controls:
 
-        mv_guide_pair_c = sample_control_od_distributions(
-            mv_cell_line_raw, gene_std, lengths, prior_params
-        )
-
         sample_control_distributions(
             data,
             lengths,
             indices,
             prior_params,
             cell_line_growth,
-            mv_guide_pair_c,
+            mv_cell_line_raw,
             predict=predict,
         )

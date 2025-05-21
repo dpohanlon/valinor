@@ -221,31 +221,46 @@ def sampleParams(
     if controls:
         controlsParams = {}
 
-        # Initialize Count for Controls
-        controlsParams["init_count_c"] = samples["guide_init_count_c"][:, indices["guide_pair_c_idx"]]
+        # 1) Initial counts (softplus‐constrained)
+        controlsParams["init_count_c"] = samples["guide_init_count_c"][
+            :, indices["guide_pair_c_idx"]
+        ]
+        controlsParams["init_count_c"] = jax.nn.softplus(
+            controlsParams["init_count_c"]
+        ) + 1e-6
 
-        controlsParams["init_count_c"] = jax.nn.softplus(controlsParams["init_count_c"])
+        # 2) Cell‐line intercepts
+        controlsParams["cell_growth_c"] = samples["cell_line_growth"][
+            :, indices["cell_line_c_idx"]
+        ]
 
-        # Cell Line Growth for Controls
-        controlsParams["cell_growth_c"] = samples["cell_line_growth"][:, indices["cell_line_c_idx"]]
+        # 3) Two‐level overdispersion:
+        #    mv_cl = exp(raw_mv_cell_line) + 1
+        #    mv_full[S,CL,CP] = mv_cl[:,CL,None] + gene_std[:,CL,None] * non_centered_dev[:,None,CP]
+        raw_mv_cl = samples["raw_mv_cell_line"]                  # [S, n_cell_lines]
+        mv_cl     = jnp.exp(raw_mv_cl) + 1.0                     # [S, n_cell_lines]
 
-        mvProd_c = samples["gene_std"][:, :, None] \
-                * samples["non_centered_deviation_gene_c"][:, None, :]  # [S, n_cell_lines, n_guide_pairs_c]
-        mv_c     = mv_cl[:, :, None] + mvProd_c + 1.0                   # [S, n_cell_lines, n_guide_pairs_c]
-        controlsParams["mv_c"] = mv_c[:, indices["cell_line_c_idx"], indices["guide_pair_c_idx"]]
+        controlsParams["mv_c"] = mv_cl[
+            :, indices["cell_line_c_idx"],
+        ]  # [S, ]
 
-        # Sample from Initial Control Likelihood
-        init_lh_c, theta_init_c = models.skoLikelihoodInitial(controlsParams["init_count_c"])
-        controlsParams["samples_c_init"] = init_lh_c.sample(random.split(keys[key_counter])[0])
+        # 4) Posterior‐predictive: initial (Poisson) then final (NB₂)
+        init_lh_c, theta_init_c = models.skoLikelihoodInitial(
+            controlsParams["init_count_c"]
+        )
+        controlsParams["samples_c_init"] = init_lh_c.sample(
+            random.split(keys[key_counter])[0]
+        )
         key_counter += 1
 
-        # Sample from Final Control Likelihood
         lh_c, theta_c = models.controlLikelihoodFinal(
             init_theta_c=controlsParams["init_count_c"],
             cell_line_growth_c=controlsParams["cell_growth_c"],
             mv=controlsParams["mv_c"],
         )
-        controlsParams["samples_c"] = lh_c.sample(random.split(keys[key_counter])[0])
+        controlsParams["samples_c"] = lh_c.sample(
+            random.split(keys[key_counter])[0]
+        )
         key_counter += 1
 
         params["controls"] = controlsParams
@@ -363,6 +378,16 @@ def sampleParams(
 # Even when batching, it's easier just to sample the posterior predictive ('obs') in one go
 
 def samplePosteriorPredictive(samples, indices):
+
+    if 'obs_init_c' in samples:
+
+        with h5py.File('obs_init_c.h5', 'w') as h5f:
+            h5f.create_dataset('obs_init_c', data=samples["obs_init_c"][:, indices["guide_pair_c_idx"]])
+
+    if 'obs_c' in samples:
+
+        with h5py.File('obs_c.h5', 'w') as h5f:
+            h5f.create_dataset('obs_c', data=samples["obs_c"])
 
     if 'obs_init_s' in samples:
 

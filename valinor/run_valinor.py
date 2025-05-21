@@ -282,6 +282,45 @@ def runValinor(lengths, indices, prior_params, data, config):
             init_params = init_params_controls
         )
         params_controls = state_controls.params
+
+        sites_from_model = get_model_sites(
+            models.valinorControls,
+            data,
+            lengths,
+            indices,
+            prior_params,
+        )
+
+        predictive = Predictive(
+            models.valinorControls,
+            guide = controls_guide,
+            params=params_controls,
+            num_samples=config["nSamples"],
+            return_sites=sites_from_model,
+        )
+
+        samples = predictive(
+            random.PRNGKey(42),
+            data=data,
+            lengths=lengths,
+            indices=indices,
+            prior_params=prior_params,
+            zi=config["zi"],
+            predict=True,
+        )
+
+        sampleVars = ['cell_line_growth', 'cell_lines', 'raw_mv_cell_line', 'library_bias', 'gene_std']
+
+        controlsDF = pd.DataFrame({n: np.mean(samples[n], 0) for n in sampleVars})
+
+        controlsDF.to_parquet(
+            f"{outputDir}controlsModel.pq"
+            if config["name"] is None
+            else f"{outputDir}controlsModel_{config['name']}.pq"
+        )
+
+        save_posterior_predictive(models.valinorControls, controls_guide, init_params_controls, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config)
+
     else:
         print("No controls data found. Skipping controls step.")
 
@@ -365,7 +404,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         init_params_combinations["guide_init_count"] = prior_params["init_count_vals"]
         if config["zi"]:
             init_params_combinations['p_zi'] = prior_params['p_zi']
-        if config["zi"] and not config['zi_ns']:
+        if config["zi"] and not config['zi_ns'] and not config["no_singletons"]:
             init_params_combinations['p_zi_s'] = prior_params['p_zi_s']
 
         if "dLFC" in prior_params:
@@ -414,59 +453,59 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         # I want to set the other parameters to the HPV, not just some random sampled value...
 
-        target_idxs = [245, 677, 545]
+        # target_idxs = [1, 8, 13]
 
-        target_data, target_lengths, target_indices = subset_for_mcmc(target_idxs, data, lengths, indices)
+        # target_data, target_lengths, target_indices = subset_for_mcmc(target_idxs, data, lengths, indices)
 
-        fixed_params = {
-            name: val
-            for name, val in params.items()
-            if name != "gene_pair_ko_growth"
-        }
-        sub_model = substitute(models.valinorHierarchy, fixed_params)
+        # fixed_params = {
+        #     name: val
+        #     for name, val in params.items()
+        #     if name != "gene_pair_ko_growth"
+        # }
+        # sub_model = substitute(models.valinorHierarchy, fixed_params)
 
-        # 2) Run NUTS on the *full* data
-        kernel = NUTS(sub_model)
-        mcmc = MCMC(
-            kernel,
-            num_warmup  = 250,
-            num_samples = 1000,
-        )
-        mcmc.run(
-            random.PRNGKey(1),
-            # here we pass the original, un‐masked data & indices
-            data         = target_data,
-            lengths      = target_lengths,
-            indices      = target_indices,
-            prior_params = prior_params,
-            # and the same flags you used for SVI
-            no_singletons  = config["no_singletons"],
-            only_singletons= config["only_singletons"],
-            no_controls    = config["no_controls"],
-            alternate      = config["alternateLH"],
-            guide_config   = config["guide_config"],
-            zi             = config["zi"],
-            zi_s           = config["zi"] and not config["zi_ns"],
-        )
+        # # 2) Run NUTS on the *full* data
+        # kernel = NUTS(sub_model)
+        # mcmc = MCMC(
+        #     kernel,
+        #     num_warmup  = 500,
+        #     num_samples = 500,
+        # )
+        # mcmc.run(
+        #     random.PRNGKey(1),
+        #     # here we pass the original, un‐masked data & indices
+        #     data         = target_data,
+        #     lengths      = target_lengths,
+        #     indices      = target_indices,
+        #     prior_params = prior_params,
+        #     # and the same flags you used for SVI
+        #     no_singletons  = config["no_singletons"],
+        #     only_singletons= config["only_singletons"],
+        #     no_controls    = config["no_controls"],
+        #     alternate      = config["alternateLH"],
+        #     guide_config   = config["guide_config"],
+        #     zi             = config["zi"],
+        #     zi_s           = config["zi"] and not config["zi_ns"],
+        # )
 
-        # 3) Grab the full vector of g12 samples
-        g12 = mcmc.get_samples()["gene_pair_ko_growth"]
+        # # 3) Grab the full vector of g12 samples
+        # g12 = mcmc.get_samples()["gene_pair_ko_growth"]
 
-        print(g12.shape)
+        # print(g12.shape)
 
-        plt.hist(g12[:, 0].flatten(), bins = 50)
-        plt.savefig('test0.png')
-        plt.clf()
+        # plt.hist(g12[:, 0].flatten(), bins = 50)
+        # plt.savefig('test0.png')
+        # plt.clf()
 
-        plt.hist(g12[:, 1].flatten(), bins = 50)
-        plt.savefig('test1.png')
-        plt.clf()
+        # plt.hist(g12[:, 1].flatten(), bins = 50)
+        # plt.savefig('test1.png')
+        # plt.clf()
 
-        plt.hist(g12[:, 2].flatten(), bins = 50)
-        plt.savefig('test2.png')
-        plt.clf()
+        # plt.hist(g12[:, 2].flatten(), bins = 50)
+        # plt.savefig('test2.png')
+        # plt.clf()
 
-        exit(0)
+        # exit(0)
 
         ######
 
@@ -721,33 +760,33 @@ def run():
         config["reindex"],
     )
 
-    print(lengths)
+    # print(lengths)
 
-    for k, v in indices.items():
-        print(k, len(v))
-    print('')
+    # for k, v in indices.items():
+    #     print(k, len(v))
+    # print('')
 
-    for c, v in data.items():
-        for d, vd in v.items():
-            if not (vd is None):
-                print(c, d, len(vd))
-    print('')
+    # for c, v in data.items():
+    #     for d, vd in v.items():
+    #         if not (vd is None):
+    #             print(c, d, len(vd))
+    # print('')
 
-    indices_to_subset = [245, 677, 545]
+    # indices_to_subset = [4, 14, 3]
 
-    target_data, target_lengths, target_indices = subset_for_mcmc(indices_to_subset, data, lengths, indices)
+    # target_data, target_lengths, target_indices = subset_for_mcmc(indices_to_subset, data, lengths, indices)
 
-    for k, v in target_indices.items():
-        print(k, len(v))
-    print('')
+    # for k, v in target_indices.items():
+    #     print(k, len(v))
+    # print('')
 
-    for c, v in target_data.items():
-        for d, vd in v.items():
-            if not (vd is None):
-                print(c, d, len(vd))
+    # for c, v in target_data.items():
+    #     for d, vd in v.items():
+    #         if not (vd is None):
+    #             print(c, d, len(vd))
 
-    print(target_indices['guide_pair_idx'])
-    print(target_lengths)
+    # print(target_indices['guide_pair_idx'])
+    # print(target_lengths)
     # exit(0)
 
     runValinor(lengths, indices, prior_params, data, config)
