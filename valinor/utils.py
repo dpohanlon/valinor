@@ -206,10 +206,21 @@ def getIndices(
             if not only_singletons
             else dfSingles["guide_pair_index"].values
         ),
+
+        "guide_pair_unq_idx": jnp.array(
+            df["guide_pair_unq_index"].values
+            if not only_singletons
+            else dfSingles["guide_pair_unq_index"].values
+        ),
         "guide_1_idx": jnp.array(
             df["guide1_index"].values
             if not only_singletons
             else dfSingles["guide1_index"].values
+        ),
+        "guide_1_unq_idx": jnp.array(
+            df["guide1_unq_index"].values
+            if not only_singletons
+            else dfSingles["guide1_unq_index"].values
         ),
         "gene_1_idx": jnp.array(
             df["gene1_unq_index"].values
@@ -235,6 +246,7 @@ def getIndices(
         indices["gene_2_idx"] = jnp.array(df["gene2_unq_index"].values)
         indices["gene_2_common_idx"] = jnp.array(df["gene2_index"].values)
         indices["guide_2_idx"] = jnp.array(df["guide2_index"].values)
+        indices["guide_2_unq_idx"] = jnp.array(df["guide2_unq_index"].values)
         indices["gene_pair_idx"] = jnp.array(df["gene_unq_pair_index"].values)
 
         # Rather than indexing for observations, these index for the gene pairs array to specify which gene index corresponds to this pair
@@ -249,8 +261,10 @@ def getIndices(
 
     if singletons:
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
+        indices["guide_pair_unq_s_idx"] = jnp.array(dfSingles["guide_pair_unq_index"].values)
 
         indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index"].values)
+        indices["guide_unq_s_idx"] = jnp.array(dfSingles["guide1_unq_index"].values)
 
         indices["gene_s_idx"] = jnp.array(dfSingles["gene1_unq_index"].values)
 
@@ -261,6 +275,7 @@ def getIndices(
     if controls:
         indices["cell_line_c_idx"] = jnp.array(dfControls["cell_line_index"].values)
         indices["guide_pair_c_idx"] = jnp.array(dfControls["guide_pair_index"].values)
+        indices["guide_pair_unq_c_idx"] = jnp.array(dfControls["guide_pair_unq_index"].values)
 
     # Make sure these are all 0D
     for k, v in indices.items():
@@ -289,9 +304,12 @@ def calculateLengths(
 
     # Calculate Numpyro parameter array lengths from indices
 
+    # Without 'unq', guide pairs are the length of initial plasmid counts
+    # Otherwise they are the unique pairs over all cell lines
     lengths = {
         "len_cell_lines": len(np.unique(indices["cell_line_idx"])),
         "len_guide_pairs": len(np.unique(indices["guide_pair_idx"])),
+        "len_guide_pairs_unq": len(np.unique(indices["guide_pair_unq_idx"])),
     }
 
     if not only_singletons:
@@ -310,6 +328,7 @@ def calculateLengths(
 
     if neg_controls:
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))
+        lengths["len_guide_pairs_unq_c"] = len(np.unique(indices["guide_pair_unq_c_idx"]))
 
     # Unique guides, including each category in case we have unique ones there
     lengths["len_guides"] = len(guide_indices)
@@ -435,7 +454,7 @@ def checkBounds(
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
-        assert np.max(indices["guide_pair_c_idx"]) < lengths["len_guide_pairs_c"]
+        assert np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
 
     # Also, warn if there are some parameters that remain unused, which is sus
 

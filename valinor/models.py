@@ -126,6 +126,8 @@ def dkoLikelihoodFullFinal(
     g2 = jnp.clip(gene_ko_growth_2, -20, 20)
     g12 = jnp.clip(gene_ko_growth_12, -20, 20)
 
+    init_theta = jax.nn.softplus(init_theta)
+
     epsilon = 1e-6  # Small constant to avoid log(0)
     log_init_theta = jnp.log(init_theta + epsilon)
 
@@ -154,43 +156,61 @@ def dkoLikelihoodFullFinal(
 
     else:
 
-        # --- begin: true 4-component NB mixture ---
-        # 1) build the 4 mixing weights (they already sum to 1):
         cat_probs = jnp.stack([p_00, p_1, p_2, p_12], axis=-1)
         mix_cat   = dist.Categorical(probs=cat_probs)
 
+        # clg = jax.lax.stop_gradient(cell_line_growth)
+
         # 2) compute each component’s log-mean on the additive link:
         log_base  = jnp.log(init_theta + 1e-6) + cell_line_growth
+        # log_base  = jnp.log(init_theta + 1e-6) + clg
+
         log_mu00  = log_base
         log_mu1   = log_base + g1
         log_mu2   = log_base + g2
         log_mu12  = log_base + g1 + g2 + g12
         log_mus   = jnp.stack([log_mu00, log_mu1, log_mu2, log_mu12], axis=-1)
 
-        # 3) stabilize and exponentiate to get means:
-        # mu_comps  = jnp.exp(jax.nn.softplus(log_mus))
         mu_comps  = jnp.exp(log_mus)
 
-        # 4) share one dispersion across all components:
-        #    φ = exp(log(mu) - log(mv-1))
-        #    note: mv is your existing softplus(mv-1)+1
         mv_bc     = (mv - 1 + 1e-6)[..., None]
         log_disp  = jnp.log(mu_comps + 1e-6) - jnp.log(mv_bc)
-        phi_comps = jnp.exp(log_disp)   # now has shape (batch,4), matching mu_comps
-
-        # 5) form the mixture and return it (plus the overall mean for diagnostics):
-        # mix_dist  = dist.MixtureSameFamily(
-        #     mix_cat,
-        #     dist.NegativeBinomial2(mu_comps, phi_comps,) if p_zi is False else dist.ZeroInflatedNegativeBinomial2(mu_comps, phi_comps, gate=p_zi[..., None])
-        # )
+        phi_comps = jnp.exp(log_disp)
 
         mix_dist = dist.MixtureSameFamily(mix_cat,
-                    dist.NegativeBinomial2(mu_comps, phi_comps))
+                   dist.NegativeBinomial2(mu_comps, phi_comps))
 
         if not (p_zi is False):
             mix_dist = dist.ZeroInflatedDistribution(mix_dist, gate=p_zi)
 
         return mix_dist, jnp.sum(cat_probs * mu_comps, axis=-1)
+
+    # else:
+
+    #     log_offset     = log_init_theta #+ cell_line_growth
+
+    #     # 4) log–relative effect of combining guides
+    #     #    (when all g's = 0 this → log(1) = 0, recovering the pure baseline)
+    #     log_effect = jnp.log(
+    #         p_00 * jnp.exp(cell_line_growth)
+    #         + p_1  * jnp.exp(g1)
+    #         + p_2  * jnp.exp(g2)
+    #         + p_12 * jnp.exp(g1 + g2 + g12)
+    #         + 1e-6
+    #     )
+
+    #     # 5) total log–mean and back to original scale
+    #     log_mu = log_offset + log_effect
+    #     mu     = jnp.exp(log_mu)
+
+    #     # 6) overdispersion φ from mv parameter
+    #     mv2       = jax.nn.softplus(mv - 1.0) + 1.0 + 1e-6
+    #     log_disp  = jnp.log(mu + 1e-6) - jnp.log(mv2 - 1.0 + 1e-6)
+    #     phi       = jnp.exp(log_disp)
+
+    #     # 7) single‐component NB₂ (plus optional zero‐inflation)
+    #     nb = negativeBinomial(mu, phi, p_zi)
+    #     return nb, mu
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
     """
@@ -263,21 +283,32 @@ def skoLikelihoodFinal(
 
 def controlLikelihoodFinal(
     init_theta_c: float,
+    lengths,
+    indices,
     cell_line_growth_c: float,
     mv: float,
 ) -> Distribution:
-    theta = init_theta_c * jnp.exp(cell_line_growth_c)
 
-    theta = jax.nn.softplus(theta) + 1E-6
+    # with numpyro.plate('cell_lines_c', lengths['len_cell_lines']):
+
+    #     log_control_bias = numpyro.sample(
+    #         "negative_control_bias",
+    #         dist.HalfNormal(scale=0.1),
+    #     )
+
+    log_theta = (
+        jnp.log(init_theta_c + 1e-6)
+        + cell_line_growth_c
+        # + (log_control_bias[indices["cell_line_c_idx"]] + 1.)
+    )
+    # theta = jax.nn.softplus(log_theta) + 1e-6
+    theta = jnp.exp(log_theta)
+
     mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
-
-    # dispersion = theta / (mv - 1)
-
-    log_dispersion = jnp.log(theta + 1E-6) - jnp.log(mv - 1 + 1E-6)
+    log_dispersion = jnp.log(theta) - jnp.log(mv - 1)
     dispersion = jnp.exp(log_dispersion)
 
     return negativeBinomial(theta, dispersion), theta
-
 
 def sample_guide_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any], config="partial_pooling"
@@ -321,43 +352,50 @@ def sample_guide_distributions(
         with numpyro.plate("guides", lengths["len_guides"], dim=-2):
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean",
-                dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+                dist.Normal(loc=mean_l, scale=mean_s),
             )
             guide_eff_std = numpyro.sample(
-                "guide_eff_std", dist.TruncatedNormal(loc=std_l, scale=std_s, low=0.0)
+                "guide_eff_std", dist.Normal(loc=std_l, scale=std_s)
             )
 
         with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
             guide_eff = numpyro.sample(
                 "guide_eff",
-                dist.TruncatedNormal(
+                dist.Normal(
                     loc=guide_eff_mean.squeeze(),
                     scale=guide_eff_std.squeeze(),
-                    low=0.0,
-                    high=1.0,
                 ),
             )
 
+            sigmoid = transforms.SigmoidTransform()
+            guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
+
     elif config == "no_pooling":
-        with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-            with numpyro.plate("guides", lengths["len_guides"]):
+        # sample one guide_eff per guide×cell_line, with shape [n_guides, n_cell_lines]
+        with numpyro.plate("guides", lengths["len_guides"], dim=-2):
+            with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
                 guide_eff = numpyro.sample(
                     "guide_eff",
-                    dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+                    dist.Normal(loc=mean_l, scale=mean_s),
                 )
 
+        sigmoid = transforms.SigmoidTransform()
+        guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
+
     elif config == "full_pooling":
+        # one shared effect per guide, then broadcast over cell lines
         with numpyro.plate("guides", lengths["len_guides"]):
             guide_eff_single = numpyro.sample(
                 "guide_eff_single",
-                dist.TruncatedNormal(loc=mean_l, scale=mean_s, low=0.0, high=1.0),
+                dist.Normal(loc=mean_l, scale=mean_s),
             )
-            guide_eff = numpyro.deterministic(
-                "guide_eff",
-                jnp.repeat(
-                    guide_eff_single[:, None], lengths["len_cell_lines"], axis=1
-                ),
-            )
+        # with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
+        #     guide_eff = numpyro.deterministic(
+        #         "guide_eff",
+        #         guide_eff_single[..., None],
+        #     )
+        sigmoid = transforms.SigmoidTransform()
+        guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff_single))
 
     else:
         raise ValueError(
@@ -538,7 +576,7 @@ def sample_cell_line_distributions(
         cell_line_growth = jnp.clip(cell_line_growth, -20, 20)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.05))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.1))
 
     return cell_line_growth, library_bias
 
@@ -600,8 +638,11 @@ def sample_dko_distributions(
             dist.Laplace(pair_growth_l, pair_growth_s * 3.0),
         )
 
-    guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
-    guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
+    # guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
+    # guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
+
+    guide_eff_1 = guide_eff[indices["guide_1_idx"]]
+    guide_eff_2 = guide_eff[indices["guide_2_idx"]]
 
     # Should be THE SAME for all guide pairs of a cell line?
     # Whereas now this is DIFFERENT even for REPLICATES,
@@ -690,9 +731,6 @@ def sample_dko_distributions(
     # as otherwise there is a problem with the sampling for unbounded
     # discrete distributions
 
-    # len_guide_pairs, ?
-    print(init_lh.shape(), data["initial"]["combinations"].shape)
-
     numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None)
     numpyro.sample("obs", lh, obs=data["final"]["combinations"] if not predict else None)
 
@@ -722,7 +760,8 @@ def sample_sko_distributions(
 
     guide_init_count_s = jax.nn.softplus(guide_init_count_s) + 1E-6
 
-    guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
+    # guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
+    guide_eff_s = guide_eff[indices["guide_s_idx"]]
 
     mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_common_idx"]]
 
@@ -783,24 +822,54 @@ def sample_control_distributions(
 ):
     init_c_l, init_c_s = prior_params["init_count_c"]
 
-    with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_c"]):
+    # Length of init data
+    with numpyro.plate("init_counts_c", lengths["len_guide_pairs_c"]):
+
         guide_init_count_c = numpyro.sample(
             "guide_init_count_c",
             dist.Normal(loc=init_c_l, scale=init_c_s),
         )
 
+    # Length of guide pairs over all cell lines
+    with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_unq_c"]):
+
+        z_pair_c = numpyro.sample(
+            "z_pair_c",
+            dist.Normal(50, 10)
+        )
+
+    # z_pair_c = numpyro.sample(
+    #     "z_pair_c",
+    #     dist.Normal(0.0, 0.1).expand(
+    #         [lengths["len_cell_lines"], lengths["len_guide_pairs_c"]]
+    #     ),
+    # )
+
+    # 2) build the full MV matrix:
+    #    shape = [n_cell_lines, n_guide_pairs_c]
+    # mv_pair_matrix = mv_cell_line_raw[:, None] + z_pair_c
+
     guide_init_count_c = jax.nn.softplus(guide_init_count_c) + 1E-6
 
-    mv_c = mv_cell_line_raw[indices["cell_line_c_idx"]]
-
     cell_line_growth_c = cell_line_growth[indices["cell_line_c_idx"]]
+
+    # mv_c = mv_pair_matrix[
+    #     indices["cell_line_c_idx"],
+    #     indices["guide_pair_c_idx"],
+    # ]
+
+    mv_c = z_pair_c[
+        indices["guide_pair_c_idx"],
+    ]
+
+    mv_c = jax.nn.softplus(mv_c)
 
     init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
 
     # Could do it with DKO LH, fixing g = 0
 
     lh_c, theta_c = controlLikelihoodFinal(
-        init_theta_c[indices["guide_pair_c_idx"]], cell_line_growth_c, mv_c
+        init_theta_c[indices["guide_pair_c_idx"]], lengths, indices, cell_line_growth_c, mv_c
     )
 
     numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"] if not predict else None)

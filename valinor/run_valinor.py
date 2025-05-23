@@ -120,9 +120,10 @@ def save_posterior_predictive(model, guide, params, num_samples, sites, data, le
     if config["only_singletons"] == False:
         args = {'no_singletons' : config["no_singletons"],
                 'only_singletons' : config["only_singletons"],
-                'no_controls' : config["no_controls"]}
+                'no_controls' : config["no_controls"],
+                'guide_config' : config['guide_config']}
     else:
-        args = {}
+        args = {'guide_config' : config['guide_config']}
 
     samples = predictive(
         random.PRNGKey(42),
@@ -145,9 +146,10 @@ def sample_posterior(
     if config["only_singletons"] == False:
         args = {'no_singletons' : config["no_singletons"],
                 'only_singletons' : config["only_singletons"],
-                'no_controls' : config["no_controls"]}
+                'no_controls' : config["no_controls"],
+                'guide_config' : config['guide_config']}
     else:
-        args = {}
+        args = {'guide_config' : config['guide_config']}
 
     if not batch:
         # Non-batch case: directly sample from the posterior
@@ -309,7 +311,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predict=True,
         )
 
-        sampleVars = ['cell_line_growth', 'cell_lines', 'raw_mv_cell_line', 'library_bias', 'gene_std']
+        sampleVars = ['cell_line_growth', 'cell_lines', 'raw_mv_cell_line', 'library_bias', 'gene_std']#, 'negative_control_bias']
 
         controlsDF = pd.DataFrame({n: np.mean(samples[n], 0) for n in sampleVars})
 
@@ -412,7 +414,9 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         custom_init = configure_custom_init(init_params_combinations)
 
-        full_guide = AutoNormal(models.valinorHierarchy, init_loc_fn=custom_init())
+        # full_guide = AutoNormal(models.valinorHierarchy, init_loc_fn=custom_init())
+
+        full_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
 
         svi_full = initialize_svi(
             models.valinorHierarchy, full_guide, config
@@ -686,7 +690,7 @@ def makeArgs():
         type=str,
         dest="guide_config",
         default="partial_pooling",
-        help="Guide pooling type, one of 'no_pooling', 'full pooling', or 'partial_pooling'.",
+        help="Guide pooling type, one of 'no_pooling', 'full_pooling', or 'partial_pooling'.",
     )
 
     argParser.add_argument(

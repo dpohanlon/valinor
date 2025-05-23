@@ -80,14 +80,10 @@ def calculate_cell_line_stats(df):
 
     grouped_by_cell = df.groupby(["cell_line_index"])
 
-    if "lfc_norm_scaled" not in df.columns:
-        df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
-        means = np.clip(grouped_by_cell["_computed_log"].mean(), -10, 10)
-        std_devs = np.clip(grouped_by_cell["_computed_log"].std(), 0.1, 10)
-        df.drop(columns=["_computed_log"], inplace=True)
-    else:
-        means = np.clip(grouped_by_cell["lfc_norm_scaled"].mean(), -10, 10)
-        std_devs = np.clip(grouped_by_cell["lfc_norm_scaled"].std(), 0.1, 10)
+    df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
+    means = np.clip(grouped_by_cell["_computed_log"].mean(), -10, 10)
+    std_devs = np.clip(grouped_by_cell["_computed_log"].std(), 0.1, 10)
+    df.drop(columns=["_computed_log"], inplace=True)
 
     return means, std_devs
 
