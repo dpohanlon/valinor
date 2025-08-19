@@ -45,32 +45,44 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
     # Params are common to all measurements with the same guide pair (or guide 1) index, incorporating all replicates and null guides, so average over these
 
-    guideVar = "guide_pair_index" if not singletons else "guide1_index"
+    guideVar = "guide_pair_index" #if not singletons else "guide1_index"
 
     # Average over plasmid counts per guide pair, if multiple
+    # initial_counts = (
+    #         df.groupby("guide_pair_index")
+    #         .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first'})
+    #         .reset_index(drop=True)
+    #         .sort_values("guide_pair_index")[[initCountVar, guideVar, 'guide_pair_index']]
+    # )
+
     initial_counts = (
             df.groupby("guide_pair_index")
             .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first'})
             .reset_index(drop=True)
-            .sort_values("guide_pair_index")[[initCountVar, guideVar]]
+            # .sort_values(guideVar)[[initCountVar, guideVar, 'guide_pair_index']]
     )
 
-    if singletons:
+    # if singletons:
         # Average over null guides if present
-        initial_counts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean'}).reset_index()
+        # initial_counts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean', 'guide_pair_index' : 'first'}).reset_index()
+        # initial_counts = initial_counts.groupby('guide_pair_index').agg({initCountVar : 'mean'}).reset_index()
 
     final_counts = (
             df.groupby("guide_pair_index")
             .agg({"guide_pair_index": "first", 'value' : "first", "guide1_index" : 'first'})
             .reset_index(drop=True)
-            .sort_values("guide_pair_index")[['value', guideVar]]
+            .sort_values("guide_pair_index")[['value', guideVar, 'guide_pair_index']]
     )
 
-    if singletons:
+    # if singletons:
         # Average over null guides if present
-        final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
+        # final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean', 'guide_pair_index' : 'first'}).reset_index()
 
-    return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
+    # return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
+
+    print(initial_counts['plasmid'][:3], len(initial_counts['plasmid']))
+
+    return initial_counts['plasmid'].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
 
 def calculate_cell_line_stats(df):
 

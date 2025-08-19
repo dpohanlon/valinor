@@ -127,7 +127,7 @@ def sampleParams(
     zi = ("p_zi" in samples)
     zi_s = ("p_zi_s" in samples)
 
-    raw_mv_cl = samples["raw_mv_cell_line"]         # [S, n_cell_lines]
+    raw_mv_cl = samples["raw_mv_cell_line" if not singletons else "raw_mv_cell_line_s"]         # [S, n_cell_lines]
     mv_cl     = jnp.exp(raw_mv_cl) + 1.0            # [S, n_cell_lines]
 
     # Initialize JAX random keys
@@ -154,22 +154,22 @@ def sampleParams(
         singlesParams["init_count_s"] = jax.nn.softplus(singlesParams["init_count_s"])
 
         # Tilde Alpha
-        # singlesParams["tilde_alpha"] = samples["tilde_alpha"][:, indices["guide_s_idx"], indices["cell_line_s_idx"]]
+        singlesParams["tilde_alpha"] = samples["tilde_alpha"][:, indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
-        # # Guide Efficiency Mean and Std
-        # singlesParams["guide_eff_mean_s"] = samples["guide_eff_mean"][:, indices["guide_s_idx"]]
-        # singlesParams["guide_eff_std_s"] = samples["guide_eff_std"][:, indices["guide_s_idx"]]
+        # Guide Efficiency Mean and Std
+        singlesParams["guide_eff_mean_s"] = samples["guide_eff_mean"][:, indices["guide_s_idx"]]
+        singlesParams["guide_eff_std_s"] = samples["guide_eff_std"][:, indices["guide_s_idx"]]
 
-        # # Guide Efficiency with Sigmoid Transformation
-        # singlesParams["guide_eff_s"] = sigmoid(
-        #     singlesParams["guide_eff_mean_s"] + singlesParams["tilde_alpha"] * singlesParams["guide_eff_std_s"]
-        # )
+        # Guide Efficiency with Sigmoid Transformation
+        singlesParams["guide_eff_s"] = sigmoid(
+            singlesParams["guide_eff_mean_s"].squeeze() +  singlesParams["guide_eff_std_s"].squeeze() * singlesParams["tilde_alpha"]
+        )
 
         # Cell Line Growth
         singlesParams["cell_growth_s"] = samples["cell_line_growth"][:, indices["cell_line_s_idx"]]
 
         # Library Bias
-        singlesParams["library_bias_s"] = samples["library_bias"][:, indices["cell_line_s_idx"]]
+        # singlesParams["library_bias_s"] = samples["library_bias"][:, indices["cell_line_s_idx"]]
 
         # Gene Knockout Growth
         if empirical_gene_priors:
@@ -179,7 +179,7 @@ def sampleParams(
         else:
             singlesParams["ko_growth_s"] = samples["gene_ko_growth"][:, indices["gene_s_idx"]]
 
-        mv_gene = samples["mv_gene"]
+        mv_gene = samples["mv_gene" if not singletons else "mv_gene_s"]
         # now index into it exactly as you do in the model
         singlesParams["mv_s"] = mv_gene[
             :,
@@ -286,16 +286,16 @@ def sampleParams(
             combsParams["guide_eff_std_1"] = samples["guide_eff_std"][:, indices["guide_1_idx"]]
             combsParams["guide_eff_std_2"] = samples["guide_eff_std"][:, indices["guide_2_idx"]]
 
-            # combsParams["tilde_alpha_1"] = samples["tilde_alpha"][:, indices["guide_1_idx"], indices["cell_line_idx"]]
-            # combsParams["tilde_alpha_2"] = samples["tilde_alpha"][:, indices["guide_2_idx"], indices["cell_line_idx"]]
+            combsParams["tilde_alpha_1"] = samples["tilde_alpha"][:, indices["guide_1_idx"], indices["cell_line_idx"]]
+            combsParams["tilde_alpha_2"] = samples["tilde_alpha"][:, indices["guide_2_idx"], indices["cell_line_idx"]]
 
-            # # Guide Efficiencies with Sigmoid Transformation
-            # combsParams["guide_eff_1"] = sigmoid(
-            #     combsParams["guide_eff_mean_1"] + combsParams["tilde_alpha_1"] * combsParams["guide_eff_std_1"]
-            # )
-            # combsParams["guide_eff_2"] = sigmoid(
-            #     combsParams["guide_eff_mean_2"] + combsParams["tilde_alpha_2"] * combsParams["guide_eff_std_2"]
-            # )
+            # Guide Efficiencies with Sigmoid Transformation
+            combsParams["guide_eff_1"] = sigmoid(
+                combsParams["guide_eff_mean_1"].squeeze() + combsParams["tilde_alpha_1"] * combsParams["guide_eff_std_1"].squeeze()
+            )
+            combsParams["guide_eff_2"] = sigmoid(
+                combsParams["guide_eff_mean_2"].squeeze() + combsParams["tilde_alpha_2"] * combsParams["guide_eff_std_2"].squeeze()
+            )
         else:
             # Handle cases where guide_eff_mean is not present
             combsParams["guide_eff_1"] = np.ones_like(combsParams["cell_line_growth"])  # or another appropriate default
@@ -395,7 +395,8 @@ def samplePosteriorPredictive(samples, indices):
     if 'obs_init_s' in samples:
 
         with h5py.File('obs_init_s.h5', 'w') as h5f:
-            h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_s_idx"]])
+            # h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_s_idx"]])
+            h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_pair_s_idx"]])
 
     if 'obs_s' in samples:
 

@@ -2,7 +2,7 @@ import argparse
 
 import jax
 jax.config.update("jax_debug_nans", True)
-jax.config.update("jax_enable_x64", True)
+jax.config.update("jax_enable_x64", False)
 
 import jax.numpy as jnp
 import numpy as np
@@ -64,13 +64,13 @@ def get_model_sites(model, *args, **kwargs):
     return list(model_trace.keys())
 
 
-def initialize_svi(model, guide, config):
-    optimizer = numpyro.optim.ClippedAdam(step_size=config["lr"], clip_norm=1.0)
+def initialize_svi(model, guide, lr, nParticles):
+    optimizer = numpyro.optim.ClippedAdam(step_size=lr, clip_norm=1.0)
     svi = SVI(
         model,
         guide,
         optimizer,
-        loss=TraceMeanField_ELBO(num_particles=config["n_particles"]),
+        loss=TraceMeanField_ELBO(num_particles=nParticles),
     )
     return svi
 
@@ -265,7 +265,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         # controls_guide = valinor_controls_guide
 
         svi_controls = initialize_svi(
-            models.valinorControls, controls_guide, config
+            models.valinorControls, controls_guide, config['lr'], config['n_particles']
         )
 
         # Shape should be okay, as these are plasmids with single counts, no replicates
@@ -276,7 +276,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         state_controls = run_svi(
             svi_controls,
             prng_key_controls,
-            config["epochs"],
+            config["epochs"] // 2,
             data,
             lengths,
             indices,
@@ -311,7 +311,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predict=True,
         )
 
-        sampleVars = ['cell_line_growth', 'cell_lines', 'raw_mv_cell_line', 'library_bias', 'gene_std']#, 'negative_control_bias']
+        sampleVars = ['cell_line_growth', 'cell_lines', 'raw_mv_cell_line', 'gene_std']#, 'library_bias']#, 'negative_control_bias']
 
         controlsDF = pd.DataFrame({n: np.mean(samples[n], 0) for n in sampleVars})
 
@@ -331,6 +331,13 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         init_params_singles = params_controls if params_controls != None else {}
         init_params_singles["guide_init_count_s"] = prior_params["init_count_s_vals"]
+        print('init s vals', len(prior_params["init_count_s_vals"]))
+        print('FIRST INIT', prior_params["init_count_s_vals"][:3])
+        print('Indexed pair', prior_params["init_count_s_vals"][indices['guide_pair_s_idx']][:3])
+        print('Indexed guide', prior_params["init_count_s_vals"][indices['guide_s_idx']][:3])
+        print('True', data["initial"]["singletons"][:3])
+        print('Idx', indices['guide_pair_s_idx'][:3])
+        # exit(0)
         if config["zi"] and not config['zi_ns']:
             init_params_singles['p_zi_s'] = prior_params['p_zi_s']
 
@@ -340,7 +347,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         # singles_guide = valinor_singles_guide
 
         svi_singles = initialize_svi(
-            models.valinorSingles, singles_guide, config
+            models.valinorSingles, singles_guide, config['lr'], config['n_particles']
         )
 
         singles_rng_init, _ = random.split(prng_key_controls)
@@ -349,7 +356,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         state_singles = run_svi(
             svi_singles,
             singles_rng_init,
-            config["epochs"],
+            config["epochs"] // 2,
             data,
             lengths,
             indices,
@@ -381,17 +388,17 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         # Sampling posterior
-        combsDF, singlesDF = sample_posterior(
-            predictive,
-            config,
-            data,
-            lengths,
-            indices,
-            prior_params,
-            batch=config["batch_sample"],
-        )
+        # combsDF, singlesDF = sample_posterior(
+        #     predictive,
+        #     config,
+        #     data,
+        #     lengths,
+        #     indices,
+        #     prior_params,
+        #     batch=config["batch_sample"],
+        # )
 
-        save_posterior_samples(combsDF, singlesDF, config, outputDir)
+        # save_posterior_samples(combsDF, singlesDF, config, outputDir)
 
         save_posterior_predictive(models.valinorSingles, singles_guide, params_singles, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config)
 
@@ -419,7 +426,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         full_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
 
         svi_full = initialize_svi(
-            models.valinorHierarchy, full_guide, config
+            models.valinorHierarchy, full_guide, config['lr'], config['n_particles']
         )
 
         full_rng_init, _ = random.split(prng_key_controls)
