@@ -13,7 +13,7 @@ from tqdm import tqdm
 from jax import random
 import numpyro
 
-from numpyro.infer import Predictive, SVI, TraceMeanField_ELBO, MCMC, NUTS
+from numpyro.infer import Predictive, SVI, Trace_ELBO, TraceMeanField_ELBO, MCMC, NUTS
 from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
 
 from numpyro.handlers import seed, trace, substitute
@@ -70,7 +70,7 @@ def initialize_svi(model, guide, lr, nParticles):
         model,
         guide,
         optimizer,
-        loss=TraceMeanField_ELBO(num_particles=nParticles),
+        loss=Trace_ELBO(num_particles=nParticles), # maybe mean field is okay?
     )
     return svi
 

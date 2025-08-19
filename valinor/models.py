@@ -122,7 +122,7 @@ def dkoLikelihoodFullFinal(
     log_p00 = jnp.log((1 - guide_eff_1) * (1 - guide_eff_2) + eps)
     log_p1  = jnp.log( guide_eff_1  * (1 - guide_eff_2) + eps)
 
-    g1 = jnp.clip(library_bias * gene_ko_growth_1, -20, 20)
+    g1 = jnp.clip(gene_ko_growth_1, -20, 20)
 
     init_theta = jax.nn.softplus(init_theta)
 
@@ -132,7 +132,7 @@ def dkoLikelihoodFullFinal(
 
         # per‐component log‐means
         log_mu00 = log_init_theta + cell_line_growth
-        log_mu1  = log_init_theta + cell_line_growth + g1
+        log_mu1 = log_init_theta + cell_line_growth + g1 + jnp.log(library_bias + eps)
 
         # 1) mixture logits
         cat_logits = jnp.stack([log_p00, log_p1], axis=-1)
