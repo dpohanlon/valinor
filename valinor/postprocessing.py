@@ -154,11 +154,11 @@ def sampleParams(
         singlesParams["init_count_s"] = jax.nn.softplus(singlesParams["init_count_s"])
 
         # Tilde Alpha
-        singlesParams["tilde_alpha"] = samples["tilde_alpha"][:, indices["guide_s_idx"], indices["cell_line_s_idx"]]
+        singlesParams["tilde_alpha"] = samples["sko/tilde_alpha"][:, indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
         # Guide Efficiency Mean and Std
-        singlesParams["guide_eff_mean_s"] = samples["guide_eff_mean"][:, indices["guide_s_idx"]]
-        singlesParams["guide_eff_std_s"] = samples["guide_eff_std"][:, indices["guide_s_idx"]]
+        singlesParams["guide_eff_mean_s"] = samples["sko/guide_eff_mean"][:, indices["guide_s_idx"]]
+        singlesParams["guide_eff_std_s"] = samples["sko/guide_eff_std"][:, indices["guide_s_idx"]]
 
         # Guide Efficiency with Sigmoid Transformation
         singlesParams["guide_eff_s"] = sigmoid(
@@ -278,16 +278,18 @@ def sampleParams(
         # Cell Line Growth for Combinations
         combsParams["cell_line_growth"] = samples["cell_line_growth"][:, indices["cell_line_idx"]]
 
+        combsParams["library_bias"] = samples["library_bias"][:, indices["cell_line_idx"]]
+
         # Guide Efficiencies
         if "guide_eff_mean" in samples.keys():
-            combsParams["guide_eff_mean_1"] = samples["guide_eff_mean"][:, indices["guide_1_idx"]]
-            combsParams["guide_eff_mean_2"] = samples["guide_eff_mean"][:, indices["guide_2_idx"]]
+            combsParams["guide_eff_mean_1"] = samples["dko/guide_eff_mean"][:, indices["guide_1_idx"]]
+            combsParams["guide_eff_mean_2"] = samples["dko/guide_eff_mean"][:, indices["guide_2_idx"]]
 
-            combsParams["guide_eff_std_1"] = samples["guide_eff_std"][:, indices["guide_1_idx"]]
-            combsParams["guide_eff_std_2"] = samples["guide_eff_std"][:, indices["guide_2_idx"]]
+            combsParams["guide_eff_std_1"] = samples["dko/guide_eff_std"][:, indices["guide_1_idx"]]
+            combsParams["guide_eff_std_2"] = samples["dko/guide_eff_std"][:, indices["guide_2_idx"]]
 
-            combsParams["tilde_alpha_1"] = samples["tilde_alpha"][:, indices["guide_1_idx"], indices["cell_line_idx"]]
-            combsParams["tilde_alpha_2"] = samples["tilde_alpha"][:, indices["guide_2_idx"], indices["cell_line_idx"]]
+            combsParams["tilde_alpha_1"] = samples["dko/tilde_alpha"][:, indices["guide_1_idx"], indices["cell_line_idx"]]
+            combsParams["tilde_alpha_2"] = samples["dko/tilde_alpha"][:, indices["guide_2_idx"], indices["cell_line_idx"]]
 
             # Guide Efficiencies with Sigmoid Transformation
             combsParams["guide_eff_1"] = sigmoid(
@@ -380,35 +382,47 @@ def sampleParams(
 
 # Even when batching, it's easier just to sample the posterior predictive ('obs') in one go
 
-def samplePosteriorPredictive(samples, indices):
+def samplePosteriorPredictive(samples, indices, annotation = None):
 
     if 'obs_init_c' in samples:
 
-        with h5py.File('obs_init_c.h5', 'w') as h5f:
+        fileName = 'obs_init_c.h5' if annotation == None else f'obs_init_c_{annotation}.h5'
+
+        with h5py.File(fileName, 'w') as h5f:
             h5f.create_dataset('obs_init_c', data=samples["obs_init_c"][:, indices["guide_pair_c_idx"]])
 
     if 'obs_c' in samples:
 
-        with h5py.File('obs_c.h5', 'w') as h5f:
+        fileName = 'obs_c.h5' if annotation == None else f'obs_c_{annotation}.h5'
+
+        with h5py.File(fileName, 'w') as h5f:
             h5f.create_dataset('obs_c', data=samples["obs_c"])
 
     if 'obs_init_s' in samples:
 
-        with h5py.File('obs_init_s.h5', 'w') as h5f:
+        fileName = 'obs_init_s.h5' if annotation == None else f'obs_init_s_{annotation}.h5'
+
+        with h5py.File(fileName, 'w') as h5f:
             # h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_s_idx"]])
             h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_pair_s_idx"]])
 
     if 'obs_s' in samples:
 
-        with h5py.File('obs_s.h5', 'w') as h5f:
+        fileName = 'obs_s.h5' if annotation == None else f'obs_s_{annotation}.h5'
+
+        with h5py.File(fileName, 'w') as h5f:
             h5f.create_dataset('obs_s', data=samples["obs_s"])
 
     if 'obs_init' in samples:
 
-        with h5py.File('obs_init.h5', 'w') as h5f:
+        fileName = 'obs_init.h5' if annotation == None else f'obs_init_{annotation}.h5'
+
+        with h5py.File(fileName, 'w') as h5f:
             h5f.create_dataset('obs_init', data=samples["obs_init"][:, indices["guide_pair_idx"]])
 
     if 'obs' in samples:
 
-        with h5py.File('obs.h5', 'w') as h5f:
+        fileName = 'obs.h5' if annotation == None else f'obs_{annotation}.h5'
+
+        with h5py.File(fileName, 'w') as h5f:
             h5f.create_dataset('obs', data=samples["obs"])

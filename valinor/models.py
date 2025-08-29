@@ -2,6 +2,7 @@ import numpyro
 import numpyro.distributions as dist
 import numpyro.distributions.transforms as transforms
 
+from numpyro import handlers
 
 import jax
 import jax.numpy as jnp
@@ -11,6 +12,9 @@ from typing import Dict, Any, Tuple
 
 import numpy as np
 
+def observe(name, dist, obs, use=True, weight=1.0):
+    with handlers.mask(mask=use), handlers.scale(scale=weight):
+        return numpyro.sample(name, dist, obs=obs)
 
 def negativeBinomial(mean, od, zi=False):
     if zi is False:
@@ -119,106 +123,62 @@ def dkoLikelihoodFullFinal(
 
     eps = 1e-8  # Small constant to avoid log(0)
 
-    log_p00 = jnp.log((1 - guide_eff_1) * (1 - guide_eff_2) + eps)
-    log_p1  = jnp.log( guide_eff_1  * (1 - guide_eff_2) + eps)
+    # log_p00 = jnp.log((1 - guide_eff_1) * (1 - guide_eff_2) + eps)
+    # log_p1  = jnp.log( guide_eff_1  * (1 - guide_eff_2) + eps)
+
+    ## TEST
 
     g1 = jnp.clip(gene_ko_growth_1, -20, 20)
 
-    init_theta = jax.nn.softplus(init_theta)
+    # init_theta = jax.nn.softplus(init_theta)
 
     if singleKO:
 
         log_init_theta = jnp.log(init_theta + eps)
 
-        # per‐component log‐means
         log_mu00 = log_init_theta + cell_line_growth
-        log_mu1 = log_init_theta + cell_line_growth + g1 + jnp.log(library_bias + eps)
+        log_mu1 = log_init_theta + cell_line_growth + g1
 
-        # 1) mixture logits
+        ## TEST
+        log_p00 = jnp.log1p(-guide_eff_1)
+        log_p1  = jnp.log(guide_eff_1)
+
         cat_logits = jnp.stack([log_p00, log_p1], axis=-1)
         mix_cat    = dist.Categorical(logits=cat_logits)
 
-        # 2) component mus
-        mu_comps = jnp.exp(jnp.stack([log_mu00, log_mu1], axis=-1))
+        log_mus = jnp.stack([log_mu00, log_mu1], axis=-1)
 
-        # 3) one shared dispersion φ
-        mv_s   = jax.nn.softplus(mv - 1) + 1.0 + eps
-        log_disp = jnp.log(mu_comps + eps) - jnp.log(mv_s - 1 + eps)[..., None]
-        phi_comps = jnp.exp(log_disp)
+        log_mus = jnp.clip(log_mus, -30.0, 30.0)
+        mu_comps = jnp.exp(log_mus)
 
-        # 4) build the actual mixture
-        mix_dist = dist.MixtureSameFamily(mix_cat,
-                        dist.NegativeBinomial2(mu_comps, phi_comps))
+        mv_bc = (mv - 1.0)[..., None]
+        log_phi = jnp.log(mu_comps) - jnp.log(mv_bc)
+        log_phi = jnp.clip(log_phi, -30.0, 30.0)
+        phi_comps = jnp.exp(log_phi)
+
+        mix_dist = dist.MixtureSameFamily(
+            mix_cat, dist.NegativeBinomial2(mu_comps, phi_comps)
+        )
         if p_zi is not False:
             mix_dist = dist.ZeroInflatedDistribution(mix_dist, gate=p_zi)
 
-        # 5) return mixture and its marginal mean
-        return mix_dist, jnp.sum(
-            jax.nn.softmax(cat_logits, axis=-1) * mu_comps,
-            axis=-1
-        )
-
-    # if singleKO:
-
-    #     # OLD
-
-    #     # log_init_theta = jnp.log(init_theta + eps)
-
-    #     # # Fix the logs here...
-    #     # mult = jnp.exp(log_p00) + jnp.exp(log_p1) * jnp.exp(g1)
-
-    #     # log_multiplier = cell_line_growth + jnp.log(mult)
-
-    #     # # Add on the log scale and apply softplus for additional stability (optional)
-    #     # # log_theta = jax.nn.softplus(log_init_theta + log_multiplier)
-    #     # log_theta = log_init_theta + log_multiplier
-
-    #     # # Exponentiate to recover theta on the original scale
-    #     # theta = jnp.exp(log_theta)
-
-    #     # mv_s = jax.nn.softplus(mv - 1) + 1.0 + eps
-
-    #     # log_dispersion = jnp.log(theta + eps) - jnp.log(mv_s - 1 + eps)
-    #     # dispersion = jnp.exp(log_dispersion)
-
-    #     # return negativeBinomial(theta, dispersion, p_zi), theta
-
-
-
-    #     # 1) init theta on log‐scale
-    #     log_init_theta = jnp.log(init_theta + eps)
-
-    #     # 2) assemble per‐component log‐weights
-    #     #    component “00” has no growth term
-    #     log_w0 = log_p00
-    #     #    component “1” picks up g1
-    #     log_w1 = log_p1 + g1
-
-    #     # 3) stable log–sum–exp to get log(mult)
-    #     #    log(mult) = log( exp(log_w0) + exp(log_w1) )
-    #     log_mult = cell_line_growth + jax.scipy.special.logsumexp(
-    #         jnp.stack([log_w0, log_w1], axis=-1), axis=-1
-    #     )
-
-    #     # 4) back to theta
-    #     log_theta = log_init_theta + log_mult
-    #     theta     = jnp.exp(log_theta) + eps
-
-    #     # 5) dispersion as before
-    #     mv_s      = jax.nn.softplus(mv - 1) + 1.0 + eps
-    #     log_disp  = jnp.log(theta + eps) - jnp.log(mv_s - 1 + eps)
-    #     dispersion = jnp.exp(log_disp) + eps
-
-    #     return negativeBinomial(theta, dispersion, p_zi), theta
+        return mix_dist, jnp.sum(jax.nn.softmax(cat_logits, axis=-1) * mu_comps, axis=-1)
 
     else:
 
-        log_p2  = jnp.log( guide_eff_2  * (1 - guide_eff_1) + eps)
-        log_p12 = jnp.log( guide_eff_1  *  guide_eff_2  + eps)
+        ## TEST
 
-        delta_pair  = numpyro.sample("delta_pair",  dist.Normal(0.0, guide_pair_eff))
+        # log_p2  = jnp.log( guide_eff_2  * (1 - guide_eff_1) + eps)
+        # log_p12 = jnp.log( guide_eff_1  *  guide_eff_2  + eps)
 
-        log_p12 = log_p12 + delta_pair
+        log_p00 = jnp.log1p(-guide_eff_1) + jnp.log1p(-guide_eff_2)
+        log_p1  = jnp.log(guide_eff_1)    + jnp.log1p(-guide_eff_2)
+        log_p2 = jnp.log(guide_eff_2) + jnp.log1p(-guide_eff_1)
+        log_p12  = jnp.log(guide_eff_1)    + jnp.log(guide_eff_2)
+
+        # delta_pair  = numpyro.sample("delta_pair",  dist.Normal(0.0, guide_pair_eff))
+
+        log_p12 = log_p12 #+ delta_pair
 
         g2 = jnp.clip(gene_ko_growth_2, -20, 20)
         g12 = jnp.clip(gene_ko_growth_12, -20, 20)
@@ -226,8 +186,7 @@ def dkoLikelihoodFullFinal(
         cat_logits   = jnp.stack([log_p00, log_p1, log_p2, log_p12], axis=-1)
         mix_cat   = dist.Categorical(logits = cat_logits)
 
-        # 2) compute each component’s log-mean on the additive link:
-        log_base  = jnp.log(init_theta + eps) + cell_line_growth
+        log_base  = jnp.log(init_theta + eps) + cell_line_growth + library_bias # log
 
         log_mu00  = log_base
         log_mu1   = log_base + g1
@@ -249,34 +208,7 @@ def dkoLikelihoodFullFinal(
         if not (p_zi is False):
             mix_dist = dist.ZeroInflatedDistribution(mix_dist, gate=p_zi)
 
-        return mix_dist, jnp.sum(jnp.exp(cat_logits) * mu_comps, axis=-1)
-
-    # else:
-
-    #     log_offset     = log_init_theta #+ cell_line_growth
-
-    #     # 4) log–relative effect of combining guides
-    #     #    (when all g's = 0 this → log(1) = 0, recovering the pure baseline)
-    #     log_effect = jnp.log(
-    #         p_00 * jnp.exp(cell_line_growth)
-    #         + p_1  * jnp.exp(g1)
-    #         + p_2  * jnp.exp(g2)
-    #         + p_12 * jnp.exp(g1 + g2 + g12)
-    #         + 1e-6
-    #     )
-
-    #     # 5) total log–mean and back to original scale
-    #     log_mu = log_offset + log_effect
-    #     mu     = jnp.exp(log_mu)
-
-    #     # 6) overdispersion φ from mv parameter
-    #     mv2       = jax.nn.softplus(mv - 1.0) + 1.0 + 1e-6
-    #     log_disp  = jnp.log(mu + 1e-6) - jnp.log(mv2 - 1.0 + 1e-6)
-    #     phi       = jnp.exp(log_disp)
-
-    #     # 7) single‐component NB₂ (plus optional zero‐inflation)
-    #     nb = negativeBinomial(mu, phi, p_zi)
-    #     return nb, mu
+        return mix_dist, jnp.sum(jax.nn.softmax(cat_logits, axis=-1) * mu_comps, axis=-1)
 
 def skoLikelihoodInitial(init_theta: float) -> Distribution:
     """
@@ -298,7 +230,6 @@ def skoLikelihoodFinal(
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
     mv: float,
-    library_bias: float,
     alternate: bool = False,
     p_zi=False,
 ) -> Distribution:
@@ -327,7 +258,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_2=0.0,
             gene_ko_growth_12=0.0,
             mv=mv,
-            library_bias=library_bias,
+            library_bias=None,
             p_zi=p_zi,
         )
 
@@ -341,7 +272,7 @@ def skoLikelihoodFinal(
             gene_ko_growth_2=0.0,
             gene_ko_growth_12=0.0,
             mv=mv,
-            library_bias=library_bias,
+            library_bias=None,
             p_zi=p_zi,
             singleKO = True,
         )
@@ -397,8 +328,10 @@ def sample_guide_distributions(
 
                 guide_eff_logit = guide_eff_mean + guide_eff_std * tilde_alpha
 
-        sigmoid = transforms.SigmoidTransform()
-        guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff_logit))
+        # sigmoid = transforms.SigmoidTransform()
+        # guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff_logit))
+
+        guide_eff = numpyro.deterministic("guide_eff",jax.nn.sigmoid(guide_eff_logit))
 
     elif config == "partial_pooling_low":
         with numpyro.plate("guides", lengths["len_guides"], dim=-2):
@@ -419,8 +352,12 @@ def sample_guide_distributions(
                 ),
             )
 
-            sigmoid = transforms.SigmoidTransform()
-            guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
+            # sigmoid = transforms.SigmoidTransform()
+            # guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
+            #
+            # ## TEST
+
+            guide_eff = numpyro.deterministic("guide_eff",jax.nn.sigmoid(guide_eff))
 
     elif config == "no_pooling":
         # sample one guide_eff per guide×cell_line, with shape [n_guides, n_cell_lines]
@@ -431,8 +368,10 @@ def sample_guide_distributions(
                     dist.Normal(loc=mean_l, scale=mean_s),
                 )
 
-        sigmoid = transforms.SigmoidTransform()
-        guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
+        # sigmoid = transforms.SigmoidTransform()
+        # guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff))
+
+        guide_eff = numpyro.deterministic("guide_eff",jax.nn.sigmoid(guide_eff))
 
     elif config == "full_pooling":
         # one shared effect per guide, then broadcast over cell lines
@@ -446,8 +385,12 @@ def sample_guide_distributions(
         #         "guide_eff_",
         #         guide_eff_single[..., None],
         #     )
-        sigmoid = transforms.SigmoidTransform()
-        guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff_single))
+
+        ## TEST
+        # sigmoid = transforms.SigmoidTransform()
+        # guide_eff = numpyro.deterministic("guide_eff", sigmoid(guide_eff_single))
+
+        guide_eff = numpyro.deterministic("guide_eff",jax.nn.sigmoid(guide_eff_single))
 
     else:
         raise ValueError(
@@ -464,8 +407,8 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
         growth_l, growth_s = prior_params["gene_ko_growth"]
 
         with numpyro.plate("genes", lengths["len_genes"]):
-            gene_ko_growth = numpyro.sample(
-                "gene_ko_growth", dist.Normal(growth_l, growth_s)
+            gene_ko_growth_raw = numpyro.sample(
+                "gene_ko_growth_raw", dist.Normal(growth_l, growth_s)
             )
 
     else:
@@ -484,9 +427,13 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
 
         mask = jnp.isfinite(growth_l)
 
-        gene_ko_growth = numpyro.sample(
-            "gene_ko_growth", dist.Normal(growth_l_clean, growth_s_clean).mask(mask)
+        gene_ko_growth_raw = numpyro.sample(
+            "gene_ko_growth_raw", dist.Normal(growth_l_clean, growth_s_clean).mask(mask)
         )
+
+    ## TEST
+
+    gene_ko_growth = numpyro.deterministic("gene_ko_growth", gene_ko_growth_raw - jnp.mean(gene_ko_growth_raw))
 
     return gene_ko_growth
 
@@ -541,8 +488,8 @@ def sample_mv_cell_line_distributions(
 ):
 
     # your old natural‐scale params
-    od_means = np.clip(prior_params["od_means"], 1.0, np.inf) - 1.0
-    od_stds  = np.clip(prior_params["od_stds"], 1e-4, np.inf)
+    od_means = jnp.clip(prior_params["od_means"], 1.0, np.inf) - 1.0
+    od_stds  = jnp.clip(prior_params["od_stds"], 1e-4, np.inf)
 
     # compute log–priors
     log_od_means = jnp.log(od_means + 1e-6)
@@ -621,8 +568,8 @@ def sample_od_distributions(
     numpyro.deterministic("raw_mv_gene", raw_mv_gene)
 
     # d) final gene-level OD
-    # mv_gene = jnp.exp(raw_mv_gene) + 1.0
-    mv_gene = jax.nn.softplus(raw_mv_gene) + 1.0
+    mv_gene = jnp.exp(raw_mv_gene) + 1.0
+    # mv_gene = jax.nn.softplus(raw_mv_gene) + 1.0
     numpyro.deterministic("mv_gene", mv_gene)
 
     return raw_mv_gene, mv_gene
@@ -661,25 +608,29 @@ def sample_cell_line_distributions(
     prior_params: Dict[str, Any],
 ):
 
-    if not "control_means" in prior_params:
-        growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
-    else:
-        # Assume that these are indexed the same as priors (increasing cell line idx)
-        growth_cell_l = prior_params["control_means"]
-        growth_cell_s = prior_params["control_stds"]
+    # if not "control_means" in prior_params:
+    #     growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
+    # else:
+    #     # Assume that these are indexed the same as priors (increasing cell line idx)
+    #     growth_cell_l = prior_params["control_means"]
+    #     growth_cell_s = prior_params["control_stds"]
 
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c:
 
         growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
 
-        cell_line_growth = numpyro.sample(
-            "cell_line_growth", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
+        cell_line_growth_raw = numpyro.sample(
+            "cell_line_growth_raw", dist.Normal(loc=growth_cell_l, scale=growth_cell_s)
         )
+
+        ## TEST
+
+        cell_line_growth = numpyro.deterministic("cell_line_growth",  cell_line_growth_raw - jnp.mean(cell_line_growth_raw))
 
         cell_line_growth = jnp.clip(cell_line_growth, -20, 20)
 
         # TODO: Make me configurable
-        library_bias = numpyro.sample("library_bias", dist.Normal(loc=1.0, scale=0.01))
+        library_bias = numpyro.sample("library_bias", dist.Normal(loc=0.0, scale=0.1))
 
     return cell_line_growth, library_bias
 
@@ -718,6 +669,7 @@ def sample_dko_distributions(
     gene_ko_growth,
     cell_line_growth,
     mv_gene_pair,
+    library_bias,
     alternate: bool = False,
     p_zi=False,
     predict=False,
@@ -735,14 +687,31 @@ def sample_dko_distributions(
     with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
 
-        gene_pair_ko_growth = numpyro.sample(
-            "gene_pair_ko_growth",
+        gene_pair_ko_growth_raw = numpyro.sample(
+            "gene_pair_ko_growth_raw",
             # dist.Normal(pair_growth_l, pair_growth_s),
-            dist.Laplace(pair_growth_l, pair_growth_s * 3.0),
+            dist.Laplace(pair_growth_l, pair_growth_s),
         )
+
+    gene_pair_ko_growth = numpyro.deterministic("gene_pair_ko_growth", gene_pair_ko_growth_raw - jnp.mean(gene_pair_ko_growth_raw))
+
+    ## TEST
+
+    with numpyro.plate("cell_lines_d_shift", lengths["len_cell_lines"]):
+        eff_shift_d = numpyro.sample("guide_eff_dko_shift", dist.Normal(0.0, 0.25))
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
     guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
+
+    logit_1 = jax.scipy.special.logit(jnp.clip(guide_eff_1, 1e-6, 1-1e-6))
+    logit_2 = jax.scipy.special.logit(jnp.clip(guide_eff_2, 1e-6, 1-1e-6))
+    guide_eff_1 = jax.nn.sigmoid(logit_1 + eff_shift_d[indices["cell_line_idx"]])
+    guide_eff_2 = jax.nn.sigmoid(logit_2 + eff_shift_d[indices["cell_line_idx"]])
+
+    ## TEST
+
+    # guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
+    # guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
 
     # For full pooling?
     # guide_eff_1 = guide_eff[indices["guide_1_idx"]]
@@ -776,6 +745,10 @@ def sample_dko_distributions(
     cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
     init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
+
+    library_bias_v = (
+        library_bias[indices["cell_line_idx"]] if library_bias is not None else 1.0
+    )
 
     if alternate:
         with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
@@ -813,7 +786,7 @@ def sample_dko_distributions(
             gene_ko_growth_2,
             gene_ko_growth_12,
             mv,
-            library_bias=1.0,
+            library_bias=library_bias_v,
             p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
         )
 
@@ -838,7 +811,7 @@ def sample_dko_distributions(
             gene_ko_growth_2,
             gene_ko_growth_12,
             mv,
-            library_bias=1.0,
+            library_bias=library_bias_v,
             p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
             guide_pair_eff = guide_pair_eff[indices["guide_pair_idx"]]
         )
@@ -847,9 +820,7 @@ def sample_dko_distributions(
     # as otherwise there is a problem with the sampling for unbounded
     # discrete distributions
 
-    numpyro.sample("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None)
-    numpyro.sample("obs", lh, obs=data["final"]["combinations"] if not predict else None)
-
+    return init_lh, lh
 
 def sample_sko_distributions(
     data: Dict[str, jnp.array],
@@ -860,21 +831,12 @@ def sample_sko_distributions(
     gene_ko_growth,
     cell_line_growth,
     mv_gene,
-    library_bias,
     alternate: bool = False,
     p_zi_s=False,
     predict=False,
 ):
 
-    print('START')
-
     # Index unique singleton guides, rather than pairs (agg over null guides, etc, as these are not parameterised, unlike in pairs)
-
-    print('len_guide_pairs_s', lengths["len_guide_pairs_s"])
-    init_s_l, init_s_s = prior_params["init_count_s"]
-    print(init_s_l)
-
-    # Should be 2440, pairs including NEs, with 10 cell lines
     with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
         guide_init_count_s = numpyro.sample(
@@ -885,13 +847,8 @@ def sample_sko_distributions(
     guide_init_count_s = jax.nn.softplus(guide_init_count_s) + 1E-6
 
     guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
-    # For full pooling?
-    # guide_eff_s = guide_eff[indices["guide_s_idx"]]
 
     mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_common_idx"]]
-
-    print('guide_eff', guide_eff.shape)
-    print('guide_eff_s', guide_eff_s.shape)
 
     if not "gene_effect_means" in prior_params:
 
@@ -903,33 +860,11 @@ def sample_sko_distributions(
             indices["cell_line_s_idx"], indices["gene_s_common_idx"]
         ]
 
-    print('gene_ko_growth', gene_ko_growth.shape)
-    print('gene_ko_growth_s', gene_ko_growth_s.shape)
-
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
-
-    library_bias_s = (
-       library_bias[indices["cell_line_s_idx"]] if library_bias is not None else 1.0
-    )
 
     # Expand this to the init dataset size, with the repeated entries for pairs with different null guides, to match obs (50 -> 300)
 
-    print('guide_init_count_s', guide_init_count_s.shape)
-    print('guide_init_count_s indexed', guide_init_count_s[indices['guide_initial_s_idx']].shape)
-    print('guide_init', guide_init_count_s[indices['guide_s_idx']].shape)
-    # print(guide_init_count_s[indices['guide_s_idx']] == guide_init_count_s[indices['guide_initial_s_idx']])
-
-    # exit(0)
-
-    # init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s[indices['guide_initial_s_idx']])
-
-    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s[indices['guide_s_idx']])
-
-    print('FIRST', data["initial"]["singletons"][:3])
-
-    print('LH', init_lh_s.shape(), init_theta_s.shape, data["initial"]["singletons"].shape)
-
-    # exit(0)
+    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s[indices['guide_initial_s_idx']])
 
     # Expand initial parameters to the final dataset size from the parameter size, with repeated entries for cell lines (plasmid, no replicates, etc) (50 -> 3600)
 
@@ -939,26 +874,35 @@ def sample_sko_distributions(
     #     cell_line_growth_s,
     #     gene_ko_growth_s,
     #     mv_s,
-    #     library_bias_s,
     #     alternate,
     #     False if p_zi_s is False else p_zi_s[indices["cell_line_s_idx"]],
     # )
 
-    # with numpyro.plate("guides_counts_init_s_obs", data["initial"]["singletons"].shape[0]):
+    ## TEST
 
-    # This should be the shape of guide_pairs expanded to the full dataset
-    # (2440 -> 24400)
+    with numpyro.plate("cell_lines_null_sko", lengths["len_cell_lines"]):
+        null_eff_sko = numpyro.sample("null_eff_sko", dist.Beta(2.0, 20.0))
 
-    # numpyro.sample("obs_init_s", init_lh_s, obs=data["initial"]["singletons"]  if not predict else None)
+    # index per observation
+    null_eff = null_eff_sko[indices["cell_line_s_idx"]]
 
-    # with numpyro.plate("guides_counts_s_obs", data["final"]["singletons"].shape[0]):
+    lh_s, theta_s = dkoLikelihoodFullFinal(
+        init_theta=guide_init_count_s[indices['guide_s_idx']],
+        guide_eff_1=guide_eff_s,
+        guide_eff_2=null_eff,
+        cell_line_growth=cell_line_growth_s,
+        gene_ko_growth_1=gene_ko_growth_s,
+        gene_ko_growth_2=0.0,
+        gene_ko_growth_12=0.0,
+        mv=mv_s,
+        library_bias=None,
+        p_zi=False if p_zi_s is False else p_zi_s[indices["cell_line_s_idx"]],
+        singleKO=True,
+    )
 
-    # numpyro.sample(
-    #     "obs_s",
-    #     lh_s,
-    #     obs=data["final"]["singletons"] if not predict else None,
-    # )
+    ## TEST
 
+    return init_lh_s, lh_s
 
 def sample_control_distributions(
     data: Dict[str, jnp.array],
@@ -1021,14 +965,7 @@ def sample_control_distributions(
         init_theta_c[indices["guide_pair_c_idx"]], lengths, indices, cell_line_growth_c, mv_c
     )
 
-    numpyro.sample("obs_init_c", init_lh_c, obs=data["initial"]["controls"] if not predict else None)
-
-    numpyro.sample(
-        "obs_c",
-        lh_c,
-        obs=data["final"]["controls"] if not predict else None,
-    )
-
+    return init_lh_c, lh_c
 
 def valinorControls(
     data: Dict[str, jnp.array],
@@ -1069,8 +1006,6 @@ def valinorSingles(
     zi=False,
     predict=False,
 ) -> None:
-
-    print('Start o0')
 
     guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
 
@@ -1114,13 +1049,22 @@ def valinorHierarchy(
     only_singletons: bool = False,
     no_controls: bool = True,
     alternate: bool = False,
+    use_ctrl=True, use_sko=True, use_dko=True, w_ctrl=1.0, w_sko=1.0, w_dko=1.0,
     guide_config: str = "partial_pooling",
     zi=False,
     zi_s=False,
     predict=False,
 ) -> None:
 
-    guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
+    ## TEST
+    with handlers.scope(prefix="sko"):
+        guide_eff_sko = sample_guide_distributions(lengths, prior_params, config=guide_config)
+
+    with handlers.scope(prefix="dko"):
+        guide_eff_dko = sample_guide_distributions(lengths, prior_params, config=guide_config)
+    ## TEST
+
+    # guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
 
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
     (
@@ -1149,38 +1093,47 @@ def valinorHierarchy(
             mv_cell_line_raw, raw_mv_gene, lengths, indices, prior_params
         )
 
-        sample_dko_distributions(
+        init_lh, lh = sample_dko_distributions(
             data,
             lengths,
             indices,
             prior_params,
-            guide_eff,
+            guide_eff_dko,
             gene_ko_growth,
             cell_line_growth,
             mv_gene_pair,
+            library_bias,
             alternate,
             p_zi if zi else False,
             predict=predict,
         )
+
+        observe("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None, use=use_dko, weight=w_dko)
+        observe("obs",      lh,      obs=data["final"]["combinations"] if not predict else None,   use=use_dko, weight=w_dko)
+
+
     if not no_singletons:
 
-        sample_sko_distributions(
+        init_lh_s, lh_s = sample_sko_distributions(
             data,
             lengths,
             indices,
             prior_params,
-            guide_eff,
+            guide_eff_sko,
             gene_ko_growth,
             cell_line_growth,
             mv_gene_s,
-            library_bias if not only_singletons else None,
             alternate,
             p_zi_s if zi_s else False,
             predict=predict,
         )
+
+        observe("obs_init_s", init_lh_s, obs=data["initial"]["singletons"] if not predict else None, use=use_sko, weight=w_sko)
+        observe("obs_s",      lh_s,      obs=data["final"]["singletons"] if not predict else None,   use=use_sko, weight=w_sko)
+
     if not no_controls:
 
-        sample_control_distributions(
+        init_lh_c, lh_c = sample_control_distributions(
             data,
             lengths,
             indices,
@@ -1189,3 +1142,6 @@ def valinorHierarchy(
             mv_cell_line_raw,
             predict=predict,
         )
+
+        observe("obs_init_c", init_lh_c, obs=data["initial"]["controls"] if not predict else None, use=use_ctrl, weight=w_ctrl)
+        observe("obs_c",      lh_c,      obs=data["final"]["controls"] if not predict else None,   use=use_ctrl, weight=w_ctrl)

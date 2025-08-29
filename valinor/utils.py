@@ -353,13 +353,15 @@ def calculateLengths(
     )
 
     if singletons:
-        lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
+        # lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
 
         # Unique guides, not including duplicates with different nulls, as these are not parameterised
 
         # Ideally I want the same thing for every dataset....
 
-        # lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_s_idx"]))
+        # FIX ME
+
+        lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_s_idx"]))
 
     if neg_controls:
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))
