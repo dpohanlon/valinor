@@ -68,7 +68,7 @@ def prepareData(
     if not only_singletons:
         prior_params["init_count"] = (
             np.mean(datasets["combinations"]["plasmid"]),
-            np.std(datasets["combinations"]["plasmid"]) * 0.1, # std not realistic
+            np.std(datasets["combinations"]["plasmid"]),
         )
 
         if "dLFC" in datasets["combinations"]:

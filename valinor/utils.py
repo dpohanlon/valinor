@@ -124,14 +124,16 @@ def getInitialCountsDF(df: pd.DataFrame, initCountVar: str, singletons : bool = 
         pd.Series: Initial counts.
     """
 
-    guideVar = "guide_pair_index" if not singletons else "guide1_index"
+    guideVar = "guide_pair_index" if not singletons else "guide_index"
 
-    initial_counts = (
-            df.groupby("guide_pair_index")
-            .agg({"guide_pair_index": "first", initCountVar : "first", guideVar : 'first'})
-            .reset_index(drop=True)
-            .sort_values("guide_pair_index")[[initCountVar, guideVar]]
-    )
+    # initial_counts = (
+    #         df.groupby("guide_pair_index")
+    #         .agg({"guide_pair_index": "first", initCountVar : "first", guideVar : 'first'})
+    #         .reset_index(drop=True)
+    #         .sort_values("guide_pair_index")[[initCountVar, guideVar]]
+    # )
+
+    initial_counts = df#.sort_values(guideVar) ### ???
 
     return initial_counts[initCountVar].values.astype(np.int32), initial_counts[guideVar].values.astype(np.int32)
 
@@ -247,7 +249,7 @@ def getIndices(
         "guide_1_idx": jnp.array(
             df["guide1_index"].values
             if not only_singletons
-            else dfSingles["guide1_index"].values
+            else dfSingles["guide_index"].values
         ),
         "guide_1_unq_idx": jnp.array(
             df["guide1_unq_index"].values
@@ -295,7 +297,7 @@ def getIndices(
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
         indices["guide_pair_unq_s_idx"] = jnp.array(dfSingles["guide_pair_unq_index"].values)
 
-        indices["guide_s_idx"] = jnp.array(dfSingles["guide1_index"].values)
+        indices["guide_s_idx"] = jnp.array(dfSingles["guide_index"].values)
         indices["guide_unq_s_idx"] = jnp.array(dfSingles["guide1_unq_index"].values)
 
         indices["gene_s_idx"] = jnp.array(dfSingles["gene1_unq_index"].values)
@@ -472,8 +474,12 @@ def checkBounds(
         indices, singletons=singletons, only_singletons=only_singletons
     )
 
+    # TODO: Also check corespondence between guides in singles and combinations
+
     # Numpyro doesn't check whether we try to index off the end of an array,
     # so check that all of the arrays are the correct size for the indices
+
+    print(np.max(guide_indices), lengths["len_guides"])
 
     assert np.max(guide_indices) < lengths["len_guides"]
     assert np.max(gene_indices) < lengths["len_genes"]

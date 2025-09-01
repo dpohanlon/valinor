@@ -40,6 +40,8 @@ from typing import Dict, List, Tuple, Any
 
 import json
 
+from pprint import pprint
+
 import matplotlib as mpl
 
 mpl.use("Agg")
@@ -101,7 +103,6 @@ def obs_config(mode, data, config):
     w_dko  = base / max(n_dko, 1)
 
     print(w_ctrl, w_sko, w_dko)
-    # exit(0)
 
     if mode == "controls":
         return dict(use_ctrl=has_ctrl, use_sko=False, use_dko=False, w_ctrl=w_ctrl, w_sko=1.0, w_dko=1.0)
@@ -119,7 +120,7 @@ def initialize_svi(model, guide, lr, nParticles, nEpochs):
 
     # optimizer = numpyro.optim.ClippedAdam(step_size=lr, clip_norm=1.0)
 
-    warmup = int(0.1 * nEpochs)
+    warmup = int(0.25 * nEpochs)
     schedule = optax.warmup_cosine_decay_schedule(
         init_value=0.0,
         peak_value=lr,
@@ -353,6 +354,13 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
         init_params_common["guide_init_count_c"] = data["initial"]["controls"].astype(np.float32)
 
+    pprint(lengths)
+    print('')
+    print('init_count_s_vals', prior_params["init_count_s_vals"].shape, prior_params["init_count_s_vals"][:5])
+    print('indices: guide_initial_s_idx', indices['guide_initial_s_idx'].shape, np.max(indices['guide_initial_s_idx']))
+
+    print(init_params_common["guide_init_count_s"][indices['guide_initial_s_idx']][:10])
+
     custom_init = configure_custom_init(init_params_common)
 
     valinor_model = models.valinorHierarchy
@@ -501,6 +509,8 @@ def runValinor(lengths, indices, prior_params, data, config):
         save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage = stage)
 
         save_posterior_predictive(valinor_model, valinor_guide, params_s, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, stage, **singles_args)
+
+        # exit(0)
 
     if 'dko' in fit_mode or fit_mode == "full":
 

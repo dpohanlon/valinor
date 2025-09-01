@@ -836,8 +836,10 @@ def sample_sko_distributions(
     predict=False,
 ):
 
+    print("len_guides", lengths["len_guides"])
+
     # Index unique singleton guides, rather than pairs (agg over null guides, etc, as these are not parameterised, unlike in pairs)
-    with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
+    with numpyro.plate("guides_counts_s", lengths["len_guides"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
         guide_init_count_s = numpyro.sample(
             "guide_init_count_s",
@@ -864,6 +866,12 @@ def sample_sko_distributions(
 
     # Expand this to the init dataset size, with the repeated entries for pairs with different null guides, to match obs (50 -> 300)
 
+    # print('guide_eff_s', guide_eff_s.shape)
+    # print('indices["guide_s_idx"]', indices["guide_s_idx"].shape)
+    # print('indices["cell_line_s_idx"]', indices["cell_line_s_idx"].shape)
+
+    # print('guide_initial_s_idx', indices['guide_initial_s_idx'].shape)
+
     init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s[indices['guide_initial_s_idx']])
 
     # Expand initial parameters to the final dataset size from the parameter size, with repeated entries for cell lines (plasmid, no replicates, etc) (50 -> 3600)
@@ -885,6 +893,8 @@ def sample_sko_distributions(
 
     # index per observation
     null_eff = null_eff_sko[indices["cell_line_s_idx"]]
+
+    # INIT THETA?
 
     lh_s, theta_s = dkoLikelihoodFullFinal(
         init_theta=guide_init_count_s[indices['guide_s_idx']],
@@ -993,53 +1003,6 @@ def valinorControls(
     )
 
 
-def valinorSingles(
-    data: Dict[str, jnp.array],
-    lengths: Dict[str, int],
-    indices: Dict[str, jnp.array],
-    prior_params: Dict[str, Any],
-    no_singletons: bool = False,
-    only_singletons: bool = False,
-    no_controls: bool = True,
-    alternate: bool = False,
-    guide_config: str = "partial_pooling",
-    zi=False,
-    predict=False,
-) -> None:
-
-    guide_eff = sample_guide_distributions(lengths, prior_params, config=guide_config)
-
-    gene_ko_growth = sample_gene_distributions(lengths, prior_params)
-    (
-        cell_line_growth,
-        library_bias,
-    ) = sample_cell_line_distributions(lengths, prior_params)
-
-    if zi:
-        p_zi_s = sample_zero_inflation_s(lengths, prior_params)
-
-    # Common to all datasets, sample the 'raw' (log) version
-    raw_mv_cell_line_s, gene_std_s = sample_mv_cell_line_distributions_s(lengths, prior_params)
-    raw_mv_gene_s, mv_gene_s       = sample_od_distributions_s(
-        raw_mv_cell_line_s, gene_std_s, lengths, prior_params
-    )
-
-    sample_sko_distributions(
-        data,
-        lengths,
-        indices,
-        prior_params,
-        guide_eff,
-        gene_ko_growth,
-        cell_line_growth,
-        mv_gene_s,
-        None,
-        False,
-        p_zi_s if zi else False,
-        predict=predict,
-    )
-
-
 def valinorHierarchy(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
@@ -1088,6 +1051,8 @@ def valinorHierarchy(
     )
 
     if not only_singletons:
+
+        # Problem is here?
 
         mv_gene_pair = sample_pair_od_distributions(
             mv_cell_line_raw, raw_mv_gene, lengths, indices, prior_params

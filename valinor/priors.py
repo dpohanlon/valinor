@@ -45,7 +45,7 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
 #     # Params are common to all measurements with the same guide pair (or guide 1) index, incorporating all replicates and null guides, so average over these
 
-#     guideVar = "guide_pair_index" if not singletons else "guide1_index"
+#     guideVar = "guide_pair_index" if not singletons else 'guide_index'
 
 #     # Average over plasmid counts per guide pair, if multiple
 #     initial_counts = (
@@ -78,30 +78,36 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
     # Params are common to all measurements with the same guide pair (or guide 1) index, incorporating all replicates and null guides, so average over these
 
-    guideVar = "guide_pair_index" if not singletons else "guide1_index"
+    guideVar = "guide_pair_index" if not singletons else 'guide_index'
+
+    if singletons:
+        print(list(df))
+        print(df['guide_index'])
+        print(df[guideVar])
 
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
-            df.groupby("guide_pair_index")
-            .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first'})
-            .reset_index(drop=True)
-            .sort_values("guide_pair_index")[[initCountVar, guideVar]]
+            df.groupby(guideVar)
+            .agg({initCountVar : "median", guideVar : 'first'})
+            .reset_index(drop=True)[[initCountVar, guideVar]]
+            # .sort_values(guideVar)[[initCountVar, guideVar]]
     )
-
-    if singletons:
-        # Average over null guides if present
-        initial_counts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean'}).reset_index()
 
     final_counts = (
-            df.groupby("guide_pair_index")
-            .agg({"guide_pair_index": "first", 'value' : "first", "guide1_index" : 'first'})
-            .reset_index(drop=True)
-            .sort_values("guide_pair_index")[['value', guideVar]]
+            df.groupby(guideVar)
+            .agg({'value' : "first", guideVar : 'first'})
+            .reset_index(drop=True)[['value', guideVar]]
+            # .sort_values(guideVar)[['value', guideVar]]
     )
 
     if singletons:
-        # Average over null guides if present
-        final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
+
+        print(len(initial_counts))
+        # exit(0)
+
+    # if singletons:
+    #     # Average over null guides if present
+    #     final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
 
     return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
 
