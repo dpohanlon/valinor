@@ -144,7 +144,7 @@ def sampleParams(
     if singletons:
         singlesParams = {}
 
-        singlesParams["guide_init_count_s"] = samples["guide_init_count_s"][:, indices["guide_initial_s_idx"]]
+        singlesParams["guide_init_count_s"] = samples["guide_init_count_s"][:, indices["guide_pair_s_idx"]]
 
         # compare to plasmids - do indices correspond between initial and final?
 
@@ -195,7 +195,7 @@ def sampleParams(
 
         # Sample from Initial Likelihood
         init_lh, theta_init = models.skoLikelihoodInitial(singlesParams["init_count_s"])
-        singlesParams["samples_s_init"] = init_lh.sample(random.split(keys[key_counter])[0])
+        singlesParams["samples_s_init"] = init_lh.sample(random.split(keys[key_counter])[0])[indices['guide_pair_s_idx']]
         key_counter += 1
 
         # Sample from Final Likelihood
@@ -403,7 +403,7 @@ def samplePosteriorPredictive(samples, indices, annotation = None):
         fileName = 'obs_init_s.h5' if annotation == None else f'obs_init_s_{annotation}.h5'
 
         with h5py.File(fileName, 'w') as h5f:
-            # h5f.create_dataset('obs_init_s', data=samples["obs_init_s"][:, indices["guide_s_idx"]])
+
             h5f.create_dataset('obs_init_s', data=samples["obs_init_s"])
 
     if 'obs_s' in samples:
@@ -418,7 +418,7 @@ def samplePosteriorPredictive(samples, indices, annotation = None):
         fileName = 'obs_init.h5' if annotation == None else f'obs_init_{annotation}.h5'
 
         with h5py.File(fileName, 'w') as h5f:
-            h5f.create_dataset('obs_init', data=samples["obs_init"][:, indices["guide_pair_idx"]]) ## Fix me
+            h5f.create_dataset('obs_init', data=samples["obs_init"])
 
     if 'obs' in samples:
 

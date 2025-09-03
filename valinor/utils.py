@@ -67,6 +67,7 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
         if not (d is None):
 
             singletons = "singletons" in n.lower()
+            print(n, singletons)
             count, indices = getInitialCountsDF(d, initCountVar, singletons)
             counts[n] = count
             count_indices[n] = indices
@@ -91,51 +92,39 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 #         pd.Series: Initial counts.
 #     """
 
-# # initial_counts_prior = (
-# #     data_s.groupby('guide1_index')
-# #     .agg({'plasmid': 'mean', 'guide_pair_index': 'first'})
-# #     .reset_index()
-# #     .sort_values('guide1_index')
-# # )
+#     guideVar = "guide_pair_index" if not singletons else "guide_index"
 
-# # t = initial_counts_prior['plasmid'].values[data_s['guide1_index'].values]
+#     # initial_counts = (
+#     #         df.groupby("guide_pair_index")
+#     #         .agg({"guide_pair_index": "first", initCountVar : "first", guideVar : 'first'})
+#     #         .reset_index(drop=True)
+#     #         .sort_values("guide_pair_index")[[initCountVar, guideVar]]
+#     # )
 
+#     initial_counts = df#.sort_values(guideVar) ### ???
 
-#     guideVar = "guide_pair_index" if not singletons else "guide1_index"
-
-#     initial_counts = (
-#             df.groupby(guideVar)
-#             .agg({"guide_pair_index": "first", initCountVar : "first", guideVar : 'first'})
-#             .reset_index(drop=True)
-#             .sort_values(guideVar)[[initCountVar, guideVar, 'guide_pair_index']]
-#     )
-
-#     return initial_counts[initCountVar].values[df[guideVar].values], initial_counts[guideVar].values.astype(np.int32)
+#     return initial_counts[initCountVar].values.astype(np.int32), initial_counts[guideVar].values.astype(np.int32)
 
 def getInitialCountsDF(df: pd.DataFrame, initCountVar: str, singletons : bool = False) -> pd.Series:
-    """
-    Get initial counts from the DataFrame.
+    guideVar = "guide_pair_index"# if not singletons else 'guide_index'
 
-    Args:
-        df (pd.DataFrame): The input DataFrame.
-        initCountVar (str): The variable for initial count.
+    # Average over plasmid counts per guide pair, if multiple
+    initial_counts = (
+            df.groupby(guideVar)
+            .agg({initCountVar : "median", guideVar : 'first'})
+            .reset_index(drop=True)[[initCountVar, guideVar]]
+            # .sort_values(guideVar)[[initCountVar, guideVar]]
+    )
 
-    Returns:
-        pd.Series: Initial counts.
-    """
-
-    guideVar = "guide_pair_index" if not singletons else "guide_index"
-
-    # initial_counts = (
-    #         df.groupby("guide_pair_index")
-    #         .agg({"guide_pair_index": "first", initCountVar : "first", guideVar : 'first'})
-    #         .reset_index(drop=True)
-    #         .sort_values("guide_pair_index")[[initCountVar, guideVar]]
+    # final_counts = (
+    #         df.groupby(guideVar)
+    #         .agg({'value' : "first", guideVar : 'first'})
+    #         .reset_index(drop=True)[['value', guideVar]]
+    #         # .sort_values(guideVar)[['value', guideVar]]
     # )
 
-    initial_counts = df#.sort_values(guideVar) ### ???
-
-    return initial_counts[initCountVar].values.astype(np.int32), initial_counts[guideVar].values.astype(np.int32)
+    # Float, int?
+    return initial_counts[initCountVar].values.astype(np.float32), initial_counts[guideVar].values.astype(np.int32)
 
 def getUniqueGeneGuideIndices(
     indices: Dict[str, np.ndarray],
@@ -355,7 +344,7 @@ def calculateLengths(
     )
 
     if singletons:
-        # lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
+        lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
 
         # Unique guides, not including duplicates with different nulls, as these are not parameterised
 
@@ -363,7 +352,7 @@ def calculateLengths(
 
         # FIX ME
 
-        lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_s_idx"]))
+        # lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_s_idx"]))
 
     if neg_controls:
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))

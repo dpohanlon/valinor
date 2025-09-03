@@ -744,9 +744,7 @@ def sample_dko_distributions(
 
     cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
-    init_lh, theta_init = dkoLikelihoodInitial(guide_init_count[indices['guide_pair_idx']])
-
-    print(theta_init.shape)
+    init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
 
     library_bias_v = (
         library_bias[indices["cell_line_idx"]] if library_bias is not None else 1.0
@@ -796,10 +794,8 @@ def sample_sko_distributions(
     predict=False,
 ):
 
-    print("len_guides", lengths["len_guides"])
-
     # Index unique singleton guides, rather than pairs (agg over null guides, etc, as these are not parameterised, unlike in pairs)
-    with numpyro.plate("guides_counts_s", lengths["len_guides"]):
+    with numpyro.plate("guides_counts_s", lengths["len_guide_pairs_s"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
         guide_init_count_s = numpyro.sample(
             "guide_init_count_s",
@@ -832,7 +828,7 @@ def sample_sko_distributions(
 
     # print('guide_initial_s_idx', indices['guide_initial_s_idx'].shape)
 
-    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s[indices['guide_initial_s_idx']])
+    init_lh_s, init_theta_s = skoLikelihoodInitial(guide_init_count_s)
 
     # Expand initial parameters to the final dataset size from the parameter size, with repeated entries for cell lines (plasmid, no replicates, etc) (50 -> 3600)
 
@@ -894,12 +890,17 @@ def sample_control_distributions(
         )
 
     # Length of guide pairs over all cell lines
-    with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_unq_c"]):
+    # with numpyro.plate("guides_counts_c", lengths["len_guide_pairs_unq_c"]):
 
-        z_pair_c = numpyro.sample(
-            "z_pair_c",
-            dist.Normal(50, 10)
-        )
+    #     z_pair_c = numpyro.sample(
+    #         "z_pair_c",
+    #         dist.Normal(50, 50)
+    #     )
+
+    mv_c = numpyro.sample(
+        "mv_c",
+        dist.Normal(50, 50)
+    )
 
     # z_pair_c = numpyro.sample(
     #     "z_pair_c",
@@ -921,11 +922,13 @@ def sample_control_distributions(
     #     indices["guide_pair_c_idx"],
     # ]
 
-    mv_c = z_pair_c[
-        indices["guide_pair_c_idx"],
-    ]
+    # mv_c = z_pair_c[
+    #     indices["guide_pair_c_idx"],
+    # ]
 
-    mv_c = jax.nn.softplus(mv_c)
+    mv_c = jax.nn.softplus(mv_c - 1) + 1
+
+    # Whether this should be indexed by guide indices or not (to get to the 'obs' shape) depends on the shape of the initial counts
 
     init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
 
@@ -986,7 +989,7 @@ def valinorHierarchy(
 
     if not only_singletons:
 
-        # Problem is here?
+    #     # Problem is here?
 
         mv_gene_pair = sample_pair_od_distributions(
             mv_cell_line_raw, raw_mv_gene, lengths, indices, prior_params
@@ -1006,13 +1009,6 @@ def valinorHierarchy(
             p_zi if zi else False,
             predict=predict,
         )
-
-        # ValueError: Incompatible shapes for broadcasting: shapes=[(960,), (4640,)]
-        # 4640 -> shape of obs
-        # 960 -> shape of init_lh
-
-        print(data["initial"]["combinations"].shape)
-        # exit(0)
 
         observe("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None, use=use_dko, weight=w_dko)
         observe("obs",      lh,      obs=data["final"]["combinations"] if not predict else None,   use=use_dko, weight=w_dko)

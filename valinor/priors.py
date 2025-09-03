@@ -19,8 +19,8 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     reps = (
         df.groupby(["GuidePair", "cell_line_index"])
         .agg(
-            mean=("value", np.mean),
-            std=("value", np.std),
+            mean=("value", "mean"),
+            std=("value", "std"),
             cell_line_index=("cell_line_index", "first"),
         )
         .reset_index(drop=True)
@@ -30,7 +30,7 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     reps["od"] = reps["var"] / reps["mean"]
 
     repsC = reps.groupby(["cell_line_index"]).agg(
-        mean=("od", np.median), std=("od", np.std)
+        mean=("od", "median"), std=("od", "std")
     )
     repsC = repsC.sort_values("cell_line_index")
 
@@ -80,11 +80,6 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
     guideVar = "guide_pair_index" if not singletons else 'guide_index'
 
-    if singletons:
-        print(list(df))
-        print(df['guide_index'])
-        print(df[guideVar])
-
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
             df.groupby(guideVar)
@@ -99,15 +94,6 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
             .reset_index(drop=True)[['value', guideVar]]
             # .sort_values(guideVar)[['value', guideVar]]
     )
-
-    if singletons:
-
-        print(len(initial_counts))
-        # exit(0)
-
-    # if singletons:
-    #     # Average over null guides if present
-    #     final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
 
     return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
 

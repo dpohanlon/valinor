@@ -352,14 +352,28 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "init_count_s_vals" in prior_params and use_sko_d:
         init_params_common["guide_init_count_s"] = prior_params["init_count_s_vals"]
     if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
-        init_params_common["guide_init_count_c"] = data["initial"]["controls"].astype(np.float32)
+        init_params_common["guide_init_count_c"] = prior_params["init_count_c_vals"]
 
-    pprint(lengths)
-    print('')
-    print('init_count_s_vals', prior_params["init_count_s_vals"].shape, prior_params["init_count_s_vals"][:5])
-    print('indices: guide_initial_s_idx', indices['guide_initial_s_idx'].shape, np.max(indices['guide_initial_s_idx']))
+    print(lengths["len_guide_pairs"])
 
-    print(init_params_common["guide_init_count_s"][indices['guide_initial_s_idx']][:10])
+    # print(data["initial"]["controls"].shape, data["final"]["controls"].shape)
+    # print(data["initial"]["singletons"].shape, data["final"]["singletons"].shape)
+    # print(data["initial"]["combinations"].shape, data["final"]["combinations"].shape)
+    # print(init_params_common["guide_init_count_s"].shape, init_params_common["guide_init_count"].shape)
+    # print('')
+    # print(init_params_common["guide_init_count_s"].shape, data["initial"]["singletons"].shape)
+    print(init_params_common["guide_init_count"].shape, data["initial"]["combinations"].shape)
+    # print('Should these be the same!?')
+    # print('Do I want to eval a likelihood over repeated entries for initial values?')
+    # print('')
+
+    # pprint(lengths)
+    # print('')
+
+    # print('init_count_s_vals', prior_params["init_count_s_vals"].shape, prior_params["init_count_s_vals"][:5])
+    # print('indices: guide_initial_s_idx', indices['guide_initial_s_idx'].shape, np.max(indices['guide_initial_s_idx']))
+
+    # print(init_params_common["guide_init_count_s"][indices['guide_initial_s_idx']][:10])
 
     custom_init = configure_custom_init(init_params_common)
 
@@ -509,8 +523,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage = stage)
 
         save_posterior_predictive(valinor_model, valinor_guide, params_s, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, stage, **singles_args)
-
-        # exit(0)
 
     if 'dko' in fit_mode or fit_mode == "full":
 

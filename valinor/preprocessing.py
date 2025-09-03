@@ -6,6 +6,7 @@ from valinor.utils import (
     getInitialCounts,
     getIndices,
     calculateLengths,
+    getInitialCountsDF,
     checkBounds,
     reindexDF,
     combinationLFCs,
@@ -17,7 +18,6 @@ from valinor.priors import (
     defaultPriors,
     calculate_cell_line_stats,
     calculate_gene_stats,
-    calcInitCountParams,
 )
 
 from typing import Dict, List, Tuple, Any
@@ -76,7 +76,7 @@ def prepareData(
         elif not (datasets['singletons'] is None):
             prior_params["dLFC"] = combinationLFCs(datasets["combinations"], datasets["singletons"])
 
-        prior_params["init_count_vals"] = calcInitCountParams(datasets["combinations"], initCountVar = 'plasmid', singletons = False)[0]
+        prior_params["init_count_vals"] = getInitialCountsDF(datasets["combinations"], initCountVar = 'plasmid', singletons = False)[0]
 
         prior_params['p_zi'] = countZeros(datasets['combinations'])
 
@@ -86,7 +86,7 @@ def prepareData(
             np.std(datasets["singletons"]["plasmid"]),
         )
 
-        prior_params["init_count_s_vals"] = calcInitCountParams(datasets["singletons"], initCountVar = 'plasmid')[0]
+        prior_params["init_count_s_vals"] = getInitialCountsDF(datasets["singletons"], initCountVar = 'plasmid')[0]
 
         prior_params['p_zi_s'] = countZeros(datasets['singletons'])
 
@@ -95,6 +95,8 @@ def prepareData(
             np.mean(datasets["controls"]["plasmid"]),
             np.std(datasets["controls"]["plasmid"]),
         )
+
+        prior_params["init_count_c_vals"] = getInitialCountsDF(datasets["controls"], initCountVar = 'plasmid', singletons = False)[0]
 
     # Init params for controls, cell line stats for control DF
 
