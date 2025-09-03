@@ -744,77 +744,37 @@ def sample_dko_distributions(
 
     cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
-    init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
+    init_lh, theta_init = dkoLikelihoodInitial(guide_init_count[indices['guide_pair_idx']])
+
+    print(theta_init.shape)
 
     library_bias_v = (
         library_bias[indices["cell_line_idx"]] if library_bias is not None else 1.0
     )
 
-    if alternate:
-        with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
-            pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
-            pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
+    pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
+    pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
 
-            guide_pair_eff_mean = numpyro.sample(
-                "guide_pair_eff_mean",
-                dist.TruncatedNormal(
-                    loc=pair_eff_mean_l, scale=pair_eff_mean_s, low=0.0, high=1.0
-                ),
-            )
-            guide_pair_eff_std = numpyro.sample(
-                "guide_pair_eff_std",
-                dist.TruncatedNormal(loc=pair_eff_std_l, scale=pair_eff_std_s, low=0.0),
-            )
+    with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
 
-        guide_eff_12 = numpyro.sample(
-            "guide_eff_12",
-            dist.TruncatedNormal(
-                loc=guide_pair_eff_mean[indices["guide_pair_idx"]],
-                scale=guide_pair_eff_std[indices["guide_pair_idx"]],
-                low=0.0,
-                high=1.0,
-            ),
+        guide_pair_eff = numpyro.sample(
+            "guide_pair_eff",
+            dist.HalfCauchy(0.1),
         )
 
-        lh, theta = dkoLikelihoodFinal(
-            theta_init[indices["guide_pair_idx"]],
-            guide_eff_1,
-            guide_eff_2,
-            guide_eff_12,
-            cell_line_growth_v,
-            gene_ko_growth_1,
-            gene_ko_growth_2,
-            gene_ko_growth_12,
-            mv,
-            library_bias=library_bias_v,
-            p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
-        )
-
-    else:
-
-        pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
-        pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
-
-        with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
-
-            guide_pair_eff = numpyro.sample(
-                "guide_pair_eff",
-                dist.HalfCauchy(0.1),
-            )
-
-        lh, theta = dkoLikelihoodFullFinal(
-            theta_init[indices["guide_pair_idx"]],
-            guide_eff_1,
-            guide_eff_2,
-            cell_line_growth_v,
-            gene_ko_growth_1,
-            gene_ko_growth_2,
-            gene_ko_growth_12,
-            mv,
-            library_bias=library_bias_v,
-            p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
-            guide_pair_eff = guide_pair_eff[indices["guide_pair_idx"]]
-        )
+    lh, theta = dkoLikelihoodFullFinal(
+        theta_init[indices["guide_pair_idx"]],
+        guide_eff_1,
+        guide_eff_2,
+        cell_line_growth_v,
+        gene_ko_growth_1,
+        gene_ko_growth_2,
+        gene_ko_growth_12,
+        mv,
+        library_bias=library_bias_v,
+        p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
+        guide_pair_eff = guide_pair_eff[indices["guide_pair_idx"]]
+    )
 
     # Only evaluate these when performing inference rather than predicting
     # as otherwise there is a problem with the sampling for unbounded
@@ -977,32 +937,6 @@ def sample_control_distributions(
 
     return init_lh_c, lh_c
 
-def valinorControls(
-    data: Dict[str, jnp.array],
-    lengths: Dict[str, int],
-    indices: Dict[str, jnp.array],
-    prior_params: Dict[str, Any],
-    no_singletons: bool = False,
-    only_singletons: bool = False,
-    no_controls: bool = True,
-    alternate: bool = False,
-    guide_config: str = "partial_pooling",
-    zi=False,
-    predict=False,
-) -> None:
-
-    (
-        cell_line_growth,
-        library_bias,
-    ) = sample_cell_line_distributions(lengths, prior_params)
-
-    mv_cell_line_raw, _ = sample_mv_cell_line_distributions(lengths, prior_params)
-
-    sample_control_distributions(
-        data, lengths, indices, prior_params, cell_line_growth, mv_cell_line_raw
-    )
-
-
 def valinorHierarchy(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
@@ -1073,9 +1007,15 @@ def valinorHierarchy(
             predict=predict,
         )
 
+        # ValueError: Incompatible shapes for broadcasting: shapes=[(960,), (4640,)]
+        # 4640 -> shape of obs
+        # 960 -> shape of init_lh
+
+        print(data["initial"]["combinations"].shape)
+        # exit(0)
+
         observe("obs_init", init_lh, obs=data["initial"]["combinations"] if not predict else None, use=use_dko, weight=w_dko)
         observe("obs",      lh,      obs=data["final"]["combinations"] if not predict else None,   use=use_dko, weight=w_dko)
-
 
     if not no_singletons:
 
