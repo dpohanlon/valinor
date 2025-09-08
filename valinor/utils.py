@@ -106,25 +106,20 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 #     return initial_counts[initCountVar].values.astype(np.int32), initial_counts[guideVar].values.astype(np.int32)
 
 def getInitialCountsDF(df: pd.DataFrame, initCountVar: str, singletons : bool = False) -> pd.Series:
-    guideVar = "guide_pair_index"# if not singletons else 'guide_index'
+
+    obsVar = "guide_pair_index"
+    paramVar = "guide_index" if singletons else obsVar
 
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
-            df.groupby(guideVar)
-            .agg({initCountVar : "median", guideVar : 'first'})
-            .reset_index(drop=True)[[initCountVar, guideVar]]
+            df.groupby(obsVar)
+            .agg({initCountVar : "median", obsVar : 'first', paramVar : 'first'})
+            .reset_index(drop=True)[[initCountVar, obsVar, paramVar]]
             # .sort_values(guideVar)[[initCountVar, guideVar]]
     )
 
-    # final_counts = (
-    #         df.groupby(guideVar)
-    #         .agg({'value' : "first", guideVar : 'first'})
-    #         .reset_index(drop=True)[['value', guideVar]]
-    #         # .sort_values(guideVar)[['value', guideVar]]
-    # )
-
     # Float, int?
-    return initial_counts[initCountVar].values.astype(np.float32), initial_counts[guideVar].values.astype(np.int32)
+    return initial_counts[initCountVar].values.astype(np.float32), initial_counts[paramVar].values.astype(np.int32)
 
 def getUniqueGeneGuideIndices(
     indices: Dict[str, np.ndarray],
@@ -230,21 +225,21 @@ def getIndices(
             else dfSingles["guide_pair_index"].values
         ),
 
-        "guide_pair_unq_idx": jnp.array(
-            df["guide_pair_unq_index"].values
-            if not only_singletons
-            else dfSingles["guide_pair_unq_index"].values
-        ),
+        # "guide_pair_unq_idx": jnp.array(
+        #     df["guide_pair_unq_index"].values
+        #     if not only_singletons
+        #     else dfSingles["guide_pair_unq_index"].values
+        # ),
         "guide_1_idx": jnp.array(
             df["guide1_index"].values
             if not only_singletons
             else dfSingles["guide_index"].values
         ),
-        "guide_1_unq_idx": jnp.array(
-            df["guide1_unq_index"].values
-            if not only_singletons
-            else dfSingles["guide1_unq_index"].values
-        ),
+        # "guide_1_unq_idx": jnp.array(
+        #     df["guide1_unq_index"].values
+        #     if not only_singletons
+        #     else dfSingles["guide1_unq_index"].values
+        # ),
         "gene_1_idx": jnp.array(
             df["gene1_unq_index"].values
             if not only_singletons
@@ -269,7 +264,7 @@ def getIndices(
         indices["gene_2_idx"] = jnp.array(df["gene2_unq_index"].values)
         indices["gene_2_common_idx"] = jnp.array(df["gene2_index"].values)
         indices["guide_2_idx"] = jnp.array(df["guide2_index"].values)
-        indices["guide_2_unq_idx"] = jnp.array(df["guide2_unq_index"].values)
+        # indices["guide_2_unq_idx"] = jnp.array(df["guide2_unq_index"].values)
         indices["gene_pair_idx"] = jnp.array(df["gene_unq_pair_index"].values)
 
         # Rather than indexing for observations, these index for the gene pairs array to specify which gene index corresponds to this pair
@@ -284,10 +279,10 @@ def getIndices(
 
     if singletons:
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
-        indices["guide_pair_unq_s_idx"] = jnp.array(dfSingles["guide_pair_unq_index"].values)
+        # indices["guide_pair_unq_s_idx"] = jnp.array(dfSingles["guide_pair_unq_index"].values)
 
         indices["guide_s_idx"] = jnp.array(dfSingles["guide_index"].values)
-        indices["guide_unq_s_idx"] = jnp.array(dfSingles["guide1_unq_index"].values)
+        # indices["guide_unq_s_idx"] = jnp.array(dfSingles["guide1_unq_index"].values)
 
         indices["gene_s_idx"] = jnp.array(dfSingles["gene1_unq_index"].values)
 
@@ -298,7 +293,7 @@ def getIndices(
     if controls:
         indices["cell_line_c_idx"] = jnp.array(dfControls["cell_line_index"].values)
         indices["guide_pair_c_idx"] = jnp.array(dfControls["guide_pair_index"].values)
-        indices["guide_pair_unq_c_idx"] = jnp.array(dfControls["guide_pair_unq_index"].values)
+        # indices["guide_pair_unq_c_idx"] = jnp.array(dfControls["guide_pair_unq_index"].values)
 
     # Make sure these are all 0D
     for k, v in indices.items():
@@ -332,7 +327,7 @@ def calculateLengths(
     lengths = {
         "len_cell_lines": len(np.unique(indices["cell_line_idx"])),
         "len_guide_pairs": len(np.unique(indices["guide_pair_idx"])),
-        "len_guide_pairs_unq": len(np.unique(indices["guide_pair_unq_idx"])),
+        # "len_guide_pairs_unq": len(np.unique(indices["guide_pair_unq_idx"])),
     }
 
     if not only_singletons:
@@ -356,7 +351,7 @@ def calculateLengths(
 
     if neg_controls:
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))
-        lengths["len_guide_pairs_unq_c"] = len(np.unique(indices["guide_pair_unq_c_idx"]))
+        # lengths["len_guide_pairs_unq_c"] = len(np.unique(indices["guide_pair_unq_c_idx"]))
 
     # Unique guides, including each category in case we have unique ones there
     lengths["len_guides"] = len(guide_indices)
@@ -438,6 +433,10 @@ def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
         for k, v in params.items():
             file.create_dataset(k, data=np.array(v))
 
+def assert_contiguous(name, arr):
+    u = np.unique(arr)
+    assert u.min()==0 and np.array_equal(u, np.arange(u.max()+1)), \
+        f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
 
 def checkBounds(
     indices: Dict[str, np.ndarray],
@@ -468,8 +467,6 @@ def checkBounds(
     # Numpyro doesn't check whether we try to index off the end of an array,
     # so check that all of the arrays are the correct size for the indices
 
-    print(np.max(guide_indices), lengths["len_guides"])
-
     assert np.max(guide_indices) < lengths["len_guides"]
     assert np.max(gene_indices) < lengths["len_genes"]
 
@@ -477,16 +474,22 @@ def checkBounds(
 
     assert np.max(indices["guide_pair_idx"]) < lengths["len_guide_pairs"]
 
+    assert_contiguous("guide_pair_idx", indices["guide_pair_idx"])
+    assert_contiguous("cell_line_idx", indices["cell_line_idx"])
+
     if not only_singletons:
         assert np.max(indices["gene_pair_idx"]) < lengths["len_gene_pairs"]
+        assert_contiguous("gene_pair_idx", indices["gene_pair_idx"])
 
     if singletons:
         assert np.max(indices["cell_line_s_idx"]) < lengths["len_cell_lines"]
+        assert_contiguous("cell_line_s_idx", indices["cell_line_s_idx"])
         # assert np.max(indices["guide_pair_s_idx"]) < lengths["len_guide_pairs_s"]
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
         assert np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        assert_contiguous("cell_line_c_idx", indices["cell_line_c_idx"])
 
     # Also, warn if there are some parameters that remain unused, which is sus
 
@@ -603,6 +606,8 @@ def subset_for_mcmc(indices_to_subset, data, lengths, indices):
     for k, v in target_lengths.items():
         if v == len(indices['gene_pair_idx']):
             target_lengths[k] = len(target_indices['gene_pair_idx'])
+
+    # Not the correct indices
 
     target_gene_indices, target_guide_indices = getUniqueGeneGuideIndices(
         target_indices, singletons=False,

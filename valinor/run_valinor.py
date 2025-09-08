@@ -326,6 +326,14 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage =
 
 
 def runValinor(lengths, indices, prior_params, data, config):
+
+    if config['zi'] == False:
+        config['zi'] = None
+
+    print(indices.keys())
+
+    indices['guide_pair_init_idx'] = indices['guide_pair_idx']
+
     prng_key = random.PRNGKey(42)
 
     outputDir = (
@@ -340,21 +348,25 @@ def runValinor(lengths, indices, prior_params, data, config):
     use_sko_d  = ("singletons" in data["final"] and data["final"]["singletons"] is not None) and not config.get("no_singletons", False)
     use_dko_d  = ("combinations" in data["final"] and data["final"]["combinations"] is not None) and not config.get("only_singletons", False)
 
+    # Some combination of these is screwing up the likelihood?
+
     init_params_common = {}
     if config.get("zi", False):
         init_params_common["p_zi"] = prior_params.get("p_zi", None)
     if config.get("zi", False) and not config.get("zi_ns", False) and use_sko_d:
         init_params_common["p_zi_s"] = prior_params.get("p_zi_s", None)
+
     if "dLFC" in prior_params:
-        init_params_common["gene_pair_ko_growth"] = prior_params["dLFC"]
+        # init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"]
+        init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(prior_params["dLFC"])
     if "init_count_vals" in prior_params and use_dko_d:
         init_params_common["guide_init_count"] = prior_params["init_count_vals"]
     if "init_count_s_vals" in prior_params and use_sko_d:
         init_params_common["guide_init_count_s"] = prior_params["init_count_s_vals"]
-    if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
-        init_params_common["guide_init_count_c"] = prior_params["init_count_c_vals"]
+    # if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
+    #     init_params_common["guide_init_count_c"] = prior_params["init_count_c_vals"]
 
-    print(lengths["len_guide_pairs"])
+    # print(lengths["len_guide_pairs"])
 
     # print(data["initial"]["controls"].shape, data["final"]["controls"].shape)
     # print(data["initial"]["singletons"].shape, data["final"]["singletons"].shape)
@@ -362,7 +374,7 @@ def runValinor(lengths, indices, prior_params, data, config):
     # print(init_params_common["guide_init_count_s"].shape, init_params_common["guide_init_count"].shape)
     # print('')
     # print(init_params_common["guide_init_count_s"].shape, data["initial"]["singletons"].shape)
-    print(init_params_common["guide_init_count"].shape, data["initial"]["combinations"].shape)
+    # print(init_params_common["guide_init_count"].shape, data["initial"]["combinations"].shape)
     # print('Should these be the same!?')
     # print('Do I want to eval a likelihood over repeated entries for initial values?')
     # print('')
@@ -466,6 +478,11 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         print('Fitting singles')
 
+    # custom_init = configure_custom_init(init_params_common)
+
+    # valinor_model = models.valinorHierarchy
+    # valinor_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
+
         prng_key, _ = random.split(prng_key)
 
         svi_singles = initialize_svi(valinor_model, valinor_guide, config['lr'], config['n_particles'], config["epochs"])
@@ -524,13 +541,23 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         save_posterior_predictive(valinor_model, valinor_guide, params_s, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, stage, **singles_args)
 
+        singles_vals = valinor_guide.median(params_s)
+
+        print(singles_vals.keys())
+
     if 'dko' in fit_mode or fit_mode == "full":
 
         print('Fitting dko')
 
+        # singles_vals["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(prior_params["dLFC"])
+
+        # custom_init = configure_custom_init(singles_vals)
+        custom_init = configure_custom_init(init_params_common)
+        dko_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
+
         prng_key, _ = random.split(prng_key)
 
-        svi_dko = initialize_svi(valinor_model, valinor_guide, config['lr'], config['n_particles'], config["epochs"])
+        svi_dko = initialize_svi(valinor_model, dko_guide, config['lr'], config['n_particles'], config["epochs"])
 
         dko_args = {
             **common_config,
@@ -563,7 +590,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         predictive = Predictive(
             valinor_model,
-            guide = valinor_guide,
+            guide = dko_guide,
             params=params_d,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,
@@ -586,7 +613,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         annotation = stage if config['fit_mode'] in ("full", 'singles-dko') else 'Only'
 
-        save_posterior_predictive(valinor_model, valinor_guide, params_d, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, annotation, **dko_args)
+        save_posterior_predictive(valinor_model, dko_guide, params_d, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, annotation, **dko_args)
 
 def makeArgs():
     argParser = argparse.ArgumentParser()

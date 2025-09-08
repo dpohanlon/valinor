@@ -74,28 +74,19 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
 def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
-    # Initial values for the count parameters
+    # Similar to getInitialCountsDF, but we want to average by the paramVar now, as we're initialising the parameter (which may be associated with many real observations)
 
-    # Params are common to all measurements with the same guide pair (or guide 1) index, incorporating all replicates and null guides, so average over these
-
-    guideVar = "guide_pair_index" if not singletons else 'guide_index'
+    obsVar = "guide_pair_index"
+    paramVar = "guide_index" if singletons else obsVar
 
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
-            df.groupby(guideVar)
-            .agg({initCountVar : "median", guideVar : 'first'})
-            .reset_index(drop=True)[[initCountVar, guideVar]]
-            # .sort_values(guideVar)[[initCountVar, guideVar]]
+            df.groupby(paramVar)
+            .agg({initCountVar : "median", obsVar : 'first', paramVar : 'first'})
+            .reset_index(drop=True)[[initCountVar, obsVar, paramVar]]
     )
 
-    final_counts = (
-            df.groupby(guideVar)
-            .agg({'value' : "first", guideVar : 'first'})
-            .reset_index(drop=True)[['value', guideVar]]
-            # .sort_values(guideVar)[['value', guideVar]]
-    )
-
-    return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
+    return initial_counts[initCountVar].values.astype(np.float32)
 
 def calculate_cell_line_stats(df):
 
