@@ -396,8 +396,6 @@ def runValinor(lengths, indices, prior_params, data, config):
     if config["zi"] == False:
         config["zi"] = None
 
-    print(indices.keys())
-
     indices["guide_pair_init_idx"] = indices["guide_pair_idx"]
 
     prng_key = random.PRNGKey(42)
@@ -635,8 +633,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
         singles_vals = valinor_guide.median(params_s)
-
-        print(singles_vals.keys())
 
     if "dko" in fit_mode or fit_mode == "full":
 

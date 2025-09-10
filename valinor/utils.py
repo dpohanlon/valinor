@@ -67,7 +67,6 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
         if not (d is None):
 
             singletons = "singletons" in n.lower()
-            print(n, singletons)
             count, indices = getInitialCountsDF(d, initCountVar, singletons)
             counts[n] = count
             count_indices[n] = indices
