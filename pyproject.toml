@@ -24,7 +24,7 @@ h5py = "^3.9.0"
 jax = { version = "0.4.31" }
 jaxlib = { version = "0.4.31" }
 numpy = "^1.25.2"
-pandas = "<2.0"
+# pandas = "<2.0"
 scipy = "1.12"
 numpyro = "^0.14.0"
 seaborn = "^0.12.2"

@@ -39,40 +39,8 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
     return repsC["mean"].values, repsC["std"].values
 
-# def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
-#     # Initial values for the count parameters
-
-#     # Params are common to all measurements with the same guide pair (or guide 1) index, incorporating all replicates and null guides, so average over these
-
-#     guideVar = "guide_pair_index" if not singletons else 'guide_index'
-
-#     # Average over plasmid counts per guide pair, if multiple
-#     initial_counts = (
-#             df.groupby("guide_pair_index")
-#             .agg({"guide_pair_index": "first", initCountVar : "median", "guide1_index" : 'first'})
-#             .reset_index(drop=True)
-#             .sort_values("guide_pair_index")[[initCountVar, guideVar]]
-#     )
-
-#     if singletons:
-#         # Average over null guides if present
-#         initial_counts = initial_counts.groupby('guide1_index').agg({initCountVar : 'mean'}).reset_index()
-
-#     final_counts = (
-#             df.groupby("guide_pair_index")
-#             .agg({"guide_pair_index": "first", 'value' : "first", "guide1_index" : 'first'})
-#             .reset_index(drop=True)
-#             .sort_values("guide_pair_index")[['value', guideVar]]
-#     )
-
-#     if singletons:
-#         # Average over null guides if present
-#         final_counts = final_counts.groupby(guideVar).agg({'value' : 'mean'}).reset_index()
-
-#     return initial_counts[initCountVar].values.astype(np.float32), final_counts['value'].values.astype(np.float32)
-
-def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
+def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons=True):
 
     # Similar to getInitialCountsDF, but we want to average by the paramVar now, as we're initialising the parameter (which may be associated with many real observations)
 
@@ -81,12 +49,13 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons = True):
 
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
-            df.groupby(paramVar)
-            .agg({initCountVar : "median", obsVar : 'first', paramVar : 'first'})
-            .reset_index(drop=True)[[initCountVar, obsVar, paramVar]]
+        df.groupby(paramVar)
+        .agg({initCountVar: "median", obsVar: "first", paramVar: "first"})
+        .reset_index(drop=True)[[initCountVar, obsVar, paramVar]]
     )
 
     return initial_counts[initCountVar].values.astype(np.float32)
+
 
 def calculate_cell_line_stats(df):
 
@@ -130,14 +99,20 @@ def calculate_gene_stats(df):
     if "lfc_norm_scaled" not in df.columns:
         df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
         gene_means = np.clip(grouped_by_gene_and_cell["_computed_log"].mean(), -10, 10)
-        gene_std_devs = np.clip(grouped_by_gene_and_cell["_computed_log"].std(), 0.1, 10)
+        gene_std_devs = np.clip(
+            grouped_by_gene_and_cell["_computed_log"].std(), 0.1, 10
+        )
         df.drop(columns=["_computed_log"], inplace=True)
     else:
-        gene_means = np.clip(grouped_by_gene_and_cell["lfc_norm_scaled"].mean(), -10, 10)
-        gene_std_devs = np.clip(grouped_by_gene_and_cell["lfc_norm_scaled"].std(), 0.1, 10)
+        gene_means = np.clip(
+            grouped_by_gene_and_cell["lfc_norm_scaled"].mean(), -10, 10
+        )
+        gene_std_devs = np.clip(
+            grouped_by_gene_and_cell["lfc_norm_scaled"].std(), 0.1, 10
+        )
 
     pivot_mean = np.clip(gene_means.unstack(fill_value=np.nan), -10, 10)
-    pivot_std_dev = np.clip(gene_std_devs.unstack(fill_value=np.nan), 1E-6, 100)
+    pivot_std_dev = np.clip(gene_std_devs.unstack(fill_value=np.nan), 1e-6, 100)
 
     gene_mean_array = pivot_mean.to_numpy().astype(np.float32)
     gene_std_dev_array = pivot_std_dev.to_numpy().astype(np.float32)

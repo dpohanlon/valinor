@@ -29,7 +29,9 @@ def averageOverSamples(
     """
 
     means = {k: np.mean(s, 0) if s.ndim >= 2 else s for k, s in samples.items()}
-    stds = {k: np.std(s, 0) if s.ndim >= 2 else np.zeros_like(s) for k, s in samples.items()}
+    stds = {
+        k: np.std(s, 0) if s.ndim >= 2 else np.zeros_like(s) for k, s in samples.items()
+    }
 
     return means, stds
 
@@ -71,23 +73,22 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 
     for k in set(paramSamples.keys()) - set(lhSamples):
         mean_k = means[k]
-        std_k  = stds[k]
+        std_k = stds[k]
 
-        # If scalar (Python or numpy), treat as single value
         if np.isscalar(mean_k):
             df[f"{k}_mean"] = float(mean_k)
-            df[f"{k}_std"]  = 0.0
+            df[f"{k}_std"] = 0.0
         else:
             # assume mean_k is a sequence/array
             if len(mean_k) > 1:
                 df[f"{k}_mean"] = mean_k
-                df[f"{k}_std"]  = std_k
+                df[f"{k}_std"] = std_k
             else:
                 df[f"{k}_mean"] = mean_k[0]
-                df[f"{k}_std"]  = std_k[0]
+                df[f"{k}_std"] = std_k[0]
             # ensure floats
             df[f"{k}_mean"] = df[f"{k}_mean"].astype(float)
-            df[f"{k}_std"]  = df[f"{k}_std"].astype(float)
+            df[f"{k}_std"] = df[f"{k}_std"].astype(float)
 
     return df
 
@@ -95,7 +96,9 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
 def sigmoid(x):
     return 1 / (1 + jnp.exp(-x))
 
-# Split up this megafunction
+
+# Todo: plit up this megafunction
+
 
 def sampleParams(
     samples: Dict[str, np.ndarray],
@@ -124,93 +127,78 @@ def sampleParams(
     only_singletons = not "guide_init_count" in samples
     controls = "guide_init_count_c" in samples
 
-    zi = ("p_zi" in samples)
-    zi_s = ("p_zi_s" in samples)
+    zi = "p_zi" in samples
+    zi_s = "p_zi_s" in samples
 
-    raw_mv_cl = samples["raw_mv_cell_line" if not singletons else "raw_mv_cell_line_s"]         # [S, n_cell_lines]
-    mv_cl     = jnp.exp(raw_mv_cl) + 1.0            # [S, n_cell_lines]
+    raw_mv_cl = samples["raw_mv_cell_line" if not singletons else "raw_mv_cell_line_s"]
+    mv_cl = jnp.exp(raw_mv_cl) + 1.0
 
-    # Initialize JAX random keys
-    # Split the key into multiple unique keys for different sampling operations
-    base_key = random.PRNGKey(0)  # You can modify the seed as needed
-    keys = random.split(base_key, 10)  # Adjust the number based on needs
+    base_key = random.PRNGKey(0)
+    keys = random.split(base_key, 10)
 
     # Counter for keys
     key_counter = 0
 
-    ############################
-    # Process Singletons
-    ############################
     if singletons:
         singlesParams = {}
 
-        singlesParams["guide_init_count_s"] = samples["guide_init_count_s"][:, indices["guide_pair_s_idx"]]
+        singlesParams["guide_init_count_s"] = samples["guide_init_count_s"][
+            :, indices["guide_pair_s_idx"]
+        ]
 
-        # compare to plasmids - do indices correspond between initial and final?
-
-        # Initialize Count for Singletons
-        singlesParams["init_count_s"] = samples["guide_init_count_s"][:, indices["guide_s_idx"]]
+        singlesParams["init_count_s"] = samples["guide_init_count_s"][
+            :, indices["guide_s_idx"]
+        ]
 
         singlesParams["init_count_s"] = jax.nn.softplus(singlesParams["init_count_s"])
 
-        # Tilde Alpha
-        singlesParams["tilde_alpha"] = samples["sko/tilde_alpha"][:, indices["guide_s_idx"], indices["cell_line_s_idx"]]
+        singlesParams["tilde_alpha"] = samples["sko/tilde_alpha"][
+            :, indices["guide_s_idx"], indices["cell_line_s_idx"]
+        ]
 
-        # Guide Efficiency Mean and Std
-        singlesParams["guide_eff_mean_s"] = samples["sko/guide_eff_mean"][:, indices["guide_s_idx"]]
-        singlesParams["guide_eff_std_s"] = samples["sko/guide_eff_std"][:, indices["guide_s_idx"]]
+        singlesParams["guide_eff_mean_s"] = samples["sko/guide_eff_mean"][
+            :, indices["guide_s_idx"]
+        ]
+        singlesParams["guide_eff_std_s"] = samples["sko/guide_eff_std"][
+            :, indices["guide_s_idx"]
+        ]
 
-        # Guide Efficiency with Sigmoid Transformation
         singlesParams["guide_eff_s"] = sigmoid(
-            singlesParams["guide_eff_mean_s"].squeeze() +  singlesParams["guide_eff_std_s"].squeeze() * singlesParams["tilde_alpha"]
+            singlesParams["guide_eff_mean_s"].squeeze()
+            + singlesParams["guide_eff_std_s"].squeeze() * singlesParams["tilde_alpha"]
         )
 
         # Cell Line Growth
-        singlesParams["cell_growth_s"] = samples["cell_line_growth"][:, indices["cell_line_s_idx"]]
+        singlesParams["cell_growth_s"] = samples["cell_line_growth"][
+            :, indices["cell_line_s_idx"]
+        ]
 
         # Library Bias
         # singlesParams["library_bias_s"] = samples["library_bias"][:, indices["cell_line_s_idx"]]
 
-        # Gene Knockout Growth
         if empirical_gene_priors:
             singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
                 :, indices["cell_line_s_idx"], indices["gene_s_common_idx"]
             ]
         else:
-            singlesParams["ko_growth_s"] = samples["gene_ko_growth"][:, indices["gene_s_idx"]]
+            singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
+                :, indices["gene_s_idx"]
+            ]
 
         mv_gene = samples["mv_gene" if not singletons else "mv_gene_s"]
-        # now index into it exactly as you do in the model
+
         singlesParams["mv_s"] = mv_gene[
-            :,
-            indices["cell_line_s_idx"],
-            indices["gene_s_idx"]
+            :, indices["cell_line_s_idx"], indices["gene_s_idx"]
         ]  # shape [S, n_singleton_obs]
 
-        # p_zi if applicable
         if zi_s:
             singlesParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_s_idx"]]
 
-        # Match this inc indexing from model
-
         # Sample from Initial Likelihood
         init_lh, theta_init = models.skoLikelihoodInitial(singlesParams["init_count_s"])
-        singlesParams["samples_s_init"] = init_lh.sample(random.split(keys[key_counter])[0])[indices['guide_pair_s_idx']]
-        key_counter += 1
-
-        # Sample from Final Likelihood
-        # Ensure that 'library_bias_s' and 'p_zi' are correctly passed
-        # lh_s, theta_s = models.skoLikelihoodFinal(
-        #     init_theta_s=theta_init,
-        #     guide_eff_s=singlesParams["guide_eff_s"],
-        #     cell_line_growth_s=singlesParams["cell_growth_s"],
-        #     gene_ko_growth_s=singlesParams["ko_growth_s"],
-        #     mv=singlesParams["mv_s"],
-        #     library_bias=singlesParams["library_bias_s"],  # Use sampled library_bias
-        #     alternate=alternate,
-        #     p_zi=singlesParams["p_zi_s"] if zi_s else False,
-        # )
-        # singlesParams["samples_s"] = lh_s.sample(random.split(keys[key_counter])[0])
+        singlesParams["samples_s_init"] = init_lh.sample(
+            random.split(keys[key_counter])[0]
+        )[indices["guide_pair_s_idx"]]
         key_counter += 1
 
         params["singles"] = singlesParams
@@ -221,87 +209,95 @@ def sampleParams(
     if controls:
         controlsParams = {}
 
-        # 1) Initial counts (softplus‐constrained)
         controlsParams["init_count_c"] = samples["guide_init_count_c"][
             :, indices["guide_pair_c_idx"]
         ]
-        controlsParams["init_count_c"] = jax.nn.softplus(
-            controlsParams["init_count_c"]
-        ) + 1e-6
+        controlsParams["init_count_c"] = (
+            jax.nn.softplus(controlsParams["init_count_c"]) + 1e-6
+        )
 
-        # 2) Cell‐line intercepts
         controlsParams["cell_growth_c"] = samples["cell_line_growth"][
             :, indices["cell_line_c_idx"]
         ]
 
-        # 3) Two‐level overdispersion:
-        #    mv_cl = exp(raw_mv_cell_line) + 1
-        #    mv_full[S,CL,CP] = mv_cl[:,CL,None] + gene_std[:,CL,None] * non_centered_dev[:,None,CP]
-        raw_mv_cl = samples["raw_mv_cell_line"]                  # [S, n_cell_lines]
-        mv_cl     = jnp.exp(raw_mv_cl) + 1.0                     # [S, n_cell_lines]
+        raw_mv_cl = samples["raw_mv_cell_line"]  # [S, n_cell_lines]
+        mv_cl = jnp.exp(raw_mv_cl) + 1.0  # [S, n_cell_lines]
 
         controlsParams["mv_c"] = mv_cl[
-            :, indices["cell_line_c_idx"],
+            :,
+            indices["cell_line_c_idx"],
         ]  # [S, ]
 
-        # 4) Posterior‐predictive: initial (Poisson) then final (NB₂)
         init_lh_c, theta_init_c = models.skoLikelihoodInitial(
             controlsParams["init_count_c"]
         )
         controlsParams["samples_c_init"] = init_lh_c.sample(
             random.split(keys[key_counter])[0]
         )
-        key_counter += 1
 
-        # Can't sample in here - fix me
-        # lh_c, theta_c = models.controlLikelihoodFinal(
-        #     init_theta_c=controlsParams["init_count_c"],
-        #     cell_line_growth_c=controlsParams["cell_growth_c"],
-        #     mv=controlsParams["mv_c"],
-        # )
-        # controlsParams["samples_c"] = lh_c.sample(
-        #     random.split(keys[key_counter])[0]
-        # )
         key_counter += 1
 
         params["controls"] = controlsParams
 
-    ############################
-    # Process Combinations (DKO)
-    ############################
     if not only_singletons:
         combsParams = {}
 
         # Initialize Count for Combinations
-        combsParams["init_count"] = samples["guide_init_count"][:, indices["guide_pair_idx"]]
+        combsParams["init_count"] = samples["guide_init_count"][
+            :, indices["guide_pair_idx"]
+        ]
 
         # Cell Line Growth for Combinations
-        combsParams["cell_line_growth"] = samples["cell_line_growth"][:, indices["cell_line_idx"]]
+        combsParams["cell_line_growth"] = samples["cell_line_growth"][
+            :, indices["cell_line_idx"]
+        ]
 
-        combsParams["library_bias"] = samples["library_bias"][:, indices["cell_line_idx"]]
+        combsParams["library_bias"] = samples["library_bias"][
+            :, indices["cell_line_idx"]
+        ]
 
         # Guide Efficiencies
         if "guide_eff_mean" in samples.keys():
-            combsParams["guide_eff_mean_1"] = samples["dko/guide_eff_mean"][:, indices["guide_1_idx"]]
-            combsParams["guide_eff_mean_2"] = samples["dko/guide_eff_mean"][:, indices["guide_2_idx"]]
+            combsParams["guide_eff_mean_1"] = samples["dko/guide_eff_mean"][
+                :, indices["guide_1_idx"]
+            ]
+            combsParams["guide_eff_mean_2"] = samples["dko/guide_eff_mean"][
+                :, indices["guide_2_idx"]
+            ]
 
-            combsParams["guide_eff_std_1"] = samples["dko/guide_eff_std"][:, indices["guide_1_idx"]]
-            combsParams["guide_eff_std_2"] = samples["dko/guide_eff_std"][:, indices["guide_2_idx"]]
+            combsParams["guide_eff_std_1"] = samples["dko/guide_eff_std"][
+                :, indices["guide_1_idx"]
+            ]
+            combsParams["guide_eff_std_2"] = samples["dko/guide_eff_std"][
+                :, indices["guide_2_idx"]
+            ]
 
-            combsParams["tilde_alpha_1"] = samples["dko/tilde_alpha"][:, indices["guide_1_idx"], indices["cell_line_idx"]]
-            combsParams["tilde_alpha_2"] = samples["dko/tilde_alpha"][:, indices["guide_2_idx"], indices["cell_line_idx"]]
+            combsParams["tilde_alpha_1"] = samples["dko/tilde_alpha"][
+                :, indices["guide_1_idx"], indices["cell_line_idx"]
+            ]
+            combsParams["tilde_alpha_2"] = samples["dko/tilde_alpha"][
+                :, indices["guide_2_idx"], indices["cell_line_idx"]
+            ]
 
             # Guide Efficiencies with Sigmoid Transformation
             combsParams["guide_eff_1"] = sigmoid(
-                combsParams["guide_eff_mean_1"].squeeze() + combsParams["tilde_alpha_1"] * combsParams["guide_eff_std_1"].squeeze()
+                combsParams["guide_eff_mean_1"].squeeze()
+                + combsParams["tilde_alpha_1"]
+                * combsParams["guide_eff_std_1"].squeeze()
             )
             combsParams["guide_eff_2"] = sigmoid(
-                combsParams["guide_eff_mean_2"].squeeze() + combsParams["tilde_alpha_2"] * combsParams["guide_eff_std_2"].squeeze()
+                combsParams["guide_eff_mean_2"].squeeze()
+                + combsParams["tilde_alpha_2"]
+                * combsParams["guide_eff_std_2"].squeeze()
             )
         else:
             # Handle cases where guide_eff_mean is not present
-            combsParams["guide_eff_1"] = np.ones_like(combsParams["cell_line_growth"])  # or another appropriate default
-            combsParams["guide_eff_2"] = np.ones_like(combsParams["cell_line_growth"])  # or another appropriate default
+            combsParams["guide_eff_1"] = np.ones_like(
+                combsParams["cell_line_growth"]
+            )  # or another appropriate default
+            combsParams["guide_eff_2"] = np.ones_like(
+                combsParams["cell_line_growth"]
+            )  # or another appropriate default
 
         # Gene Knockout Growth
         if empirical_gene_priors:
@@ -312,20 +308,25 @@ def sampleParams(
                 :, indices["cell_line_idx"], indices["gene_2_common_idx"]
             ]
         else:
-            combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][:, indices["gene_1_idx"]]
-            combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][:, indices["gene_2_idx"]]
+            combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
+                :, indices["gene_1_idx"]
+            ]
+            combsParams["gene_ko_growth_2"] = samples["gene_ko_growth"][
+                :, indices["gene_2_idx"]
+            ]
 
         # Gene Pair Knockout Growth
-        combsParams["gene_ko_growth_12"] = samples["gene_pair_ko_growth"][:, indices["gene_pair_idx"]]
+        combsParams["gene_ko_growth_12"] = samples["gene_pair_ko_growth"][
+            :, indices["gene_pair_idx"]
+        ]
 
-        if 'dLFC' in prior_params:
+        if "dLFC" in prior_params:
             combsParams["dLFC"] = prior_params["dLFC"][indices["gene_pair_idx"]]
 
         mv_pair = samples["mv_gene_pair"]
         # index that flat vector by your observation‐level pair indices
         combsParams["mv"] = mv_pair[
-            :,
-            indices["gene_pair_idx"]
+            :, indices["gene_pair_idx"]
         ]  # shape [S, n_combo_obs]
 
         # combsParams["negative_control_bias"] = samples["negative_control_bias"][:, indices["cell_line_idx"]]
@@ -337,92 +338,69 @@ def sampleParams(
             combsParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_idx"]]
 
         # Sample from Initial Likelihood for Combinations
-        init_lh_comb, theta_init_comb = models.dkoLikelihoodInitial(combsParams["init_count"])
-        combsParams["samples_init"] = init_lh_comb.sample(random.split(keys[key_counter])[0])
-        key_counter += 1
-
-        # Sample from Final Likelihood for Combinations
-        # if alternate:
-        #     # Guide Efficiencies for Interaction
-        #     combsParams["guide_eff_12"] = samples["guide_eff_12"][:, indices["guide_pair_idx"]]  # Ensure correct indexing
-
-        #     lh_comb, theta_comb = models.dkoLikelihoodFinal(
-        #         init_theta=theta_init_comb,  # Assuming theta_init_comb is correctly indexed
-        #         guide_eff_1=combsParams["guide_eff_1"],
-        #         guide_eff_2=combsParams["guide_eff_2"],
-        #         guide_eff_12=combsParams["guide_eff_12"],
-        #         cell_line_growth=combsParams["cell_line_growth"],
-        #         gene_ko_growth_1=combsParams["gene_ko_growth_1"],
-        #         gene_ko_growth_2=combsParams["gene_ko_growth_2"],
-        #         gene_ko_growth_12=combsParams["gene_ko_growth_12"],
-        #         mv=combsParams["mv"],
-        #         library_bias=1.0,  # Assuming fixed as per original code
-        #         p_zi=combsParams["p_zi"] if zi else False,
-        #     )
-        # else:
-        #     lh_comb, theta_comb = models.dkoLikelihoodFullFinal(
-        #         init_theta=theta_init_comb,
-        #         guide_eff_1=combsParams["guide_eff_1"],
-        #         guide_eff_2=combsParams["guide_eff_2"],
-        #         cell_line_growth=combsParams["cell_line_growth"],
-        #         gene_ko_growth_1=combsParams["gene_ko_growth_1"],
-        #         gene_ko_growth_2=combsParams["gene_ko_growth_2"],
-        #         gene_ko_growth_12=combsParams["gene_ko_growth_12"],
-        #         mv=combsParams["mv"],
-        #         library_bias=1.0,  # Assuming fixed as per original code
-        #         p_zi=combsParams["p_zi"] if zi else False,
-        #     )
-
-        # combsParams["samples"] = lh_comb.sample(random.split(keys[key_counter])[0])
+        init_lh_comb, theta_init_comb = models.dkoLikelihoodInitial(
+            combsParams["init_count"]
+        )
+        combsParams["samples_init"] = init_lh_comb.sample(
+            random.split(keys[key_counter])[0]
+        )
         key_counter += 1
 
         params["combs"] = combsParams
 
     return params
 
+
 # Even when batching, it's easier just to sample the posterior predictive ('obs') in one go
 
-def samplePosteriorPredictive(samples, indices, annotation = None):
 
-    if 'obs_init_c' in samples:
+def samplePosteriorPredictive(samples, indices, annotation=None):
 
-        fileName = 'obs_init_c.h5' if annotation == None else f'obs_init_c_{annotation}.h5'
+    if "obs_init_c" in samples:
 
-        with h5py.File(fileName, 'w') as h5f:
-            h5f.create_dataset('obs_init_c', data=samples["obs_init_c"][:, indices["guide_pair_c_idx"]])
+        fileName = (
+            "obs_init_c.h5" if annotation == None else f"obs_init_c_{annotation}.h5"
+        )
 
-    if 'obs_c' in samples:
+        with h5py.File(fileName, "w") as h5f:
+            h5f.create_dataset(
+                "obs_init_c", data=samples["obs_init_c"][:, indices["guide_pair_c_idx"]]
+            )
 
-        fileName = 'obs_c.h5' if annotation == None else f'obs_c_{annotation}.h5'
+    if "obs_c" in samples:
 
-        with h5py.File(fileName, 'w') as h5f:
-            h5f.create_dataset('obs_c', data=samples["obs_c"])
+        fileName = "obs_c.h5" if annotation == None else f"obs_c_{annotation}.h5"
 
-    if 'obs_init_s' in samples:
+        with h5py.File(fileName, "w") as h5f:
+            h5f.create_dataset("obs_c", data=samples["obs_c"])
 
-        fileName = 'obs_init_s.h5' if annotation == None else f'obs_init_s_{annotation}.h5'
+    if "obs_init_s" in samples:
 
-        with h5py.File(fileName, 'w') as h5f:
+        fileName = (
+            "obs_init_s.h5" if annotation == None else f"obs_init_s_{annotation}.h5"
+        )
 
-            h5f.create_dataset('obs_init_s', data=samples["obs_init_s"])
+        with h5py.File(fileName, "w") as h5f:
 
-    if 'obs_s' in samples:
+            h5f.create_dataset("obs_init_s", data=samples["obs_init_s"])
 
-        fileName = 'obs_s.h5' if annotation == None else f'obs_s_{annotation}.h5'
+    if "obs_s" in samples:
 
-        with h5py.File(fileName, 'w') as h5f:
-            h5f.create_dataset('obs_s', data=samples["obs_s"])
+        fileName = "obs_s.h5" if annotation == None else f"obs_s_{annotation}.h5"
 
-    if 'obs_init' in samples:
+        with h5py.File(fileName, "w") as h5f:
+            h5f.create_dataset("obs_s", data=samples["obs_s"])
 
-        fileName = 'obs_init.h5' if annotation == None else f'obs_init_{annotation}.h5'
+    if "obs_init" in samples:
 
-        with h5py.File(fileName, 'w') as h5f:
-            h5f.create_dataset('obs_init', data=samples["obs_init"])
+        fileName = "obs_init.h5" if annotation == None else f"obs_init_{annotation}.h5"
 
-    if 'obs' in samples:
+        with h5py.File(fileName, "w") as h5f:
+            h5f.create_dataset("obs_init", data=samples["obs_init"])
 
-        fileName = 'obs.h5' if annotation == None else f'obs_{annotation}.h5'
+    if "obs" in samples:
 
-        with h5py.File(fileName, 'w') as h5f:
-            h5f.create_dataset('obs', data=samples["obs"])
+        fileName = "obs.h5" if annotation == None else f"obs_{annotation}.h5"
+
+        with h5py.File(fileName, "w") as h5f:
+            h5f.create_dataset("obs", data=samples["obs"])

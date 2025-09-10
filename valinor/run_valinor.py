@@ -1,6 +1,7 @@
 import argparse
 
 import jax
+
 jax.config.update("jax_debug_nans", True)
 jax.config.update("jax_enable_x64", False)
 
@@ -21,7 +22,11 @@ from numpyro.handlers import seed, trace, substitute
 import optax
 
 from valinor import models
-from valinor.guides import valinor_full_guide, valinor_singles_guide, valinor_controls_guide
+from valinor.guides import (
+    valinor_full_guide,
+    valinor_singles_guide,
+    valinor_controls_guide,
+)
 from valinor.utils import (
     getIndices,
     calculateLengths,
@@ -30,10 +35,14 @@ from valinor.utils import (
     loadPriors,
     getBatchData,
     configure_custom_init,
-    subset_for_mcmc
+    subset_for_mcmc,
 )
 from valinor.preprocessing import prepareData, getDeltaLFC
-from valinor.postprocessing import sampleParams, createDataFrame, samplePosteriorPredictive
+from valinor.postprocessing import (
+    sampleParams,
+    createDataFrame,
+    samplePosteriorPredictive,
+)
 from valinor.plotting import plotDiagPlots
 
 from typing import Dict, List, Tuple, Any
@@ -58,67 +67,94 @@ rcParams["ytick.direction"] = "in"
 
 rcParams.update({"figure.autolayout": True})
 
-gpu_available = any(device.platform == 'gpu' for device in jax.devices())
+gpu_available = any(device.platform == "gpu" for device in jax.devices())
 
 if gpu_available:
-    numpyro.set_platform('gpu')
+    numpyro.set_platform("gpu")
+
 
 def get_model_sites(model, *args, **kwargs):
+
     model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args, **kwargs)
-    return list(model_trace.keys())
+    sites = list(model_trace.keys())
 
-# def obs_config(mode, data, config):
-#     has_ctrl = ("controls" in data["final"] and data["final"]["controls"] is not None) and not config.get("no_controls", True)
-#     has_sko  = ("singletons" in data["final"] and data["final"]["singletons"] is not None) and not config.get("no_singletons", False)
-#     has_dko  = ("combinations" in data["final"] and data["final"]["combinations"] is not None) and not config.get("only_singletons", False)
+    # Don't sample obs as we don't need them for this part
+    sites = filter(lambda x: not ("obs" in x), sites)
 
-#     w_ctrl = float(config.get("ctrl_weight", 1.0))
-#     w_sko  = float(config.get("sko_weight", 1.0))
-#     w_dko  = float(config.get("dko_weight", 1.0))
+    return list(sites)
 
-#     if mode == "controls":
-#         return dict(use_ctrl=has_ctrl, use_sko=False, use_dko=False, w_ctrl=w_ctrl, w_sko=1.0, w_dko=1.0)
-#     if mode == "singles":
-#         return dict(use_ctrl=False, use_sko=has_sko, use_dko=False, w_ctrl=1.0, w_sko=w_sko, w_dko=1.0)
-#     if mode == "dko":
-#         return dict(use_ctrl=False, use_sko=False, use_dko=has_dko, w_ctrl=1.0, w_sko=1.0, w_dko=w_dko)
-#     if "singles" in mode and "dko" in mode:
-#         return dict(use_ctrl=False, use_sko=has_sko, use_dko=has_dko, w_ctrl=1.0, w_sko=w_sko, w_dko=w_dko)
-#     if mode == "full":
-#         return dict(use_ctrl=has_ctrl, use_sko=has_sko, use_dko=has_dko, w_ctrl=w_ctrl, w_sko=w_sko, w_dko=w_dko)
-#     raise ValueError(f"Unknown mode {mode}")
 
 def obs_config(mode, data, config):
-    has_ctrl = ("controls" in data["final"] and data["final"]["controls"] is not None) and not config.get("no_controls", True)
-    has_sko  = ("singletons" in data["final"] and data["final"]["singletons"] is not None) and not config.get("no_singletons", False)
-    has_dko  = ("combinations" in data["final"] and data["final"]["combinations"] is not None) and not config.get("only_singletons", False)
+    has_ctrl = (
+        "controls" in data["final"] and data["final"]["controls"] is not None
+    ) and not config.get("no_controls", True)
+    has_sko = (
+        "singletons" in data["final"] and data["final"]["singletons"] is not None
+    ) and not config.get("no_singletons", False)
+    has_dko = (
+        "combinations" in data["final"] and data["final"]["combinations"] is not None
+    ) and not config.get("only_singletons", False)
 
     n_ctrl = int(has_ctrl) and len(data["final"]["controls"]) or 0
-    n_sko  = int(has_sko)  and len(data["final"]["singletons"]) or 0
-    n_dko  = int(has_dko)  and len(data["final"]["combinations"]) or 0
+    n_sko = int(has_sko) and len(data["final"]["singletons"]) or 0
+    n_dko = int(has_dko) and len(data["final"]["combinations"]) or 0
 
     base = n_dko if n_dko > 0 else n_sko
     w_ctrl = base / max(n_ctrl, 1)
-    w_sko  = base / max(n_sko, 1)
-    w_dko  = base / max(n_dko, 1)
+    w_sko = base / max(n_sko, 1)
+    w_dko = base / max(n_dko, 1)
 
     print(w_ctrl, w_sko, w_dko)
 
     if mode == "controls":
-        return dict(use_ctrl=has_ctrl, use_sko=False, use_dko=False, w_ctrl=w_ctrl, w_sko=1.0, w_dko=1.0)
+        return dict(
+            use_ctrl=has_ctrl,
+            use_sko=False,
+            use_dko=False,
+            w_ctrl=w_ctrl,
+            w_sko=1.0,
+            w_dko=1.0,
+        )
     if mode == "singles":
-        return dict(use_ctrl=False, use_sko=has_sko, use_dko=False, w_ctrl=1.0, w_sko=w_sko, w_dko=1.0)
+        return dict(
+            use_ctrl=False,
+            use_sko=has_sko,
+            use_dko=False,
+            w_ctrl=1.0,
+            w_sko=w_sko,
+            w_dko=1.0,
+        )
     if mode == "dko":
-        return dict(use_ctrl=False, use_sko=False, use_dko=has_dko, w_ctrl=1.0, w_sko=1.0, w_dko=w_dko)
+        return dict(
+            use_ctrl=False,
+            use_sko=False,
+            use_dko=has_dko,
+            w_ctrl=1.0,
+            w_sko=1.0,
+            w_dko=w_dko,
+        )
     if "singles" in mode and "dko" in mode:
-        return dict(use_ctrl=False, use_sko=has_sko, use_dko=has_dko, w_ctrl=1.0, w_sko=w_sko, w_dko=w_dko)
+        return dict(
+            use_ctrl=False,
+            use_sko=has_sko,
+            use_dko=has_dko,
+            w_ctrl=1.0,
+            w_sko=w_sko,
+            w_dko=w_dko,
+        )
     if mode == "full":
-        return dict(use_ctrl=has_ctrl, use_sko=has_sko, use_dko=has_dko, w_ctrl=w_ctrl, w_sko=w_sko, w_dko=w_dko)
+        return dict(
+            use_ctrl=has_ctrl,
+            use_sko=has_sko,
+            use_dko=has_dko,
+            w_ctrl=w_ctrl,
+            w_sko=w_sko,
+            w_dko=w_dko,
+        )
     raise ValueError(f"Unknown mode {mode}")
 
-def initialize_svi(model, guide, lr, nParticles, nEpochs):
 
-    # optimizer = numpyro.optim.ClippedAdam(step_size=lr, clip_norm=1.0)
+def initialize_svi(model, guide, lr, nParticles, nEpochs):
 
     warmup = int(0.25 * nEpochs)
     schedule = optax.warmup_cosine_decay_schedule(
@@ -142,7 +178,7 @@ def initialize_svi(model, guide, lr, nParticles, nEpochs):
         model,
         guide,
         optimizer,
-        loss=Trace_ELBO(num_particles=nParticles), # maybe mean field is okay?
+        loss=Trace_ELBO(num_particles=nParticles),  # maybe mean field is okay?
     )
 
     return svi
@@ -176,56 +212,47 @@ def save_results(params, config, outputDir):
     with open(f"valinorrun_{config['name']}.json", "w") as outfile:
         json.dump(config, outfile)
 
+
 # Save the posterior predictive 'obs' independent of batches, etc, in one go.
 # Sample only obs sites, rather than the rest, to avoid running out of memory. Can also batch this separately over num_samples.
-def save_posterior_predictive(model, guide, params, num_samples, sites, data, lengths, indices, prior_params, config, annotation, **kwargs):
+def save_posterior_predictive(
+    model,
+    guide,
+    params,
+    num_samples,
+    sites,
+    data,
+    lengths,
+    indices,
+    prior_params,
+    config,
+    annotation,
+    **kwargs,
+):
 
-    sites = list(filter(lambda x : 'obs' in x, sites))
+    sites = list(filter(lambda x: "obs" in x, sites))
 
     predictive = Predictive(
         model,
-        guide = guide,
+        guide=guide,
         params=params,
         num_samples=num_samples,
         return_sites=sites,
+        parallel=False,
     )
 
     if config["only_singletons"] == False:
-        args = {'no_singletons' : config["no_singletons"],
-                'only_singletons' : config["only_singletons"],
-                'no_controls' : config["no_controls"],
-                'guide_config' : config['guide_config']}
+        args = {
+            "no_singletons": config["no_singletons"],
+            "only_singletons": config["only_singletons"],
+            "no_controls": config["no_controls"],
+            "guide_config": config["guide_config"],
+        }
     else:
-        args = {'guide_config' : config['guide_config']}
+        args = {"guide_config": config["guide_config"]}
 
-    samples = predictive(
-        random.PRNGKey(42),
-        data=data,
-        lengths=lengths,
-        indices=indices,
-        prior_params=prior_params,
-        # **args,
-        **kwargs,
-        predict=True,
-    )
+    with jax.default_device(jax.devices("cpu")[0]):
 
-    samplePosteriorPredictive(samples, indices, annotation = annotation)
-
-
-def sample_posterior(
-    predictive, config, data, lengths, indices, prior_params, batch=False, **kwargs
-):
-
-    if config["only_singletons"] == False:
-        args = {'no_singletons' : config["no_singletons"],
-                'only_singletons' : config["only_singletons"],
-                'no_controls' : config["no_controls"],
-                'guide_config' : config['guide_config']}
-    else:
-        args = {'guide_config' : config['guide_config']}
-
-    if not batch:
-        # Non-batch case: directly sample from the posterior
         samples = predictive(
             random.PRNGKey(42),
             data=data,
@@ -237,9 +264,46 @@ def sample_posterior(
             predict=True,
         )
 
-        sampledParams = sampleParams(
-            samples, indices, prior_params, config["alternateLH"], "gene_effect_means" in prior_params
-        )
+    samplePosteriorPredictive(samples, indices, annotation=annotation)
+
+
+def sample_posterior(
+    predictive, config, data, lengths, indices, prior_params, batch=False, **kwargs
+):
+
+    if config["only_singletons"] == False:
+        args = {
+            "no_singletons": config["no_singletons"],
+            "only_singletons": config["only_singletons"],
+            "no_controls": config["no_controls"],
+            "guide_config": config["guide_config"],
+        }
+    else:
+        args = {"guide_config": config["guide_config"]}
+
+    if not batch:
+
+        with jax.default_device(jax.devices("cpu")[0]):
+
+            # Non-batch case: directly sample from the posterior
+            samples = predictive(
+                random.PRNGKey(42),
+                data=data,
+                lengths=lengths,
+                indices=indices,
+                prior_params=prior_params,
+                # **args,
+                **kwargs,
+                predict=True,
+            )
+
+            sampledParams = sampleParams(
+                samples,
+                indices,
+                prior_params,
+                config["alternateLH"],
+                "gene_effect_means" in prior_params,
+            )
 
         combsDF = (
             createDataFrame(sampledParams["combs"])
@@ -255,14 +319,17 @@ def sample_posterior(
         return combsDF, singlesDF
 
     # Batched case
-    n_batches = np.ceil(
-        (
-            len(data["final"]["combinations"])
-            if not config["only_singletons"]
-            else len(data["final"]["singletons"])
-        )
-        / config["batch_size"]
-    ).astype(int)
+    if kwargs.get("use_dko", False):
+        total = len(data["final"]["combinations"])
+        head = "dko"
+    elif kwargs.get("use_sko", False):
+        total = len(data["final"]["singletons"])
+        head = "sko"
+    else:
+        total = len(data["final"]["controls"])
+        head = "ctrl"
+
+    n_batches = int(np.ceil(total / config["batch_size"]))
 
     combsDFs, singlesDFs = [], []
 
@@ -270,47 +337,46 @@ def sample_posterior(
         start_idx = i * config["batch_size"]
         end_idx = (i + 1) * config["batch_size"]
 
-        batch_data, batch_indices = getBatchData(data, indices, start_idx, end_idx)
-
-        samples = predictive(
-            random.PRNGKey(42),
-            data=batch_data,
-            lengths=lengths,
-            indices=batch_indices,
-            prior_params=prior_params,
-            **kwargs,
-            # no_singletons=config["no_singletons"],
-            # only_singletons=config["only_singletons"],
-            # no_controls=config["no_controls"],
-            # guide_config=config["guide_config"],
-            # zi=config["zi"],
-            predict=True,
+        batch_data, batch_indices = getBatchData(
+            data, indices, start_idx, end_idx, head=head
         )
 
-        sampledParams = sampleParams(
-            samples,
-            batch_indices,
-            prior_params,
-            config["alternateLH"],
-            "gene_effect_means" in prior_params,
-        )
+        with jax.default_device(jax.devices("cpu")[0]):
+
+            samples = predictive(
+                random.PRNGKey(42),
+                data=batch_data,
+                lengths=lengths,
+                indices=batch_indices,
+                prior_params=prior_params,
+                **kwargs,
+                predict=True,
+            )
+
+            sampledParams = sampleParams(
+                samples,
+                batch_indices,
+                prior_params,
+                config["alternateLH"],
+                "gene_effect_means" in prior_params,
+            )
 
         if "combs" in sampledParams:
             combsDFs.append(createDataFrame(sampledParams["combs"]))
         if "singles" in sampledParams:
             singlesDFs.append(createDataFrame(sampledParams["singles"]))
 
-    combsDF = pd.concat(combsDFs) if len(combsDFs) > 0  else None
+    combsDF = pd.concat(combsDFs) if len(combsDFs) > 0 else None
     singlesDF = pd.concat(singlesDFs) if len(singlesDFs) > 0 else None
 
     return combsDF, singlesDF
 
 
-def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage = 'Only'):
+def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="Only"):
 
     if (config["only_singletons"] == False) and (combsDF is not None):
 
-        combsName = 'OnlyCombsModel' if config["no_singletons"] else 'CombsModel'
+        combsName = "OnlyCombsModel" if config["no_singletons"] else "CombsModel"
         combsDF.to_parquet(
             f"{outputDir}{combsName}.pq"
             if config["name"] is None
@@ -327,12 +393,12 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage =
 
 def runValinor(lengths, indices, prior_params, data, config):
 
-    if config['zi'] == False:
-        config['zi'] = None
+    if config["zi"] == False:
+        config["zi"] = None
 
     print(indices.keys())
 
-    indices['guide_pair_init_idx'] = indices['guide_pair_idx']
+    indices["guide_pair_init_idx"] = indices["guide_pair_idx"]
 
     prng_key = random.PRNGKey(42)
 
@@ -340,13 +406,19 @@ def runValinor(lengths, indices, prior_params, data, config):
         f"{config['outputDir'].rstrip('/')}/" if config["outputDir"] != "" else ""
     )
 
-    fit_mode   = config.get("fit_mode", "full")
+    fit_mode = config.get("fit_mode", "full")
 
-    print('Fit mode:', fit_mode)
+    print("Fit mode:", fit_mode)
 
-    use_ctrl_d = ("controls" in data["final"] and data["final"]["controls"] is not None) and not config.get("no_controls", True)
-    use_sko_d  = ("singletons" in data["final"] and data["final"]["singletons"] is not None) and not config.get("no_singletons", False)
-    use_dko_d  = ("combinations" in data["final"] and data["final"]["combinations"] is not None) and not config.get("only_singletons", False)
+    use_ctrl_d = (
+        "controls" in data["final"] and data["final"]["controls"] is not None
+    ) and not config.get("no_controls", True)
+    use_sko_d = (
+        "singletons" in data["final"] and data["final"]["singletons"] is not None
+    ) and not config.get("no_singletons", False)
+    use_dko_d = (
+        "combinations" in data["final"] and data["final"]["combinations"] is not None
+    ) and not config.get("only_singletons", False)
 
     # Some combination of these is screwing up the likelihood?
 
@@ -358,43 +430,26 @@ def runValinor(lengths, indices, prior_params, data, config):
 
     if "dLFC" in prior_params:
         # init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"]
-        init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(prior_params["dLFC"])
+        init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(
+            prior_params["dLFC"]
+        )
     if "init_count_vals" in prior_params and use_dko_d:
         init_params_common["guide_init_count"] = prior_params["init_count_vals"]
     if "init_count_s_vals" in prior_params and use_sko_d:
         init_params_common["guide_init_count_s"] = prior_params["init_count_s_vals"]
-    # if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
-    #     init_params_common["guide_init_count_c"] = prior_params["init_count_c_vals"]
-
-    # print(lengths["len_guide_pairs"])
-
-    # print(data["initial"]["controls"].shape, data["final"]["controls"].shape)
-    # print(data["initial"]["singletons"].shape, data["final"]["singletons"].shape)
-    # print(data["initial"]["combinations"].shape, data["final"]["combinations"].shape)
-    # print(init_params_common["guide_init_count_s"].shape, init_params_common["guide_init_count"].shape)
-    # print('')
-    # print(init_params_common["guide_init_count_s"].shape, data["initial"]["singletons"].shape)
-    # print(init_params_common["guide_init_count"].shape, data["initial"]["combinations"].shape)
-    # print('Should these be the same!?')
-    # print('Do I want to eval a likelihood over repeated entries for initial values?')
-    # print('')
-
-    # pprint(lengths)
-    # print('')
-
-    # print('init_count_s_vals', prior_params["init_count_s_vals"].shape, prior_params["init_count_s_vals"][:5])
-    # print('indices: guide_initial_s_idx', indices['guide_initial_s_idx'].shape, np.max(indices['guide_initial_s_idx']))
-
-    # print(init_params_common["guide_init_count_s"][indices['guide_initial_s_idx']][:10])
+    if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
+        init_params_common["guide_init_count_c"] = prior_params["init_count_c_vals"]
 
     custom_init = configure_custom_init(init_params_common)
 
     valinor_model = models.valinorHierarchy
-    valinor_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
+    valinor_guide = AutoLowRankMultivariateNormal(
+        models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
+    )
 
     common_config = {
         "guide_config": config["guide_config"],
-        "zi": config['zi'],
+        "zi": config["zi"],
         "zi_s": config["zi"] and not config["zi_ns"],
         "no_singletons": config["no_singletons"],
         "only_singletons": config["only_singletons"],
@@ -406,13 +461,19 @@ def runValinor(lengths, indices, prior_params, data, config):
         "stable_update": config["stable_update"],
     }
 
-    print('Fitting')
+    print("Fitting")
 
     if fit_mode == "controls" or fit_mode == "full":
 
-        print('Fitting controls')
+        print("Fitting controls")
 
-        svi_controls = initialize_svi(valinor_model, valinor_guide, config['lr'], config['n_particles'], config["epochs"])
+        svi_controls = initialize_svi(
+            valinor_model,
+            valinor_guide,
+            config["lr"],
+            config["n_particles"],
+            config["epochs"],
+        )
 
         controls_args = {
             **common_config,
@@ -423,10 +484,13 @@ def runValinor(lengths, indices, prior_params, data, config):
             svi_controls,
             prng_key,
             config["epochs"],
-            data, lengths, indices, prior_params,
+            data,
+            lengths,
+            indices,
+            prior_params,
             **controls_args,
             **common_svi_config,
-            predict = False,
+            predict=False,
         )
 
         params_c = state_c.params
@@ -434,20 +498,16 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_c, name=f"{config['name']}_controls", outputDir=outputDir)
 
         sites_from_model = get_model_sites(
-            valinor_model,
-            data,
-            lengths,
-            indices,
-            prior_params,
-            **controls_args
+            valinor_model, data, lengths, indices, prior_params, **controls_args
         )
 
         predictive = Predictive(
             valinor_model,
-            guide = valinor_guide,
+            guide=valinor_guide,
             params=params_c,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,
+            parallel=False,
         )
 
         samples = predictive(
@@ -460,7 +520,12 @@ def runValinor(lengths, indices, prior_params, data, config):
             predict=True,
         )
 
-        sampleVars = ['cell_line_growth', 'cell_lines', 'raw_mv_cell_line', 'gene_std']#, 'library_bias']#, 'negative_control_bias']
+        sampleVars = [
+            "cell_line_growth",
+            "cell_lines",
+            "raw_mv_cell_line",
+            "gene_std",
+        ]  # , 'library_bias']#, 'negative_control_bias']
 
         controlsDF = pd.DataFrame({n: np.mean(samples[n], 0) for n in sampleVars})
 
@@ -470,22 +535,36 @@ def runValinor(lengths, indices, prior_params, data, config):
             else f"{outputDir}controlsModel_{config['name']}.pq"
         )
 
-        annotation = 'only' if fit_mode == 'controls' else 'first-stage'
+        annotation = "only" if fit_mode == "controls" else "first-stage"
 
-        save_posterior_predictive(valinor_model, valinor_guide, params_c, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, annotation, **controls_args)
+        save_posterior_predictive(
+            valinor_model,
+            valinor_guide,
+            params_c,
+            config["nSamples"],
+            sites_from_model,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            config,
+            annotation,
+            **controls_args,
+        )
 
-    if 'singles' in fit_mode or fit_mode == "full":
+    if "singles" in fit_mode or fit_mode == "full":
 
-        print('Fitting singles')
-
-    # custom_init = configure_custom_init(init_params_common)
-
-    # valinor_model = models.valinorHierarchy
-    # valinor_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
+        print("Fitting singles")
 
         prng_key, _ = random.split(prng_key)
 
-        svi_singles = initialize_svi(valinor_model, valinor_guide, config['lr'], config['n_particles'], config["epochs"])
+        svi_singles = initialize_svi(
+            valinor_model,
+            valinor_guide,
+            config["lr"],
+            config["n_particles"],
+            config["epochs"],
+        )
 
         singles_args = {
             **common_config,
@@ -496,11 +575,14 @@ def runValinor(lengths, indices, prior_params, data, config):
             svi_singles,
             prng_key,
             config["epochs"],
-            data, lengths, indices, prior_params,
-            init_params = params_c if (fit_mode=="full" and use_ctrl_d) else None,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            init_params=params_c if (fit_mode == "full" and use_ctrl_d) else None,
             **singles_args,
             **common_svi_config,
-            predict = False,
+            predict=False,
         )
 
         params_s = state_s.params
@@ -508,20 +590,16 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_s, name=f"{config['name']}_singles", outputDir=outputDir)
 
         sites_from_model = get_model_sites(
-            valinor_model,
-            data,
-            lengths,
-            indices,
-            prior_params,
-            **singles_args
+            valinor_model, data, lengths, indices, prior_params, **singles_args
         )
 
         predictive = Predictive(
             valinor_model,
-            guide = valinor_guide,
+            guide=valinor_guide,
             params=params_s,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,
+            parallel=False,
         )
 
         combsDF, singlesDF = sample_posterior(
@@ -532,32 +610,52 @@ def runValinor(lengths, indices, prior_params, data, config):
             indices,
             prior_params,
             batch=config["batch_sample"],
-            **singles_args
+            **singles_args,
         )
 
-        stage = 'FirstStage' if fit_mode in ('full', 'singles-dko') else 'Only'
+        stage = "FirstStage" if fit_mode in ("full", "singles-dko") else "Only"
 
-        save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage = stage)
+        save_posterior_samples(
+            combsDF, singlesDF, config, outputDir, singlesStage=stage
+        )
 
-        save_posterior_predictive(valinor_model, valinor_guide, params_s, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, stage, **singles_args)
+        save_posterior_predictive(
+            valinor_model,
+            valinor_guide,
+            params_s,
+            config["nSamples"],
+            sites_from_model,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            config,
+            stage,
+            **singles_args,
+        )
 
         singles_vals = valinor_guide.median(params_s)
 
         print(singles_vals.keys())
 
-    if 'dko' in fit_mode or fit_mode == "full":
+    if "dko" in fit_mode or fit_mode == "full":
 
-        print('Fitting dko')
+        print("Fitting dko")
 
-        # singles_vals["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(prior_params["dLFC"])
-
-        # custom_init = configure_custom_init(singles_vals)
         custom_init = configure_custom_init(init_params_common)
-        dko_guide = AutoLowRankMultivariateNormal(models.valinorHierarchy, init_loc_fn=custom_init(), rank=64)
+        dko_guide = AutoLowRankMultivariateNormal(
+            models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
+        )
 
         prng_key, _ = random.split(prng_key)
 
-        svi_dko = initialize_svi(valinor_model, dko_guide, config['lr'], config['n_particles'], config["epochs"])
+        svi_dko = initialize_svi(
+            valinor_model,
+            dko_guide,
+            config["lr"],
+            config["n_particles"],
+            config["epochs"],
+        )
 
         dko_args = {
             **common_config,
@@ -568,11 +666,14 @@ def runValinor(lengths, indices, prior_params, data, config):
             svi_dko,
             prng_key,
             config["epochs"],
-            data, lengths, indices, prior_params,
-            init_params = params_s if (fit_mode=="full" and use_sko_d) else None,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            init_params=params_s if (fit_mode == "full" and use_sko_d) else None,
             **dko_args,
             **common_svi_config,
-            predict = False,
+            predict=False,
         )
 
         params_d = state_d.params
@@ -580,17 +681,12 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_d, name=f"{config['name']}_combs", outputDir=outputDir)
 
         sites_from_model = get_model_sites(
-            valinor_model,
-            data,
-            lengths,
-            indices,
-            prior_params,
-            **dko_args
+            valinor_model, data, lengths, indices, prior_params, **dko_args
         )
 
         predictive = Predictive(
             valinor_model,
-            guide = dko_guide,
+            guide=dko_guide,
             params=params_d,
             num_samples=config["nSamples"],
             return_sites=sites_from_model,
@@ -604,16 +700,32 @@ def runValinor(lengths, indices, prior_params, data, config):
             indices,
             prior_params,
             batch=config["batch_sample"],
-            **dko_args
+            **dko_args,
         )
 
-        stage = 'SecondStage'
+        stage = "SecondStage"
 
-        save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage = stage)
+        save_posterior_samples(
+            combsDF, singlesDF, config, outputDir, singlesStage=stage
+        )
 
-        annotation = stage if config['fit_mode'] in ("full", 'singles-dko') else 'Only'
+        annotation = stage if config["fit_mode"] in ("full", "singles-dko") else "Only"
 
-        save_posterior_predictive(valinor_model, dko_guide, params_d, config["nSamples"], sites_from_model, data, lengths, indices, prior_params, config, annotation, **dko_args)
+        save_posterior_predictive(
+            valinor_model,
+            dko_guide,
+            params_d,
+            config["nSamples"],
+            sites_from_model,
+            data,
+            lengths,
+            indices,
+            prior_params,
+            config,
+            annotation,
+            **dko_args,
+        )
+
 
 def makeArgs():
     argParser = argparse.ArgumentParser()
@@ -813,13 +925,13 @@ def run():
 
     config = configArgs(args)
 
-    config['fit_mode'] = 'full'
-    if config['no_singletons']:
-        config['fit_mode'] = 'dko' # Potentially also with controls
-    elif config['only_singletons']:
-        config['fit_mode'] = 'singles'
-    elif config['no_controls']:
-        config['fit_mode'] = 'singles-dko'
+    config["fit_mode"] = "full"
+    if config["no_singletons"]:
+        config["fit_mode"] = "dko"  # Potentially also with controls
+    elif config["only_singletons"]:
+        config["fit_mode"] = "singles"
+    elif config["no_controls"]:
+        config["fit_mode"] = "singles-dko"
 
     data_files = {
         "combinations": config["combinationsFile"],
@@ -868,6 +980,7 @@ def run():
     # exit(0)
 
     runValinor(lengths, indices, prior_params, data, config)
+
 
 if __name__ == "__main__":
     run()

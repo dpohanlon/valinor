@@ -80,52 +80,32 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
     return counts, count_indices
 
 
-# def getInitialCountsDF(df: pd.DataFrame, initCountVar: str, singletons : bool = False) -> pd.Series:
-#     """
-#     Get initial counts from the DataFrame.
-
-#     Args:
-#         df (pd.DataFrame): The input DataFrame.
-#         initCountVar (str): The variable for initial count.
-
-#     Returns:
-#         pd.Series: Initial counts.
-#     """
-
-#     guideVar = "guide_pair_index" if not singletons else "guide_index"
-
-#     # initial_counts = (
-#     #         df.groupby("guide_pair_index")
-#     #         .agg({"guide_pair_index": "first", initCountVar : "first", guideVar : 'first'})
-#     #         .reset_index(drop=True)
-#     #         .sort_values("guide_pair_index")[[initCountVar, guideVar]]
-#     # )
-
-#     initial_counts = df#.sort_values(guideVar) ### ???
-
-#     return initial_counts[initCountVar].values.astype(np.int32), initial_counts[guideVar].values.astype(np.int32)
-
-def getInitialCountsDF(df: pd.DataFrame, initCountVar: str, singletons : bool = False) -> pd.Series:
+def getInitialCountsDF(
+    df: pd.DataFrame, initCountVar: str, singletons: bool = False
+) -> pd.Series:
 
     obsVar = "guide_pair_index"
     paramVar = "guide_index" if singletons else obsVar
 
     # Average over plasmid counts per guide pair, if multiple
     initial_counts = (
-            df.groupby(obsVar)
-            .agg({initCountVar : "median", obsVar : 'first', paramVar : 'first'})
-            .reset_index(drop=True)[[initCountVar, obsVar, paramVar]]
-            # .sort_values(guideVar)[[initCountVar, guideVar]]
+        df.groupby(obsVar)
+        .agg({initCountVar: "median", obsVar: "first", paramVar: "first"})
+        .reset_index(drop=True)[[initCountVar, obsVar, paramVar]]
+        # .sort_values(guideVar)[[initCountVar, guideVar]]
     )
 
     # Float, int?
-    return initial_counts[initCountVar].values.astype(np.float32), initial_counts[paramVar].values.astype(np.int32)
+    return initial_counts[initCountVar].values.astype(np.float32), initial_counts[
+        paramVar
+    ].values.astype(np.int32)
+
 
 def getUniqueGeneGuideIndices(
     indices: Dict[str, np.ndarray],
     singletons: bool = True,
     only_singletons=False,
-    shared = False
+    shared=False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Get unique gene and guide indices.
@@ -147,26 +127,37 @@ def getUniqueGeneGuideIndices(
 
     if not only_singletons:
         guide_indices += [indices["guide_2_idx"]]
-        gene_indices += [indices["gene_2_idx"] if not shared else indices["gene_2_common_idx"]]
+        gene_indices += [
+            indices["gene_2_idx"] if not shared else indices["gene_2_common_idx"]
+        ]
 
     if singletons:
         guide_indices += [indices["guide_s_idx"]]
-        gene_indices += [indices["gene_s_idx"] if not shared else indices["gene_s_common_idx"]]
+        gene_indices += [
+            indices["gene_s_idx"] if not shared else indices["gene_s_common_idx"]
+        ]
 
     return np.unique(np.concatenate(gene_indices)), np.unique(
         np.concatenate(guide_indices)
     )
 
+
 # Only for final counts
 def countZeros(df):
 
-    data_sorted = df.sort_values('cell_line_index').reset_index()
-    counts = data_sorted.groupby('cell_line_index').size()
-    zero_counts = data_sorted[data_sorted['value'] == 0].groupby('cell_line_index').size().reindex(counts.index, fill_value=0)
+    data_sorted = df.sort_values("cell_line_index").reset_index()
+    counts = data_sorted.groupby("cell_line_index").size()
+    zero_counts = (
+        data_sorted[data_sorted["value"] == 0]
+        .groupby("cell_line_index")
+        .size()
+        .reindex(counts.index, fill_value=0)
+    )
 
     zeros_frac = zero_counts.values / counts.values
 
-    return zeros_frac + 1E-6
+    return zeros_frac + 1e-6
+
 
 def reindexVar(df, var):
 
@@ -224,7 +215,6 @@ def getIndices(
             if not only_singletons
             else dfSingles["guide_pair_index"].values
         ),
-
         # "guide_pair_unq_idx": jnp.array(
         #     df["guide_pair_unq_index"].values
         #     if not only_singletons
@@ -269,13 +259,28 @@ def getIndices(
 
         # Rather than indexing for observations, these index for the gene pairs array to specify which gene index corresponds to this pair
 
-        # At the moment these take the first ocurrance to be the gene indices, so if this contains reversed orderings as well this gets ignored
+        pair_indices = (
+            df.drop_duplicates(subset="gene_unq_pair_index", keep="first")[
+                [
+                    "gene_unq_pair_index",
+                    "gene1_unq_index",
+                    "gene2_unq_index",
+                    "cell_line_index",
+                ]
+            ]
+            .sort_values("gene_unq_pair_index")
+            .reset_index(drop=True)
+        )
 
-        pair_indices = df.drop_duplicates(subset='gene_unq_pair_index', keep='first')[['gene_unq_pair_index', 'gene1_unq_index', 'gene2_unq_index', 'cell_line_index']].sort_values('gene_unq_pair_index').reset_index(drop=True)
-
-        indices['cell_line_in_pair_idx'] = jnp.array(pair_indices['cell_line_index'].values)
-        indices['gene_1_in_pair_idx'] = jnp.array(pair_indices['gene1_unq_index'].values)
-        indices['gene_2_in_pair_idx'] = jnp.array(pair_indices['gene2_unq_index'].values)
+        indices["cell_line_in_pair_idx"] = jnp.array(
+            pair_indices["cell_line_index"].values
+        )
+        indices["gene_1_in_pair_idx"] = jnp.array(
+            pair_indices["gene1_unq_index"].values
+        )
+        indices["gene_2_in_pair_idx"] = jnp.array(
+            pair_indices["gene2_unq_index"].values
+        )
 
     if singletons:
         indices["guide_pair_s_idx"] = jnp.array(dfSingles["guide_pair_index"].values)
@@ -341,17 +346,10 @@ def calculateLengths(
     if singletons:
         lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_pair_s_idx"]))
 
-        # Unique guides, not including duplicates with different nulls, as these are not parameterised
-
-        # Ideally I want the same thing for every dataset....
-
-        # FIX ME
-
         # lengths["len_guide_pairs_s"] = len(np.unique(indices["guide_s_idx"]))
 
     if neg_controls:
         lengths["len_guide_pairs_c"] = len(np.unique(indices["guide_pair_c_idx"]))
-        # lengths["len_guide_pairs_unq_c"] = len(np.unique(indices["guide_pair_unq_c_idx"]))
 
     # Unique guides, including each category in case we have unique ones there
     lengths["len_guides"] = len(guide_indices)
@@ -360,60 +358,96 @@ def calculateLengths(
     lengths["len_genes"] = len(gene_indices)
 
     gene_indices_shared, _ = getUniqueGeneGuideIndices(
-        indices, singletons=singletons, only_singletons=only_singletons, shared = True
+        indices, singletons=singletons, only_singletons=only_singletons, shared=True
     )
 
     lengths["len_genes_common"] = len(gene_indices_shared)
 
     return lengths
 
-def lfc(final, reference):
-    fc = final / (reference + 1E-9)
 
-    return np.log2(fc + 1E-9)
+def lfc(final, reference):
+    fc = final / (reference + 1e-9)
+
+    return np.log2(fc + 1e-9)
+
 
 def deltaLFC(lfc_combination, lfc_1, lfc_2):
     return lfc_combination - (lfc_1 + lfc_2)
+
 
 def combinationLFCs(combinations, singles):
 
     # Calculate gene-averaged dLFCs
 
-    # How am I indexing these into the parameters? -> gene_pair_idx -> gene_unq_pair_index
-
     # Calculate LFCs
 
-    combinations['lfc'] = lfc(combinations['value'], combinations['plasmid'])
-    singles['lfc'] = lfc(singles['value'], singles['plasmid'])
+    combinations["lfc"] = lfc(combinations["value"], combinations["plasmid"])
+    singles["lfc"] = lfc(singles["value"], singles["plasmid"])
 
     # Average by gene, cell line
 
-    singles_gene = singles.groupby(['gene1', 'cell_line']).agg({'lfc' : 'mean', 'g1_idx' : 'first', 'plasmid' : 'mean'}).reset_index()
-    combs_gene = combinations.groupby(['gene1', 'gene2', 'cell_line', 'plasmid']).agg({'lfc' : 'mean', 'g1_idx' : 'first', 'g2_idx' : 'first'}).reset_index()
+    singles_gene = (
+        singles.groupby(["gene1", "cell_line"])
+        .agg({"lfc": "mean", "g1_idx": "first", "plasmid": "mean"})
+        .reset_index()
+    )
+    combs_gene = (
+        combinations.groupby(["gene1", "gene2", "cell_line", "plasmid"])
+        .agg({"lfc": "mean", "g1_idx": "first", "g2_idx": "first"})
+        .reset_index()
+    )
 
     # Merge to associate singles with combinations
 
-    merged_gene = combs_gene.merge(singles_gene, on = ['gene1', 'cell_line'], suffixes = ('', '_1')).merge(singles_gene, left_on = ['gene2', 'cell_line'], right_on = ['gene1', 'cell_line'], suffixes = ('_comb', '_2')).reset_index()
-    merged_gene = merged_gene.rename(columns = {'gene1_comb' : 'gene1', 'gene2_comb' : 'gene2'})
-    merged_gene = merged_gene.groupby(['gene1', 'gene2', 'cell_line']).agg({'lfc_comb' : 'mean', 'lfc_1' : 'mean', 'lfc_2' : 'mean'}).reset_index()
+    merged_gene = (
+        combs_gene.merge(singles_gene, on=["gene1", "cell_line"], suffixes=("", "_1"))
+        .merge(
+            singles_gene,
+            left_on=["gene2", "cell_line"],
+            right_on=["gene1", "cell_line"],
+            suffixes=("_comb", "_2"),
+        )
+        .reset_index()
+    )
+    merged_gene = merged_gene.rename(
+        columns={"gene1_comb": "gene1", "gene2_comb": "gene2"}
+    )
+    merged_gene = (
+        merged_gene.groupby(["gene1", "gene2", "cell_line"])
+        .agg({"lfc_comb": "mean", "lfc_1": "mean", "lfc_2": "mean"})
+        .reset_index()
+    )
 
     # Calculate the dLFC
 
-    merged_gene['dLFC'] = deltaLFC(merged_gene['lfc_comb'], merged_gene['lfc_1'], merged_gene['lfc_2'])
+    merged_gene["dLFC"] = deltaLFC(
+        merged_gene["lfc_comb"], merged_gene["lfc_1"], merged_gene["lfc_2"]
+    )
 
     # Merge back into full combinations dataset shape
 
-    combinations_dLFC = combinations.merge(merged_gene[['gene1', 'gene2', 'lfc_1', 'lfc_2', 'lfc_comb', 'cell_line', 'dLFC']], on = ['gene1', 'gene2', 'cell_line']).reset_index()[["gene_unq_pair_index", 'dLFC']]
+    combinations_dLFC = combinations.merge(
+        merged_gene[
+            ["gene1", "gene2", "lfc_1", "lfc_2", "lfc_comb", "cell_line", "dLFC"]
+        ],
+        on=["gene1", "gene2", "cell_line"],
+    ).reset_index()[["gene_unq_pair_index", "dLFC"]]
 
     assert len(combinations_dLFC) == len(combinations)
 
     # Aggregate according to gene_pair_idx, for parameter
 
-    gene_pair_dlfc = combinations_dLFC.sort_values("gene_unq_pair_index").groupby("gene_unq_pair_index").agg({'dLFC' : 'mean'})['dLFC']
+    gene_pair_dlfc = (
+        combinations_dLFC.sort_values("gene_unq_pair_index")
+        .groupby("gene_unq_pair_index")
+        .agg({"dLFC": "mean"})["dLFC"]
+    )
 
     assert len(gene_pair_dlfc) == len(np.unique(combinations["gene_unq_pair_index"]))
 
     return gene_pair_dlfc.values
+
 
 def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
     """
@@ -433,10 +467,13 @@ def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
         for k, v in params.items():
             file.create_dataset(k, data=np.array(v))
 
+
 def assert_contiguous(name, arr):
     u = np.unique(arr)
-    assert u.min()==0 and np.array_equal(u, np.arange(u.max()+1)), \
-        f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
+    assert u.min() == 0 and np.array_equal(
+        u, np.arange(u.max() + 1)
+    ), f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
+
 
 def checkBounds(
     indices: Dict[str, np.ndarray],
@@ -488,7 +525,9 @@ def checkBounds(
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
-        assert np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        assert (
+            np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        )
         assert_contiguous("cell_line_c_idx", indices["cell_line_c_idx"])
 
     # Also, warn if there are some parameters that remain unused, which is sus
@@ -532,21 +571,99 @@ def configArgs(args):
     return config
 
 
-def getBatchData(data, indices, start_idx, end_idx):
+def getBatchData(data, indices, start_idx, end_idx, head="dko"):
+    """
+    head: 'dko' | 'sko' | 'ctrl'
+    """
 
-    batch_data = {}
-    batch_data["final"] = {
-        k: v[start_idx:end_idx] if not v is None else None
-        for k, v in data["final"].items()
-    }
-    batch_data["initial"] = {
-        k: v[start_idx:end_idx] if not v is None else None
-        for k, v in data["initial"].items()
+    # Slice obs arrays for batch, only for final counts
+
+    batch_data = {"initial": {}, "final": {}}
+    if head == "dko":
+        batch_data["final"]["combinations"] = (
+            None
+            if data["final"].get("combinations") is None
+            else data["final"]["combinations"][start_idx:end_idx]
+        )
+
+        batch_data["initial"]["combinations"] = data["initial"].get("combinations")
+
+        batch_data["final"]["singletons"] = data["final"].get("singletons")
+        batch_data["initial"]["singletons"] = data["initial"].get("singletons")
+        batch_data["final"]["controls"] = data["final"].get("controls")
+        batch_data["initial"]["controls"] = data["initial"].get("controls")
+
+    elif head == "sko":
+        batch_data["final"]["singletons"] = (
+            None
+            if data["final"].get("singletons") is None
+            else data["final"]["singletons"][start_idx:end_idx]
+        )
+
+        batch_data["initial"]["singletons"] = data["initial"].get("singletons")
+
+        batch_data["final"]["combinations"] = data["final"].get("combinations")
+        batch_data["initial"]["combinations"] = data["initial"].get("combinations")
+        batch_data["final"]["controls"] = data["final"].get("controls")
+        batch_data["initial"]["controls"] = data["initial"].get("controls")
+
+    else:  # 'ctrl'
+        batch_data["final"]["controls"] = (
+            None
+            if data["final"].get("controls") is None
+            else data["final"]["controls"][start_idx:end_idx]
+        )
+        batch_data["initial"]["controls"] = data["initial"].get("controls")
+
+        batch_data["final"]["singletons"] = data["final"].get("singletons")
+        batch_data["initial"]["singletons"] = data["initial"].get("singletons")
+        batch_data["final"]["combinations"] = data["final"].get("combinations")
+        batch_data["initial"]["combinations"] = data["initial"].get("combinations")
+
+    # Slice obs-level (i.e., with length obs) indices
+    structure_keys = {
+        "cell_line_in_pair_idx",
+        "gene_1_in_pair_idx",
+        "gene_2_in_pair_idx",
     }
 
-    batch_indices = {k: v[start_idx:end_idx] for k, v in indices.items()}
+    obs_keys_dko = {
+        "guide_pair_idx",
+        "gene_pair_idx",
+        "guide_1_idx",
+        "guide_2_idx",
+        "gene_1_common_idx",
+        "gene_2_common_idx",
+        "cell_line_idx",  # "guide_pair_init_idx",
+    }
+    obs_keys_sko = {
+        "guide_pair_s_idx",
+        "guide_s_idx",
+        "gene_s_idx",
+        "cell_line_s_idx",
+        "gene_s_common_idx",  # "guide_initial_s_idx",
+    }
+    obs_keys_ctrl = {
+        "guide_pair_c_idx",
+        "cell_line_c_idx",
+    }
+
+    batch_indices = dict(indices)
+    if head == "dko":
+        for k in obs_keys_dko:
+            if k in indices:
+                batch_indices[k] = indices[k][start_idx:end_idx]
+    elif head == "sko":
+        for k in obs_keys_sko:
+            if k in indices:
+                batch_indices[k] = indices[k][start_idx:end_idx]
+    else:
+        for k in obs_keys_ctrl:
+            if k in indices:
+                batch_indices[k] = indices[k][start_idx:end_idx]
 
     return batch_data, batch_indices
+
 
 def configure_custom_init(init_dict):
 
@@ -568,9 +685,9 @@ def configure_custom_init(init_dict):
 
 def subset_for_mcmc(indices_to_subset, data, lengths, indices):
 
-    print(len(np.unique(indices['guide_pair_idx'])))
-    print(np.max(indices['guide_pair_idx']))
-    print(len(data['initial']['combinations']))
+    print(len(np.unique(indices["guide_pair_idx"])))
+    print(np.max(indices["guide_pair_idx"]))
+    print(len(data["initial"]["combinations"]))
 
     indices_to_subset = np.array(indices_to_subset)
 
@@ -583,16 +700,18 @@ def subset_for_mcmc(indices_to_subset, data, lengths, indices):
     # For the gene pair indices we selected, what corresponding entries are there
     # in the full dataset (potentially many)
 
-    sel_mask = np.isin(indices['gene_pair_idx'], indices_to_subset)
-    sel_indices = np.array(list(range(len(indices['gene_pair_idx']))))[sel_mask]
+    sel_mask = np.isin(indices["gene_pair_idx"], indices_to_subset)
+    sel_indices = np.array(list(range(len(indices["gene_pair_idx"]))))[sel_mask]
 
     # Select these from the dataset, via the global index
 
     for k, v in indices.items():
-        if len(v) == len(indices['gene_pair_idx']):
+        if len(v) == len(indices["gene_pair_idx"]):
             target_indices[k] = target_indices[k][sel_indices]
 
-    target_data['final']['combinations'] = target_data['final']['combinations'][sel_indices]
+    target_data["final"]["combinations"] = target_data["final"]["combinations"][
+        sel_indices
+    ]
 
     # use guide pair indices that correspond to our gene pairs to index plasmids
     #
@@ -604,22 +723,23 @@ def subset_for_mcmc(indices_to_subset, data, lengths, indices):
     # theta_init[indices["guide_pair_idx"]]
 
     for k, v in target_lengths.items():
-        if v == len(indices['gene_pair_idx']):
-            target_lengths[k] = len(target_indices['gene_pair_idx'])
+        if v == len(indices["gene_pair_idx"]):
+            target_lengths[k] = len(target_indices["gene_pair_idx"])
 
     # Not the correct indices
 
     target_gene_indices, target_guide_indices = getUniqueGeneGuideIndices(
-        target_indices, singletons=False,
+        target_indices,
+        singletons=False,
     )
 
     target_gene_indices_shared, _ = getUniqueGeneGuideIndices(
-       target_indices, singletons=False, only_singletons=False, shared = True
+        target_indices, singletons=False, only_singletons=False, shared=True
     )
 
     target_lengths["len_genes_common"] = len(target_gene_indices_shared)
 
-    target_lengths['len_gene_pairs'] = len(np.unique(target_indices['gene_pair_idx']))
+    target_lengths["len_gene_pairs"] = len(np.unique(target_indices["gene_pair_idx"]))
     target_lengths["len_guide_pairs"] = len(np.unique(target_indices["guide_pair_idx"]))
     target_lengths["len_cell_lines"] = len(np.unique(indices["cell_line_idx"]))
     target_lengths["len_guides"] = len(np.unique(target_guide_indices))
@@ -628,15 +748,23 @@ def subset_for_mcmc(indices_to_subset, data, lengths, indices):
     # These index the cell line and gene by the gene pair index, so should be okay
     # just to index by the target indices
 
-    target_indices["cell_line_in_pair_idx"] = target_indices["cell_line_in_pair_idx"][indices_to_subset]
+    target_indices["cell_line_in_pair_idx"] = target_indices["cell_line_in_pair_idx"][
+        indices_to_subset
+    ]
 
-    target_indices["gene_1_in_pair_idx"] = target_indices["gene_1_in_pair_idx"][indices_to_subset]
-    target_indices["gene_2_in_pair_idx"] = target_indices["gene_2_in_pair_idx"][indices_to_subset]
+    target_indices["gene_1_in_pair_idx"] = target_indices["gene_1_in_pair_idx"][
+        indices_to_subset
+    ]
+    target_indices["gene_2_in_pair_idx"] = target_indices["gene_2_in_pair_idx"][
+        indices_to_subset
+    ]
 
     print(target_indices["guide_pair_idx"])
 
-    # Many to one, rather than the one to many in the model 
+    # Many to one, rather than the one to many in the model
     # Does the np.unique... give the correct order when discarding duplicates?
-    target_data['initial']['combinations'] = target_data['initial']['combinations'][np.unique(target_indices["guide_pair_idx"])]
+    target_data["initial"]["combinations"] = target_data["initial"]["combinations"][
+        np.unique(target_indices["guide_pair_idx"])
+    ]
 
     return target_data, target_lengths, target_indices

@@ -10,7 +10,7 @@ from valinor.utils import (
     checkBounds,
     reindexDF,
     combinationLFCs,
-    countZeros
+    countZeros,
 )
 
 from valinor.priors import (
@@ -18,7 +18,7 @@ from valinor.priors import (
     defaultPriors,
     calculate_cell_line_stats,
     calculate_gene_stats,
-    calcInitCountParams
+    calcInitCountParams,
 )
 
 from typing import Dict, List, Tuple, Any
@@ -74,12 +74,16 @@ def prepareData(
 
         if "dLFC" in datasets["combinations"]:
             prior_params["dLFC"] = getDeltaLFC(datasets["combinations"])
-        elif not (datasets['singletons'] is None):
-            prior_params["dLFC"] = combinationLFCs(datasets["combinations"], datasets["singletons"])
+        elif not (datasets["singletons"] is None):
+            prior_params["dLFC"] = combinationLFCs(
+                datasets["combinations"], datasets["singletons"]
+            )
 
-        prior_params["init_count_vals"] = calcInitCountParams(datasets["combinations"], initCountVar = 'plasmid', singletons = False)
+        prior_params["init_count_vals"] = calcInitCountParams(
+            datasets["combinations"], initCountVar="plasmid", singletons=False
+        )
 
-        prior_params['p_zi'] = countZeros(datasets['combinations'])
+        prior_params["p_zi"] = countZeros(datasets["combinations"])
 
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (
@@ -87,9 +91,11 @@ def prepareData(
             np.std(datasets["singletons"]["plasmid"]),
         )
 
-        prior_params["init_count_s_vals"] = calcInitCountParams(datasets["singletons"], initCountVar = 'plasmid')
+        prior_params["init_count_s_vals"] = calcInitCountParams(
+            datasets["singletons"], initCountVar="plasmid"
+        )
 
-        prior_params['p_zi_s'] = countZeros(datasets['singletons'])
+        prior_params["p_zi_s"] = countZeros(datasets["singletons"])
 
     if not (datasets["controls"] is None):
         prior_params["init_count_c"] = (
@@ -97,7 +103,9 @@ def prepareData(
             np.std(datasets["controls"]["plasmid"]),
         )
 
-        prior_params["init_count_c_vals"] = calcInitCountParams(datasets["controls"], initCountVar = 'plasmid', singletons = False)
+        prior_params["init_count_c_vals"] = calcInitCountParams(
+            datasets["controls"], initCountVar="plasmid", singletons=False
+        )
 
     # Init params for controls, cell line stats for control DF
 
@@ -132,7 +140,7 @@ def prepareData(
         if singletons and not only_singletons:
             print("Only reindex with a single data type!")
         elif only_singletons:
-            datasets["singletons"] = reindexDF(datasets["singletons"], singletons = True)
+            datasets["singletons"] = reindexDF(datasets["singletons"], singletons=True)
         else:
             datasets["combinations"] = reindexDF(datasets["combinations"])
 
@@ -148,7 +156,7 @@ def prepareData(
 
     if singletons:
         # Add the singleton specific indices to map plasmids to their initial values, with duplicates for the null guides that aren't parameterised
-        indices['guide_initial_s_idx'] = np.array(initialCountIndices['singletons'])
+        indices["guide_initial_s_idx"] = np.array(initialCountIndices["singletons"])
 
     lengths = calculateLengths(
         indices,
