@@ -73,8 +73,13 @@ if gpu_available:
     numpyro.set_platform("gpu")
 
 
-def get_model_sites(model, *args, **kwargs):
+def make_minibatches(N, B, key):
+    idx = jax.random.permutation(key, N)
+    for start in range(0, N, B):
+        yield idx[start : start + B]
 
+
+def get_model_sites(model, *args, **kwargs):
     model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args, **kwargs)
     sites = list(model_trace.keys())
 
@@ -155,7 +160,6 @@ def obs_config(mode, data, config):
 
 
 def initialize_svi(model, guide, lr, nParticles, nEpochs):
-
     warmup = int(0.25 * nEpochs)
     schedule = optax.warmup_cosine_decay_schedule(
         init_value=0.0,
@@ -208,7 +212,7 @@ def run_svi(
 
 
 def save_results(params, config, outputDir):
-    saveModelParams(params, f'{outputDir}{config["paramsFileName"]}')
+    saveModelParams(params, f"{outputDir}{config['paramsFileName']}")
     with open(f"valinorrun_{config['name']}.json", "w") as outfile:
         json.dump(config, outfile)
 
@@ -229,7 +233,6 @@ def save_posterior_predictive(
     annotation,
     **kwargs,
 ):
-
     sites = list(filter(lambda x: "obs" in x, sites))
 
     predictive = Predictive(
@@ -252,7 +255,6 @@ def save_posterior_predictive(
         args = {"guide_config": config["guide_config"]}
 
     with jax.default_device(jax.devices("cpu")[0]):
-
         samples = predictive(
             random.PRNGKey(42),
             data=data,
@@ -270,7 +272,6 @@ def save_posterior_predictive(
 def sample_posterior(
     predictive, config, data, lengths, indices, prior_params, batch=False, **kwargs
 ):
-
     if config["only_singletons"] == False:
         args = {
             "no_singletons": config["no_singletons"],
@@ -282,9 +283,7 @@ def sample_posterior(
         args = {"guide_config": config["guide_config"]}
 
     if not batch:
-
         with jax.default_device(jax.devices("cpu")[0]):
-
             # Non-batch case: directly sample from the posterior
             samples = predictive(
                 random.PRNGKey(42),
@@ -342,7 +341,6 @@ def sample_posterior(
         )
 
         with jax.default_device(jax.devices("cpu")[0]):
-
             samples = predictive(
                 random.PRNGKey(42),
                 data=batch_data,
@@ -373,9 +371,7 @@ def sample_posterior(
 
 
 def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="Only"):
-
     if (config["only_singletons"] == False) and (combsDF is not None):
-
         combsName = "OnlyCombsModel" if config["no_singletons"] else "CombsModel"
         combsDF.to_parquet(
             f"{outputDir}{combsName}.pq"
@@ -383,7 +379,6 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="
             else f"{outputDir}{combsName}_{config['name']}.pq"
         )
     if (config["no_singletons"] == False) and (singlesDF is not None):
-
         singlesDF.to_parquet(
             f"{outputDir}{singlesStage}SinglesModel.pq"
             if config["name"] is None
@@ -392,7 +387,6 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="
 
 
 def runValinor(lengths, indices, prior_params, data, config):
-
     if config["zi"] == False:
         config["zi"] = None
 
@@ -462,7 +456,6 @@ def runValinor(lengths, indices, prior_params, data, config):
     print("Fitting")
 
     if fit_mode == "controls" or fit_mode == "full":
-
         print("Fitting controls")
 
         svi_controls = initialize_svi(
@@ -551,7 +544,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
     if "singles" in fit_mode or fit_mode == "full":
-
         print("Fitting singles")
 
         prng_key, _ = random.split(prng_key)
@@ -635,7 +627,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         singles_vals = valinor_guide.median(params_s)
 
     if "dko" in fit_mode or fit_mode == "full":
-
         print("Fitting dko")
 
         custom_init = configure_custom_init(init_params_common)
@@ -658,19 +649,58 @@ def runValinor(lengths, indices, prior_params, data, config):
             **obs_config(fit_mode, data, config),
         }
 
-        state_d = run_svi(
-            svi_dko,
+        # ---- minibatched DKO training ----
+        N = int(lengths["len_guide_pairs"])
+        B = int(config["batch_size"])  # reuse CLI --batch-size
+
+        prng_key, key_init = random.split(prng_key)
+        init_batch_iter = make_minibatches(N, B, key_init)
+        init_batch = next(init_batch_iter)
+
+        init_params = params_s if (fit_mode == "full" and use_sko_d) else None
+
+        state_d = svi_dko.init(
             prng_key,
-            config["epochs"],
-            data,
-            lengths,
-            indices,
-            prior_params,
-            init_params=params_s if (fit_mode == "full" and use_sko_d) else None,
-            **dko_args,
-            **common_svi_config,
+            data=data,
+            lengths=lengths,
+            indices=indices,
+            prior_params=prior_params,
+            init_params=init_params,
             predict=False,
+            dko_subsample_size=B,
+            dko_batch_idx=init_batch,
+            **dko_args,
         )
+
+        # one full pass over all DKO pairs per epoch
+        for _ in tqdm(range(config["epochs"]), desc="DKO epochs"):
+            prng_key, key_epoch = random.split(prng_key)
+            for batch in make_minibatches(N, B, key_epoch):
+                if config.get("stable_update", False):
+                    state_d, _ = svi_dko.stable_update(
+                        state_d,
+                        data=data,
+                        lengths=lengths,
+                        indices=indices,
+                        prior_params=prior_params,
+                        predict=False,
+                        dko_subsample_size=B,
+                        dko_batch_idx=batch,
+                        **dko_args,
+                    )
+                else:
+                    state_d, _ = svi_dko.update(
+                        state_d,
+                        data=data,
+                        lengths=lengths,
+                        indices=indices,
+                        prior_params=prior_params,
+                        predict=False,
+                        dko_subsample_size=B,
+                        dko_batch_idx=batch,
+                        **dko_args,
+                    )
+        # -----------------------------------
 
         params_d = state_d.params
 

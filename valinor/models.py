@@ -171,7 +171,6 @@ def controlLikelihoodFinal(
     cell_line_growth_c: float,
     mv: float,
 ) -> Distribution:
-
     log_theta = jnp.log(init_theta_c + 1e-6) + cell_line_growth_c
     theta = jnp.exp(log_theta)
 
@@ -191,9 +190,7 @@ def sample_guide_distributions(
     # guide_eff must still have shape [n_guides, n_cell_lines]
 
     if config == "partial_pooling":
-
         with numpyro.plate("guides", lengths["len_guides"], dim=-2):
-
             guide_eff_mean = numpyro.sample(
                 "guide_eff_mean", dist.Normal(loc=mean_l, scale=mean_s)
             )
@@ -202,7 +199,6 @@ def sample_guide_distributions(
             )
 
             with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
-
                 tilde_alpha = numpyro.sample("tilde_alpha", dist.Normal(0, 1))
 
                 guide_eff_logit = guide_eff_mean + guide_eff_std * tilde_alpha
@@ -259,9 +255,7 @@ def sample_guide_distributions(
 
 
 def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
-
     if not "gene_effect_means" in prior_params:
-
         growth_l, growth_s = prior_params["gene_ko_growth"]
 
         with numpyro.plate("genes", lengths["len_genes"]):
@@ -270,7 +264,6 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
             )
 
     else:
-
         # Return a 2D array with [n_cell_lines, n_genes].
         # Later index to a 1D array, where gene indices will be unique for each cell line,
         # as perhaps not all genes will be present for each cell line.
@@ -348,7 +341,6 @@ def sample_od_distributions_s(
 def sample_mv_cell_line_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
-
     od_means = jnp.clip(prior_params["od_means"], 1.0, np.inf) - 1.0
     od_stds = jnp.clip(prior_params["od_stds"], 1e-4, np.inf)
 
@@ -372,7 +364,6 @@ def sample_pair_od_distributions(
     indices,
     prior_params: Dict[str, Any],
 ):
-
     # Set scale of overdispersion
     sigma_pair = numpyro.sample(
         "sigma_pair", dist.HalfNormal(prior_params["od_pair_scale"] * 0.1)
@@ -381,7 +372,6 @@ def sample_pair_od_distributions(
     # We may not have all genes pair with others though! -> Flatten
 
     with numpyro.plate("gene_pairs_common", lengths["len_gene_pairs"]):
-
         z_p = numpyro.sample("z_pair", dist.Normal(0.0, 1.0))
 
         c = mv_cell_line_raw[indices["cell_line_in_pair_idx"]]
@@ -414,7 +404,6 @@ def sample_pair_od_distributions(
 def sample_od_distributions(
     raw_mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
-
     with numpyro.plate("genes_common", lengths["len_genes_common"]):
         z_g = numpyro.sample("z_gene", dist.Normal(0.0, 1.0))
     raw_mv_gene = raw_mv_cell_line[:, None] + gene_std[:, None] * z_g
@@ -431,7 +420,6 @@ def sample_od_distributions(
 def sample_control_od_distributions(
     mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
-
     non_centered_deviation = numpyro.sample(
         "non_centered_deviation_gene_c",
         dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]]),
@@ -441,7 +429,6 @@ def sample_control_od_distributions(
     outer_product = jnp.outer(gene_std, non_centered_deviation)
 
     with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
-
         mv_guide_pair_c_ = numpyro.deterministic(
             "mv_guide_pair_c_", mv_cell_line[:, None] + outer_product
         )
@@ -455,9 +442,7 @@ def sample_cell_line_distributions(
     lengths: Dict[str, int],
     prior_params: Dict[str, Any],
 ):
-
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]) as c:
-
         growth_cell_l, growth_cell_s = prior_params["cell_line_growth"]
 
         cell_line_growth_raw = numpyro.sample(
@@ -517,73 +502,60 @@ def sample_dko_distributions(
     alternate: bool = False,
     p_zi=False,
     predict=False,
+    dko_subsample_size: int | None = None,
+    dko_batch_idx=None,
 ):
-    with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
+    with numpyro.plate(
+        "guide_counts",
+        lengths["len_guide_pairs"],
+        subsample_size=dko_subsample_size,
+        subsample=dko_batch_idx,
+    ) as batch:
         init_l, init_s = prior_params["init_count"]
-
         guide_init_count = numpyro.sample(
             "guide_init_count",
             dist.Normal(loc=init_l, scale=init_s),
         )
 
-    guide_init_count = jax.nn.softplus(guide_init_count) + 1e-6
+        guide_init_count = jax.nn.softplus(guide_init_count) + 1e-6
+        guide_init_count = jnp.clip(guide_init_count, 1e-6, 1e6)
 
-    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
         pair_growth_l, pair_growth_s = prior_params["pair_growth"]
-
         gene_pair_ko_growth_raw = numpyro.sample(
             "gene_pair_ko_growth_raw",
             dist.Normal(pair_growth_l, pair_growth_s),
-            # dist.Laplace(pair_growth_l, pair_growth_s),
         )
+        gene_pair_ko_growth_raw = jnp.clip(gene_pair_ko_growth_raw, -10.0, 10.0)
 
     gene_pair_ko_growth = numpyro.deterministic(
         "gene_pair_ko_growth",
         gene_pair_ko_growth_raw - jnp.mean(gene_pair_ko_growth_raw),
     )
 
-    guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
-    guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
+    g1i = indices["guide_1_idx"][batch]
+    g2i = indices["guide_2_idx"][batch]
+    cli = indices["cell_line_idx"][batch]
+    gp_i = indices["gene_pair_idx"][batch]
 
-    mv = mv_gene_pair[indices["gene_pair_idx"]]
+    guide_eff_1 = guide_eff[g1i, cli]
+    guide_eff_2 = guide_eff[g2i, cli]
 
-    if not "gene_effect_means" in prior_params:
-
-        gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
-        gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"]]
-
+    if "gene_effect_means" not in prior_params:
+        gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"][batch]]
+        gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"][batch]]
     else:
+        gene_ko_growth_1 = gene_ko_growth[cli, indices["gene_1_common_idx"][batch]]
+        gene_ko_growth_2 = gene_ko_growth[cli, indices["gene_2_common_idx"][batch]]
 
-        # Index 2D array with indices not unique to cell line
-        gene_ko_growth_1 = gene_ko_growth[
-            indices["cell_line_idx"], indices["gene_1_common_idx"]
-        ]
-        gene_ko_growth_2 = gene_ko_growth[
-            indices["cell_line_idx"], indices["gene_2_common_idx"]
-        ]
-
-    gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
-
-    cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
+    gene_ko_growth_12 = gene_pair_ko_growth[gp_i]
+    cell_line_growth_v = cell_line_growth[cli]
+    mv = mv_gene_pair[gp_i]
+    library_bias_v = library_bias[cli] if library_bias is not None else 0.0
 
     init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
 
-    library_bias_v = (
-        library_bias[indices["cell_line_idx"]] if library_bias is not None else 0.0
-    )
-
-    pair_eff_mean_l, pair_eff_mean_s = prior_params["pair_eff_mean"]
-    pair_eff_std_l, pair_eff_std_s = prior_params["pair_eff_std"]
-
-    with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
-
-        guide_pair_eff = numpyro.sample(
-            "guide_pair_eff",
-            dist.HalfCauchy(0.1),
-        )
-
-    lh, theta = dkoLikelihoodFullFinal(
-        theta_init[indices["guide_pair_idx"]],
+    lh, _ = dkoLikelihoodFullFinal(
+        theta_init[indices["guide_pair_idx"][batch]],
         guide_eff_1,
         guide_eff_2,
         cell_line_growth_v,
@@ -592,15 +564,10 @@ def sample_dko_distributions(
         gene_ko_growth_12,
         mv,
         library_bias=library_bias_v,
-        p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
-        guide_pair_eff=guide_pair_eff[indices["guide_pair_idx"]],
+        p_zi=False if p_zi is False else p_zi[cli],
     )
 
-    # Only evaluate these when performing inference rather than predicting
-    # as otherwise there is a problem with the sampling for unbounded
-    # discrete distributions
-
-    return init_lh, lh
+    return init_lh, lh, batch
 
 
 def sample_sko_distributions(
@@ -616,7 +583,6 @@ def sample_sko_distributions(
     p_zi_s=False,
     predict=False,
 ):
-
     # Index unique singleton guides, rather than pairs (agg over null guides, etc, as these are not parameterised, unlike in pairs)
     with numpyro.plate("guides_counts_s", lengths["len_guides"]):
         init_s_l, init_s_s = prior_params["init_count_s"]
@@ -632,11 +598,9 @@ def sample_sko_distributions(
     mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_common_idx"]]
 
     if not "gene_effect_means" in prior_params:
-
         gene_ko_growth_s = gene_ko_growth[indices["gene_s_idx"]]
 
     else:
-
         gene_ko_growth_s = gene_ko_growth[
             indices["cell_line_s_idx"], indices["gene_s_common_idx"]
         ]
@@ -677,7 +641,6 @@ def sample_control_distributions(
 
     # Length of init data
     with numpyro.plate("init_counts_c", lengths["len_guide_pairs_c"]):
-
         guide_init_count_c = numpyro.sample(
             "guide_init_count_c",
             dist.Normal(loc=init_c_l, scale=init_c_s),
@@ -723,8 +686,9 @@ def valinorHierarchy(
     zi=False,
     zi_s=False,
     predict=False,
+    dko_subsample_size: int | None = None,
+    dko_batch_idx=None,
 ) -> None:
-
     with handlers.scope(prefix="sko"):
         guide_eff_sko = sample_guide_distributions(
             lengths, prior_params, config=guide_config
@@ -762,43 +726,43 @@ def valinorHierarchy(
     )
 
     if not only_singletons:
-
         mv_gene_pair = sample_pair_od_distributions(
             mv_cell_line_raw, raw_mv_gene, lengths, indices, prior_params
         )
 
-        init_lh, lh = sample_dko_distributions(
-            data,
-            lengths,
-            indices,
-            prior_params,
-            guide_eff_dko,
-            gene_ko_growth,
-            cell_line_growth,
-            mv_gene_pair,
-            library_bias,
-            alternate,
-            p_zi if zi else False,
-            predict=predict,
-        )
+    init_lh, lh, dko_batch = sample_dko_distributions(
+        data,
+        lengths,
+        indices,
+        prior_params,
+        guide_eff_dko,
+        gene_ko_growth,
+        cell_line_growth,
+        mv_gene_pair,
+        library_bias,
+        alternate,
+        p_zi if zi else False,
+        predict=predict,
+        dko_subsample_size=dko_subsample_size,
+        dko_batch_idx=dko_batch_idx,
+    )
 
-        observe(
-            "obs_init",
-            init_lh,
-            obs=data["initial"]["combinations"] if not predict else None,
-            use=use_dko,
-            weight=w_dko,
-        )
-        observe(
-            "obs",
-            lh,
-            obs=data["final"]["combinations"] if not predict else None,
-            use=use_dko,
-            weight=w_dko,
-        )
+    observe(
+        "obs_init",
+        init_lh,
+        obs=(data["initial"]["combinations"][dko_batch] if not predict else None),
+        use=use_dko,
+        weight=w_dko,
+    )
+    observe(
+        "obs",
+        lh,
+        obs=(data["final"]["combinations"][dko_batch] if not predict else None),
+        use=use_dko,
+        weight=w_dko,
+    )
 
     if not no_singletons:
-
         init_lh_s, lh_s = sample_sko_distributions(
             data,
             lengths,
@@ -829,7 +793,6 @@ def valinorHierarchy(
         )
 
     if not no_controls:
-
         init_lh_c, lh_c = sample_control_distributions(
             data,
             lengths,
