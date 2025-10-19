@@ -17,6 +17,8 @@ import numpyro
 from numpyro.infer import Predictive, SVI, Trace_ELBO, TraceMeanField_ELBO, MCMC, NUTS
 from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
 
+from numpyro.infer.initialization import init_to_value
+
 from numpyro.handlers import seed, trace, substitute
 
 import optax
@@ -34,7 +36,7 @@ from valinor.utils import (
     saveModelParams,
     loadPriors,
     getBatchData,
-    configure_custom_init,
+    make_init_loc_fn,
     subset_for_mcmc,
 )
 from valinor.preprocessing import prepareData, getDeltaLFC
@@ -235,15 +237,6 @@ def save_posterior_predictive(
 ):
     sites = list(filter(lambda x: "obs" in x, sites))
 
-    predictive = Predictive(
-        model,
-        guide=guide,
-        params=params,
-        num_samples=num_samples,
-        return_sites=sites,
-        parallel=False,
-    )
-
     if config["only_singletons"] == False:
         args = {
             "no_singletons": config["no_singletons"],
@@ -254,15 +247,44 @@ def save_posterior_predictive(
     else:
         args = {"guide_config": config["guide_config"]}
 
+    call_args = {**args, **kwargs}
+
+    # draw latents from the fitted guide (conditioned on observed data)
     with jax.default_device(jax.devices("cpu")[0]):
+        _ = trace(seed(guide, random.PRNGKey(0))).get_trace(
+            data=data,
+            lengths=lengths,
+            indices=indices,
+            prior_params=prior_params,
+            **call_args,
+            predict=False,
+        )
+        post_latents = guide.sample_posterior(
+            random.PRNGKey(41),
+            params,
+            sample_shape=(num_samples,),
+            data=data,
+            lengths=lengths,
+            indices=indices,
+            prior_params=prior_params,
+            **call_args,
+            predict=False,
+        )
+
+        predictive = Predictive(
+            model,
+            posterior_samples=post_latents,
+            return_sites=sites,
+            parallel=False,
+        )
+
         samples = predictive(
             random.PRNGKey(42),
             data=data,
             lengths=lengths,
             indices=indices,
             prior_params=prior_params,
-            # **args,
-            **kwargs,
+            **call_args,
             predict=True,
         )
 
@@ -282,6 +304,8 @@ def sample_posterior(
     else:
         args = {"guide_config": config["guide_config"]}
 
+    call_args = {**args, **kwargs}
+
     if not batch:
         with jax.default_device(jax.devices("cpu")[0]):
             # Non-batch case: directly sample from the posterior
@@ -291,8 +315,7 @@ def sample_posterior(
                 lengths=lengths,
                 indices=indices,
                 prior_params=prior_params,
-                # **args,
-                **kwargs,
+                **call_args,
                 predict=True,
             )
 
@@ -347,7 +370,7 @@ def sample_posterior(
                 lengths=lengths,
                 indices=batch_indices,
                 prior_params=prior_params,
-                **kwargs,
+                **call_args,
                 predict=True,
             )
 
@@ -428,16 +451,18 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "init_count_vals" in prior_params and use_dko_d:
         init_params_common["guide_init_count"] = prior_params["init_count_vals"]
     if "init_count_s_vals" in prior_params and use_sko_d:
-        init_params_common["guide_init_count_s"] = prior_params["init_count_s_vals"]
+        if "init_count_s_vals" in prior_params and use_sko_d:
+            v = jnp.asarray(prior_params["init_count_s_vals"])
+            if v.ndim == 2:
+                # assume [cell_lines, guides]; collapse the cell-line axis
+                v = v.mean(axis=0)
+            elif v.ndim != 1:
+                v = v.reshape((-1,))
+            init_params_common["guide_init_count_s"] = v
     if "initial" in data and "controls" in data["initial"] and use_ctrl_d:
         init_params_common["guide_init_count_c"] = prior_params["init_count_c_vals"]
 
-    custom_init = configure_custom_init(init_params_common)
-
     valinor_model = models.valinorHierarchy
-    valinor_guide = AutoLowRankMultivariateNormal(
-        models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
-    )
 
     common_config = {
         "guide_config": config["guide_config"],
@@ -458,9 +483,16 @@ def runValinor(lengths, indices, prior_params, data, config):
     if fit_mode == "controls" or fit_mode == "full":
         print("Fitting controls")
 
+        controls_init_loc = make_init_loc_fn(
+            overrides=init_params_common,
+        )
+
+        controls_guide = AutoLowRankMultivariateNormal(
+            valinor_model, init_loc_fn=controls_init_loc(), rank=64
+        )
         svi_controls = initialize_svi(
             valinor_model,
-            valinor_guide,
+            controls_guide,
             config["lr"],
             config["n_particles"],
             config["epochs"],
@@ -483,7 +515,6 @@ def runValinor(lengths, indices, prior_params, data, config):
             **common_svi_config,
             predict=False,
         )
-
         params_c = state_c.params
 
         plotDiagPlots(state_c, name=f"{config['name']}_controls", outputDir=outputDir)
@@ -492,24 +523,33 @@ def runValinor(lengths, indices, prior_params, data, config):
             valinor_model, data, lengths, indices, prior_params, **controls_args
         )
 
-        predictive = Predictive(
-            valinor_model,
-            guide=valinor_guide,
-            params=params_c,
-            num_samples=config["nSamples"],
-            return_sites=sites_from_model,
-            parallel=False,
-        )
-
-        samples = predictive(
-            prng_key,
-            data=data,
-            lengths=lengths,
-            indices=indices,
-            prior_params=prior_params,
-            **controls_args,
-            predict=True,
-        )
+        with jax.default_device(jax.devices("cpu")[0]):
+            post_latents = controls_guide.sample_posterior(
+                random.PRNGKey(41),
+                params_c,
+                sample_shape=(config["nSamples"],),
+                data=data,
+                lengths=lengths,
+                indices=indices,
+                prior_params=prior_params,
+                **controls_args,
+                predict=False,
+            )
+            predictive = Predictive(
+                valinor_model,
+                posterior_samples=post_latents,
+                return_sites=sites_from_model,
+                parallel=False,
+            )
+            samples = predictive(
+                random.PRNGKey(42),
+                data=data,
+                lengths=lengths,
+                indices=indices,
+                prior_params=prior_params,
+                **controls_args,
+                predict=True,
+            )
 
         sampleVars = [
             "cell_line_growth",
@@ -530,7 +570,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         save_posterior_predictive(
             valinor_model,
-            valinor_guide,
+            controls_guide,
             params_c,
             config["nSamples"],
             sites_from_model,
@@ -548,9 +588,28 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         prng_key, _ = random.split(prng_key)
 
+        if fit_mode == "full":
+            ctrl_median = controls_guide.median(
+                params_c,
+            )
+
+            singles_init_loc = make_init_loc_fn(
+                overrides=init_params_common,
+                warmstart=ctrl_median,
+            )
+
+        else:
+            singles_init_loc = make_init_loc_fn(
+                overrides=init_params_common,
+            )
+
+        singles_guide = AutoLowRankMultivariateNormal(
+            valinor_model, init_loc_fn=singles_init_loc(), rank=64
+        )
+
         svi_singles = initialize_svi(
             valinor_model,
-            valinor_guide,
+            singles_guide,
             config["lr"],
             config["n_particles"],
             config["epochs"],
@@ -569,12 +628,10 @@ def runValinor(lengths, indices, prior_params, data, config):
             lengths,
             indices,
             prior_params,
-            init_params=params_c if (fit_mode == "full" and use_ctrl_d) else None,
             **singles_args,
             **common_svi_config,
             predict=False,
         )
-
         params_s = state_s.params
 
         plotDiagPlots(state_s, name=f"{config['name']}_singles", outputDir=outputDir)
@@ -583,14 +640,24 @@ def runValinor(lengths, indices, prior_params, data, config):
             valinor_model, data, lengths, indices, prior_params, **singles_args
         )
 
-        predictive = Predictive(
-            valinor_model,
-            guide=valinor_guide,
-            params=params_s,
-            num_samples=config["nSamples"],
-            return_sites=sites_from_model,
-            parallel=False,
-        )
+        with jax.default_device(jax.devices("cpu")[0]):
+            post_latents = singles_guide.sample_posterior(
+                random.PRNGKey(41),
+                params_s,
+                sample_shape=(config["nSamples"],),
+                data=data,
+                lengths=lengths,
+                indices=indices,
+                prior_params=prior_params,
+                **singles_args,
+                predict=False,
+            )
+            predictive = Predictive(
+                valinor_model,
+                posterior_samples=post_latents,
+                return_sites=sites_from_model,
+                parallel=False,
+            )
 
         combsDF, singlesDF = sample_posterior(
             predictive,
@@ -611,7 +678,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         save_posterior_predictive(
             valinor_model,
-            valinor_guide,
+            singles_guide,
             params_s,
             config["nSamples"],
             sites_from_model,
@@ -624,17 +691,29 @@ def runValinor(lengths, indices, prior_params, data, config):
             **singles_args,
         )
 
-        singles_vals = valinor_guide.median(params_s)
-
     if "dko" in fit_mode or fit_mode == "full":
         print("Fitting dko")
 
-        custom_init = configure_custom_init(init_params_common)
-        dko_guide = AutoLowRankMultivariateNormal(
-            models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
-        )
-
         prng_key, _ = random.split(prng_key)
+
+        if "sko" in fit_mode or fit_mode == "full":
+            singles_median = singles_guide.median(
+                params_s,
+            )
+
+            dko_init_loc = make_init_loc_fn(
+                overrides=init_params_common,
+                warmstart=singles_median,
+            )
+
+        else:
+            dko_init_loc = make_init_loc_fn(
+                overrides=init_params_common,
+            )
+
+        dko_guide = AutoLowRankMultivariateNormal(
+            valinor_model, init_loc_fn=dko_init_loc(), rank=64
+        )
 
         svi_dko = initialize_svi(
             valinor_model,
@@ -649,58 +728,19 @@ def runValinor(lengths, indices, prior_params, data, config):
             **obs_config(fit_mode, data, config),
         }
 
-        # ---- minibatched DKO training ----
-        N = int(lengths["len_guide_pairs"])
-        B = int(config["batch_size"])  # reuse CLI --batch-size
-
-        prng_key, key_init = random.split(prng_key)
-        init_batch_iter = make_minibatches(N, B, key_init)
-        init_batch = next(init_batch_iter)
-
-        init_params = params_s if (fit_mode == "full" and use_sko_d) else None
-
-        state_d = svi_dko.init(
+        state_d = run_svi(
+            svi_dko,
             prng_key,
-            data=data,
-            lengths=lengths,
-            indices=indices,
-            prior_params=prior_params,
-            init_params=init_params,
-            predict=False,
-            dko_subsample_size=B,
-            dko_batch_idx=init_batch,
+            config["epochs"],
+            data,
+            lengths,
+            indices,
+            prior_params,
             **dko_args,
+            **common_svi_config,
+            predict=False,
+            dko_subsample_size=config["batch_size"],
         )
-
-        # one full pass over all DKO pairs per epoch
-        for _ in tqdm(range(config["epochs"]), desc="DKO epochs"):
-            prng_key, key_epoch = random.split(prng_key)
-            for batch in make_minibatches(N, B, key_epoch):
-                if config.get("stable_update", False):
-                    state_d, _ = svi_dko.stable_update(
-                        state_d,
-                        data=data,
-                        lengths=lengths,
-                        indices=indices,
-                        prior_params=prior_params,
-                        predict=False,
-                        dko_subsample_size=B,
-                        dko_batch_idx=batch,
-                        **dko_args,
-                    )
-                else:
-                    state_d, _ = svi_dko.update(
-                        state_d,
-                        data=data,
-                        lengths=lengths,
-                        indices=indices,
-                        prior_params=prior_params,
-                        predict=False,
-                        dko_subsample_size=B,
-                        dko_batch_idx=batch,
-                        **dko_args,
-                    )
-        # -----------------------------------
 
         params_d = state_d.params
 
@@ -710,13 +750,24 @@ def runValinor(lengths, indices, prior_params, data, config):
             valinor_model, data, lengths, indices, prior_params, **dko_args
         )
 
-        predictive = Predictive(
-            valinor_model,
-            guide=dko_guide,
-            params=params_d,
-            num_samples=config["nSamples"],
-            return_sites=sites_from_model,
-        )
+        with jax.default_device(jax.devices("cpu")[0]):
+            post_latents = dko_guide.sample_posterior(
+                random.PRNGKey(41),
+                params_d,
+                sample_shape=(config["nSamples"],),
+                data=data,
+                lengths=lengths,
+                indices=indices,
+                prior_params=prior_params,
+                **dko_args,
+                predict=False,
+            )
+            predictive = Predictive(
+                valinor_model,
+                posterior_samples=post_latents,
+                return_sites=sites_from_model,
+                parallel=False,
+            )
 
         combsDF, singlesDF = sample_posterior(
             predictive,
@@ -975,6 +1026,16 @@ def run():
         not config["no_controls"],
         config["reindex"],
     )
+
+    # Make sure these are jax arrays
+
+    for sect in ("initial", "final"):
+        if data[sect].get("combinations") is not None:
+            data[sect]["combinations"] = jnp.asarray(data[sect]["combinations"])
+        if data[sect].get("singletons") is not None:
+            data[sect]["singletons"] = jnp.asarray(data[sect]["singletons"])
+        if data[sect].get("controls") is not None:
+            data[sect]["controls"] = jnp.asarray(data[sect]["controls"])
 
     # print(lengths)
 

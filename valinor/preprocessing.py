@@ -1,5 +1,7 @@
 import numpy as np
 
+import jax.numpy as jnp
+
 from valinor.utils import (
     loadData,
     getFinalCounts,
@@ -22,6 +24,67 @@ from valinor.priors import (
 )
 
 from typing import Dict, List, Tuple, Any
+
+
+def make_jax(
+    lengths,
+    indices,
+    final_counts,
+    initial_counts,
+    float_dtype=jnp.float32,
+    int_dtype=jnp.int32,
+):
+    """
+    Convert arrays that will participate in JAX tracing to jnp arrays,
+    with sensible dtypes:
+      - indices -> int_dtype
+      - observed count arrays -> int_dtype
+    Leaves `lengths` as Python ints on purpose (for numpyro.plate sizes).
+
+    Returns: (lengths, jax_indices, data_dict)
+             where data_dict = {"final": jax_final_counts, "initial": jax_initial_counts}
+    """
+
+    # -------- helpers --------
+    def _asarray(x, dtype=None):
+        if x is None:
+            return None
+        if isinstance(x, jnp.ndarray):
+            return x.astype(dtype) if dtype is not None and x.dtype != dtype else x
+        if isinstance(x, np.ndarray) or isinstance(x, list):
+            return jnp.asarray(x, dtype=dtype)
+        # Pandas support (optional)
+        try:
+            import pandas as pd  # type: ignore
+
+            if isinstance(x, (pd.Series, pd.Index)):
+                return jnp.asarray(x.to_numpy(), dtype=dtype)
+            if isinstance(x, pd.DataFrame):
+                return jnp.asarray(x.values, dtype=dtype)
+        except Exception:
+            pass
+        # scalar or something we don't want to touch
+        return x
+
+    def _convert_counts_dict(d):
+        out = {}
+        for k, v in (d or {}).items():
+            out[k] = _asarray(v, dtype=int_dtype) if v is not None else None
+        return out
+
+    # -------- indices -> jnp.int --------
+    jax_indices = {}
+    for k, v in (indices or {}).items():
+        jax_indices[k] = _asarray(v, dtype=int_dtype) if v is not None else None
+
+    # -------- data counts -> jnp.int --------
+    jax_final = _convert_counts_dict(final_counts or {})
+    jax_initial = _convert_counts_dict(initial_counts or {})
+
+    data = {"final": jax_final, "initial": jax_initial}
+
+    # NB: lengths intentionally unchanged (plates want ints)
+    return lengths, jax_indices, data
 
 
 def prepareData(
@@ -110,7 +173,6 @@ def prepareData(
     # Init params for controls, cell line stats for control DF
 
     if controls:  # and config == True
-
         print("Setting control priors using data.")
 
         control_means, control_stds = calculate_cell_line_stats(datasets["controls"])
@@ -119,7 +181,6 @@ def prepareData(
         prior_params["control_stds"] = control_stds
 
     if singletons:  # and config == True
-
         print("Setting single gene effect priors using data.")
 
         # 2D array, genes x cell lines
@@ -131,7 +192,6 @@ def prepareData(
         prior_params["gene_effect_stds"] = gene_stds
 
     if not singletons:
-
         # try and guess these
 
         pass
@@ -173,16 +233,17 @@ def prepareData(
         only_singletons=only_singletons,
     )
 
+    lengths, indices, data = make_jax(lengths, indices, finalCounts, initialCounts)
+
     return (
         lengths,
         indices,
         prior_params,
-        {"final": finalCounts, "initial": initialCounts},
+        data,
     )
 
 
 def getDeltaLFC(combinations):
-
     pair_grouped = combinations.groupby("gene_unq_pair_index").agg({"dLFC": "mean"})
 
     return pair_grouped["dLFC"].values

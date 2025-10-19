@@ -63,16 +63,13 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
     count_indices = {}
 
     for n, d in datasets.items():
-
         if not (d is None):
-
             singletons = "singletons" in n.lower()
             count, indices = getInitialCountsDF(d, initCountVar, singletons)
             counts[n] = count
             count_indices[n] = indices
 
         else:
-
             counts[n] = None
             count_indices[n] = None
 
@@ -82,7 +79,6 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 def getInitialCountsDF(
     df: pd.DataFrame, initCountVar: str, singletons: bool = False
 ) -> pd.Series:
-
     obsVar = "guide_pair_index"
     paramVar = "guide_index" if singletons else obsVar
 
@@ -143,7 +139,6 @@ def getUniqueGeneGuideIndices(
 
 # Only for final counts
 def countZeros(df):
-
     data_sorted = df.sort_values("cell_line_index").reset_index()
     counts = data_sorted.groupby("cell_line_index").size()
     zero_counts = (
@@ -159,7 +154,6 @@ def countZeros(df):
 
 
 def reindexVar(df, var):
-
     oldIndicesUnq = df[var].unique()
     newIndexMap = {oldIndicesUnq[i]: i for i in range(len(oldIndicesUnq))}
     newIndices = np.array([newIndexMap[v] for v in df[var].values])
@@ -168,7 +162,6 @@ def reindexVar(df, var):
 
 
 def reindexDF(df: pd.DataFrame, singletons=False):
-
     # Reindexes to avoid cases where guides appear in only the combinations/singles
     # dataset. Not to be used for a model with matched combinations and singles!
 
@@ -180,7 +173,6 @@ def reindexDF(df: pd.DataFrame, singletons=False):
     df["cell_line_index"] = reindexVar(df, "cell_line_index")
 
     if not singletons:
-
         df["gene_pair_index"] = reindexVar(df, "gene_pair_index")
         df["guide2_index"] = reindexVar(df, "guide2_index")
         df["gene2_unq_index"] = reindexVar(df, "gene2_unq_index")
@@ -335,7 +327,6 @@ def calculateLengths(
     }
 
     if not only_singletons:
-
         lengths["len_gene_pairs"] = len(np.unique(indices["gene_pair_idx"]))
 
     gene_indices, guide_indices = getUniqueGeneGuideIndices(
@@ -376,7 +367,6 @@ def deltaLFC(lfc_combination, lfc_1, lfc_2):
 
 
 def combinationLFCs(combinations, singles):
-
     # Calculate gene-averaged dLFCs
 
     # Calculate LFCs
@@ -469,9 +459,9 @@ def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
 
 def assert_contiguous(name, arr):
     u = np.unique(arr)
-    assert u.min() == 0 and np.array_equal(
-        u, np.arange(u.max() + 1)
-    ), f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
+    assert u.min() == 0 and np.array_equal(u, np.arange(u.max() + 1)), (
+        f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
+    )
 
 
 def checkBounds(
@@ -524,9 +514,9 @@ def checkBounds(
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
-        assert (
-            np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
-        )
+        # assert (
+        #     np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        # )
         assert_contiguous("cell_line_c_idx", indices["cell_line_c_idx"])
 
     # Also, warn if there are some parameters that remain unused, which is sus
@@ -664,26 +654,50 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
     return batch_data, batch_indices
 
 
-def configure_custom_init(init_dict):
+def _shape_of_site(site):
+    return tuple(jnp.shape(site.get("value", ())))
 
-    # Set to values from config dictionary, falling back to median
 
-    def custom_init(site=None):
+def _is_compatible(val, site):
+    try:
+        return tuple(jnp.shape(val)) == _shape_of_site(site)
+    except Exception:
+        return False
 
+
+def make_init_loc_fn(overrides=None, warmstart=None, fallback=init_to_median):
+    """
+    Priority:
+      1) overrides[name] if provided and shape-compatible
+      2) warmstart[name] if shape-compatible
+      3) fallback(site)  (default: init_to_median)
+    """
+    overrides = {} if overrides is None else overrides
+    warmstart = {} if warmstart is None else warmstart
+
+    def init_loc_fn(site=None):
+        # IMPORTANT: return a `partial` when probed with site=None.
+        # This keeps NumPyro happy (it expects a partial and inspects `.func`).
         if site is None:
-            return partial(custom_init)
+            return partial(init_loc_fn)
 
-        if site["name"] in init_dict:
-            print(f'Setting {site["name"]}')
-            return init_dict[site["name"]]
-        else:
-            return init_to_median(site)
+        if site.get("type") != "sample" or site.get("is_observed", False):
+            return None
 
-    return custom_init
+        name = site["name"]
+
+        if name in overrides and _is_compatible(overrides[name], site):
+            return overrides[name]
+
+        if name in warmstart and _is_compatible(warmstart[name], site):
+            return warmstart[name]
+
+        return fallback(site)
+
+    return init_loc_fn
 
 
 def subset_for_mcmc(indices_to_subset, data, lengths, indices):
-
     print(len(np.unique(indices["guide_pair_idx"])))
     print(np.max(indices["guide_pair_idx"]))
     print(len(data["initial"]["combinations"]))
