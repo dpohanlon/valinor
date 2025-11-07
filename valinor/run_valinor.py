@@ -739,7 +739,9 @@ def runValinor(lengths, indices, prior_params, data, config):
             **dko_args,
             **common_svi_config,
             predict=False,
-            dko_subsample_size=config["batch_size"],
+            dko_subsample_size=config["batch_size"]
+            if config["batch_size"] >= lengths["len_gene_pairs"]
+            else None,
         )
 
         params_d = state_d.params
