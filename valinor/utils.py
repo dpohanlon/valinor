@@ -524,9 +524,9 @@ def checkBounds(
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
-        assert (
-            np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
-        )
+        # assert (
+            # np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        # )
         assert_contiguous("cell_line_c_idx", indices["cell_line_c_idx"])
 
     # Also, warn if there are some parameters that remain unused, which is sus

@@ -487,6 +487,9 @@ def makeDataset(
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
+
+    # The guide of interest, not the null
+    dfSgl["guide_index"] = dfSgl["guide1_index"]
     dfSgl["guide2_index"] = dfSgl["guide2_index_s"]
     dfSgl['GuidePair'] = dfSgl["guide_pair_index"]
 
