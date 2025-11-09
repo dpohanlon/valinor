@@ -5,61 +5,49 @@ import jax
 jax.config.update("jax_debug_nans", True)
 jax.config.update("jax_enable_x64", False)
 
+import json
+from pprint import pprint
+from typing import Any, Dict, List, Tuple
+
 import jax.numpy as jnp
+import matplotlib as mpl
 import numpy as np
-import pandas as pd
-
-from tqdm import tqdm
-
-from jax import random
 import numpyro
-
-from numpyro.infer import Predictive, SVI, Trace_ELBO, TraceMeanField_ELBO, MCMC, NUTS
-from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
-
-from numpyro.infer.initialization import init_to_value
-
-from numpyro.handlers import seed, trace, substitute
-
 import optax
-
+import pandas as pd
+from jax import random
+from numpyro.handlers import seed, substitute, trace
+from numpyro.infer import MCMC, NUTS, SVI, Predictive, Trace_ELBO, TraceMeanField_ELBO
+from numpyro.infer.autoguide import AutoLowRankMultivariateNormal, AutoNormal
+from numpyro.infer.initialization import init_to_value
+from tqdm import tqdm
 from valinor import models
 from valinor.guides import (
+    valinor_controls_guide,
     valinor_full_guide,
     valinor_singles_guide,
-    valinor_controls_guide,
-)
-from valinor.utils import (
-    getIndices,
-    calculateLengths,
-    configArgs,
-    saveModelParams,
-    loadPriors,
-    getBatchData,
-    make_init_loc_fn,
-    subset_for_mcmc,
-)
-from valinor.preprocessing import prepareData, getDeltaLFC
-from valinor.postprocessing import (
-    sampleParams,
-    createDataFrame,
-    samplePosteriorPredictive,
 )
 from valinor.plotting import plotDiagPlots
-
-from typing import Dict, List, Tuple, Any
-
-import json
-
-from pprint import pprint
-
-import matplotlib as mpl
+from valinor.postprocessing import (
+    createDataFrame,
+    sampleParams,
+    samplePosteriorPredictive,
+)
+from valinor.preprocessing import getDeltaLFC, prepareData
+from valinor.utils import (
+    calculateLengths,
+    configArgs,
+    getBatchData,
+    getIndices,
+    loadPriors,
+    make_init_loc_fn,
+    saveModelParams,
+    subset_for_mcmc,
+)
 
 mpl.use("Agg")
-import matplotlib.pyplot as plt
-
 import matplotlib.gridspec as gridspec
-
+import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
 rcParams["axes.facecolor"] = "FFFFFF"
@@ -478,8 +466,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         "stable_update": config["stable_update"],
     }
 
-    print("Fitting")
-
     if fit_mode == "controls" or fit_mode == "full":
         print("Fitting controls")
 
@@ -728,6 +714,12 @@ def runValinor(lengths, indices, prior_params, data, config):
             **obs_config(fit_mode, data, config),
         }
 
+        dko_subsample_size = (
+            config["batch_size"]
+            if config["batch_size"] <= lengths["len_gene_pairs"]
+            else None
+        )
+
         state_d = run_svi(
             svi_dko,
             prng_key,
@@ -739,9 +731,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             **dko_args,
             **common_svi_config,
             predict=False,
-            dko_subsample_size=config["batch_size"]
-            if config["batch_size"] >= lengths["len_gene_pairs"]
-            else None,
+            dko_subsample_size=dko_subsample_size,
         )
 
         params_d = state_d.params
