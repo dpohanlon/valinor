@@ -1,21 +1,10 @@
-import pandas as pd
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
-
-from typing import Dict, List, Tuple, Any
+import pandas as pd
 
 
 def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Calculate overdispersion in the given DataFrame.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: Mean and standard deviation of overdispersion.
-    """
-
     reps = (
         df.groupby(["GuidePair", "cell_line_index"])
         .agg(
@@ -29,15 +18,28 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     reps["var"] = reps["std"] ** 2
     reps["od"] = reps["var"] / reps["mean"]
 
-    repsC = reps.groupby(["cell_line_index"]).agg(
-        mean=("od", "median"), std=("od", "std")
+    any_nan = reps.groupby("cell_line_index")["od"].apply(lambda s: s.isna().any()).any()
+    all_nan_groups = reps.groupby("cell_line_index")["od"].apply(lambda s: s.notna().sum() == 0).any()
+
+    if any_nan:
+        print("Warning: NaNs found in overdispersion values; using NaN-aware statistics.")
+    if all_nan_groups:
+        print("Warning: One or more groups are all-NaN; imputing from column medians.")
+
+    repsC = (
+        reps.groupby(["cell_line_index"])
+        .agg(
+            mean=("od", lambda x: np.nanmedian(x.to_numpy())),
+            std=("od", lambda x: np.nanstd(x.to_numpy(), ddof=1)),
+        )
+        .sort_values("cell_line_index")
     )
-    repsC = repsC.sort_values("cell_line_index")
 
-    repsC["mean"] = repsC["mean"].fillna(repsC["mean"].median())
-    repsC["std"] = repsC["std"].fillna(repsC["std"].median())
+    repsC["mean"] = repsC["mean"].fillna(np.nanmedian(repsC["mean"].to_numpy()))
+    repsC["std"] = repsC["std"].fillna(np.nanmedian(repsC["std"].to_numpy()))
 
-    return repsC["mean"].values, repsC["std"].values
+    return repsC["mean"].to_numpy(), repsC["std"].to_numpy()
+
 
 
 def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons=True):
