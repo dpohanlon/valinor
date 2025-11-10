@@ -74,7 +74,7 @@ def get_model_sites(model, *args, **kwargs):
     sites = list(model_trace.keys())
 
     # Don't sample obs as we don't need them for this part
-    sites = filter(lambda x: not ("obs" in x), sites)
+    # sites = filter(lambda x: not ("obs" in x), sites)
 
     return list(sites)
 
@@ -223,6 +223,7 @@ def save_posterior_predictive(
     annotation,
     **kwargs,
 ):
+
     sites = list(filter(lambda x: "obs" in x, sites))
 
     if config["only_singletons"] == False:
@@ -524,7 +525,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predictive = Predictive(
                 valinor_model,
                 posterior_samples=post_latents,
-                return_sites=sites_from_model,
+                return_sites=list(filter(lambda x: not ("obs" in x), sites_from_model)),
                 parallel=False,
             )
             samples = predictive(
@@ -641,7 +642,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predictive = Predictive(
                 valinor_model,
                 posterior_samples=post_latents,
-                return_sites=sites_from_model,
+                return_sites=list(filter(lambda x: not ("obs" in x), sites_from_model)),
                 parallel=False,
             )
 
@@ -757,7 +758,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predictive = Predictive(
                 valinor_model,
                 posterior_samples=post_latents,
-                return_sites=sites_from_model,
+                return_sites=list(filter(lambda x: not ("obs" in x), sites_from_model)),
                 parallel=False,
             )
 
@@ -844,7 +845,7 @@ def makeArgs():
     )
 
     argParser.add_argument(
-        "-o", type=str, dest="outputDir", default="", help="Output directory."
+        "-o", type=str, dest="outputDir", default=".", help="Output directory."
     )
 
     argParser.add_argument(
