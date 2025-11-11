@@ -1,16 +1,12 @@
-import numpy as np
-
-import pandas as pd
+from typing import Dict, List, Tuple
 
 import h5py
-
 import jax
-from jax import random
 import jax.numpy as jnp
-
+import numpy as np
+import pandas as pd
+from jax import random
 from valinor import models
-
-from typing import Dict, List, Tuple
 
 
 # Average over samples from the posterior to pack into a Pandas DataFrame
@@ -198,7 +194,7 @@ def sampleParams(
         init_lh, theta_init = models.skoLikelihoodInitial(singlesParams["init_count_s"])
         singlesParams["samples_s_init"] = init_lh.sample(
             random.split(keys[key_counter])[0]
-        )[indices["guide_pair_s_idx"]]
+        )
         key_counter += 1
 
         params["singles"] = singlesParams

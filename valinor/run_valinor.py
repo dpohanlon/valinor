@@ -416,10 +416,12 @@ def runValinor(lengths, indices, prior_params, data, config):
         init_params_common["p_zi_s"] = prior_params.get("p_zi_s", None)
 
     if "dLFC" in prior_params:
-        # init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"]
-        init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(
-            prior_params["dLFC"]
-        )
+
+        init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"]
+        # init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(
+            # prior_params["dLFC"]
+        # )
+
     if "init_count_vals" in prior_params and use_dko_d:
         init_params_common["guide_init_count"] = prior_params["init_count_vals"]
     if "init_count_s_vals" in prior_params and use_sko_d:
