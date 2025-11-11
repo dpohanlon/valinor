@@ -52,7 +52,7 @@ It is also possible to produce an interactive HTML report that guides you throug
         --output_file valinoroutput_processed.pq
         --report_folder valinor_report
 
-This will produce a directory `valinor_report` that contains HTML files that summarise your data. Get started by double clicking on the `index.html` file. Sometimes the size of the output file can exceed that permitted by your web browser, and so in that case you should subset to the top hits with the command `--subsetSLpairs`.
+This will produce a directory `valinor_report` that contains HTML files that summarise your data. Get started by double clicking on the `index.html` file. Sometimes the size of the output file can exceed that permitted by your web browser, and so in that case you should subset to the top hits with the command `subsetSLpairs`.
 
 Simulation
 ----------
