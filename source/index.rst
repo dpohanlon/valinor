@@ -18,12 +18,14 @@ You can read more about the method, motivations, and benchmarks the accompanying
 
    quickstart
    tutorial
+   required_variables
    indexing
+   more_indexing
 
 .. toctree::
    :maxdepth: 2
    :caption: API
-   
+
    run_valinor
    models
    preprocessing
