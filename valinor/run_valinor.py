@@ -5,59 +5,48 @@ import jax
 jax.config.update("jax_debug_nans", True)
 jax.config.update("jax_enable_x64", False)
 
+import json
+from pprint import pprint
+from typing import Any, Dict, List, Tuple
+
 import jax.numpy as jnp
+import matplotlib as mpl
 import numpy as np
-import pandas as pd
-
-from tqdm import tqdm
-
-from jax import random
 import numpyro
-
-from numpyro.infer import Predictive, SVI, Trace_ELBO, TraceMeanField_ELBO, MCMC, NUTS
-from numpyro.infer.autoguide import AutoNormal, AutoLowRankMultivariateNormal
-
-from numpyro.handlers import seed, trace, substitute
-
 import optax
-
+import pandas as pd
+from jax import random
+from numpyro.handlers import seed, substitute, trace
+from numpyro.infer import MCMC, NUTS, SVI, Predictive, Trace_ELBO, TraceMeanField_ELBO
+from numpyro.infer.autoguide import AutoLowRankMultivariateNormal, AutoNormal
+from tqdm import tqdm
 from valinor import models
 from valinor.guides import (
+    valinor_controls_guide,
     valinor_full_guide,
     valinor_singles_guide,
-    valinor_controls_guide,
-)
-from valinor.utils import (
-    getIndices,
-    calculateLengths,
-    configArgs,
-    saveModelParams,
-    loadPriors,
-    getBatchData,
-    configure_custom_init,
-    subset_for_mcmc,
-)
-from valinor.preprocessing import prepareData, getDeltaLFC
-from valinor.postprocessing import (
-    sampleParams,
-    createDataFrame,
-    samplePosteriorPredictive,
 )
 from valinor.plotting import plotDiagPlots
-
-from typing import Dict, List, Tuple, Any
-
-import json
-
-from pprint import pprint
-
-import matplotlib as mpl
+from valinor.postprocessing import (
+    createDataFrame,
+    sampleParams,
+    samplePosteriorPredictive,
+)
+from valinor.preprocessing import getDeltaLFC, prepareData
+from valinor.utils import (
+    calculateLengths,
+    configArgs,
+    configure_custom_init,
+    getBatchData,
+    getIndices,
+    loadPriors,
+    saveModelParams,
+    subset_for_mcmc,
+)
 
 mpl.use("Agg")
-import matplotlib.pyplot as plt
-
 import matplotlib.gridspec as gridspec
-
+import matplotlib.pyplot as plt
 from matplotlib import rcParams
 
 rcParams["axes.facecolor"] = "FFFFFF"
@@ -79,7 +68,7 @@ def get_model_sites(model, *args, **kwargs):
     sites = list(model_trace.keys())
 
     # Don't sample obs as we don't need them for this part
-    sites = filter(lambda x: not ("obs" in x), sites)
+    # sites = filter(lambda x: not ("obs" in x), sites)
 
     return list(sites)
 
@@ -504,7 +493,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             guide=valinor_guide,
             params=params_c,
             num_samples=config["nSamples"],
-            return_sites=sites_from_model,
+            return_sites=list(filter(lambda x: not ("obs" in x), sites_from_model)),
             parallel=False,
         )
 
@@ -596,7 +585,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             guide=valinor_guide,
             params=params_s,
             num_samples=config["nSamples"],
-            return_sites=sites_from_model,
+            return_sites=list(filter(lambda x: not ("obs" in x), sites_from_model)),
             parallel=False,
         )
 
@@ -685,7 +674,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             guide=dko_guide,
             params=params_d,
             num_samples=config["nSamples"],
-            return_sites=sites_from_model,
+            return_sites=list(filter(lambda x: not ("obs" in x), sites_from_model)),
         )
 
         combsDF, singlesDF = sample_posterior(

@@ -1,27 +1,168 @@
+from typing import Any, Dict, List, Tuple
+
+import jax.numpy as jnp
 import numpy as np
-
-from valinor.utils import (
-    loadData,
-    getFinalCounts,
-    getInitialCounts,
-    getIndices,
-    calculateLengths,
-    getInitialCountsDF,
-    checkBounds,
-    reindexDF,
-    combinationLFCs,
-    countZeros,
-)
-
+import pandas as pd
+from pandas.api.extensions import ExtensionArray
 from valinor.priors import (
-    calculateOverdispersion,
-    defaultPriors,
+    calcInitCountParams,
     calculate_cell_line_stats,
     calculate_gene_stats,
-    calcInitCountParams,
+    calculateOverdispersion,
+    defaultPriors,
+)
+from valinor.utils import (
+    calculateLengths,
+    checkBounds,
+    combinationLFCs,
+    countZeros,
+    getFinalCounts,
+    getIndices,
+    getInitialCounts,
+    getInitialCountsDF,
+    loadData,
+    reindexDF,
 )
 
-from typing import Dict, List, Tuple, Any
+
+def _asarray(x, dtype=None):
+    if x is None:
+        return None
+
+    if isinstance(x, jnp.ndarray):
+        return x.astype(dtype) if dtype is not None and x.dtype != dtype else x
+
+    if isinstance(x, (np.ndarray, list, tuple)):
+        return jnp.asarray(x, dtype=dtype) if dtype is not None else jnp.asarray(x)
+
+    try:
+        if isinstance(x, (pd.Series, pd.Index)):
+            arr = x.to_numpy()
+            return (
+                jnp.asarray(arr, dtype=dtype) if dtype is not None else jnp.asarray(arr)
+            )
+        if isinstance(x, pd.DataFrame):
+            arr = x.to_numpy()
+            return (
+                jnp.asarray(arr, dtype=dtype) if dtype is not None else jnp.asarray(arr)
+            )
+        if isinstance(
+            x, ExtensionArray
+        ):  # e.g., pandas.arrays.FloatingArray, IntegerArray, BooleanArray
+            arr = x.to_numpy()
+            return (
+                jnp.asarray(arr, dtype=dtype) if dtype is not None else jnp.asarray(arr)
+            )
+    except Exception:
+        pass
+
+    return x
+
+
+def make_jax(
+    lengths,
+    indices,
+    final_counts,
+    initial_counts,
+    float_dtype=jnp.float32,
+    int_dtype=jnp.int32,
+):
+    """
+    Convert arrays that will participate in JAX tracing to jnp arrays,
+    with sensible dtypes:
+      - indices -> int_dtype
+      - observed count arrays -> int_dtype
+    Leaves `lengths` as Python ints on purpose (for numpyro.plate sizes).
+
+    Returns: (lengths, jax_indices, data_dict)
+             where data_dict = {"final": jax_final_counts, "initial": jax_initial_counts}
+    """
+
+    def _convert_counts_dict(d):
+        out = {}
+        for k, v in (d or {}).items():
+            out[k] = _asarray(v, dtype=int_dtype) if v is not None else None
+        return out
+
+    # -------- indices -> jnp.int --------
+    jax_indices = {}
+    for k, v in (indices or {}).items():
+        jax_indices[k] = _asarray(v, dtype=int_dtype) if v is not None else None
+
+    # -------- data counts -> jnp.int --------
+    jax_final = _convert_counts_dict(final_counts or {})
+    jax_initial = _convert_counts_dict(initial_counts or {})
+
+    data = {"final": jax_final, "initial": jax_initial}
+
+    # NB: lengths intentionally unchanged (plates want ints)
+    return lengths, jax_indices, data
+
+
+def jaxify_priors(prior_params, float_dtype=jnp.float32, int_dtype=jnp.int32):
+    def _needs_float(v):
+        if isinstance(v, jnp.ndarray):
+            return v.dtype.kind in ("f", "i", "u", "b")
+        if isinstance(v, np.ndarray):
+            return v.dtype.kind in ("f", "i", "u", "b")
+        return True
+
+    def _convert(v):
+        # Tuples are preserved; only elements that are array-like get converted
+        if isinstance(v, tuple):
+            out = []
+            for e in v:
+                if isinstance(e, (np.ndarray, jnp.ndarray, list)):
+                    out.append(
+                        _asarray(e, dtype=float_dtype if _needs_float(e) else int_dtype)
+                    )
+                else:
+                    try:
+                        import pandas as pd
+                        from pandas.api.extensions import ExtensionArray
+
+                        if isinstance(
+                            e, (pd.Series, pd.Index, pd.DataFrame, ExtensionArray)
+                        ):
+                            out.append(
+                                _asarray(
+                                    e,
+                                    dtype=float_dtype if _needs_float(e) else int_dtype,
+                                )
+                            )
+                        else:
+                            out.append(e)
+                    except Exception:
+                        out.append(e)
+            return tuple(out)
+
+        # Lists: keep list type
+        if isinstance(v, list):
+            out = []
+            for e in v:
+                out.append(_convert(e))
+            return out
+
+        # Dicts: recurse
+        if isinstance(v, dict):
+            return {k: _convert(val) for k, val in v.items()}
+
+        # Array-like scalars/arrays
+        if isinstance(v, (np.ndarray, jnp.ndarray, list)):
+            return _asarray(v, dtype=float_dtype if _needs_float(v) else int_dtype)
+
+        try:
+            import pandas as pd
+            from pandas.api.extensions import ExtensionArray
+
+            if isinstance(v, (pd.Series, pd.Index, pd.DataFrame, ExtensionArray)):
+                return _asarray(v, dtype=float_dtype if _needs_float(v) else int_dtype)
+        except Exception:
+            pass
+
+        return v
+
+    return {k: _convert(v) for k, v in (prior_params or {}).items()}
 
 
 def prepareData(
@@ -173,11 +314,16 @@ def prepareData(
         only_singletons=only_singletons,
     )
 
+    lengths, indices, data = make_jax(lengths, indices, finalCounts, initialCounts)
+    prior_params = jaxify_priors(
+        prior_params, float_dtype=jnp.float32, int_dtype=jnp.int32
+    )
+
     return (
         lengths,
         indices,
         prior_params,
-        {"final": finalCounts, "initial": initialCounts},
+        data,
     )
 
 
