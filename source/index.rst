@@ -19,6 +19,7 @@ If you are new here, please take a look at the :doc:`quickstart`.
    required_variables
    indexing
    more_indexing
+   hierarchy
 
 .. toctree::
    :maxdepth: 2
