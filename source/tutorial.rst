@@ -1,4 +1,4 @@
 Tutorial
 =============
 
-This is the tutorial. Gotta go a bit slower!
+This will, one day, be a tutorial.
