@@ -24,7 +24,7 @@ print(sys.path)
 
 project = "Valinor"
 copyright = "2025, European Molecular Biology Laboratory, European Bioinformatics Institute"
-author = "Daniel O'Hanlon"
+author = "Daniel O'Hanlon, Paula Weidemüller"
 
 
 # -- General configuration ---------------------------------------------------
