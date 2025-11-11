@@ -1,16 +1,13 @@
-import numpyro
-import numpyro.distributions as dist
-import numpyro.distributions.transforms as transforms
-
-from numpyro import handlers
+from typing import Any, Dict, Tuple
 
 import jax
 import jax.numpy as jnp
-
-from numpyro.distributions import Distribution
-from typing import Dict, Any, Tuple
-
 import numpy as np
+import numpyro
+import numpyro.distributions as dist
+import numpyro.distributions.transforms as transforms
+from numpyro import handlers
+from numpyro.distributions import Distribution
 
 
 def observe(name, dist, obs, use=True, weight=1.0):
@@ -191,6 +188,8 @@ def sample_guide_distributions(
                 "guide_eff_std", dist.Normal(loc=std_l, scale=std_s)
             )
 
+            guide_eff_std = jax.nn.softplus(guide_eff_std)
+
             with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
                 tilde_alpha = numpyro.sample("tilde_alpha", dist.Normal(0, 1))
 
@@ -209,6 +208,8 @@ def sample_guide_distributions(
             guide_eff_std = numpyro.sample(
                 "guide_eff_std", dist.Normal(loc=std_l, scale=std_s)
             )
+
+            guide_eff_std = jax.nn.softplus(guide_eff_std)
 
         with numpyro.plate("cell_lines", lengths["len_cell_lines"], dim=-1):
             guide_eff = numpyro.sample(
