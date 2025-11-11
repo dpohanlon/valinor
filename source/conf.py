@@ -23,7 +23,7 @@ print(sys.path)
 # -- Project information -----------------------------------------------------
 
 project = "Valinor"
-copyright = "2023, Daniel O'Hanlon"
+copyright = "2025, European Molecular Biology Laboratory, European Bioinformatics Institute"
 author = "Daniel O'Hanlon"
 
 
