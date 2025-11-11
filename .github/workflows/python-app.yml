@@ -47,14 +47,14 @@ jobs:
                   python -m pip install --upgrade pip
                   pip install sphinx sphinx_rtd_theme
 
-            - name: Build docs (make html in sources/)
+            - name: Build docs
               run: |
-                  make -C sources html
+                  make html
 
             - name: Resolve Sphinx output dir
               id: outdir
               run: |
-                  for p in sources/build/html sources/_build/html sources/build sources/_build; do
+                  for p in build/html _build/html build _build; do
                     if [ -d "$p" ]; then
                       echo "dir=$p" >> "$GITHUB_OUTPUT"
                       exit 0
