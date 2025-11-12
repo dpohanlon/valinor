@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <meta charset="utf-8">
+  <title>Valinor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Valinor Report: shows results of running Valinor">
+  <meta name="author" content="Paula Weidemueller, Daniel O'Hanlon">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega@5"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega-lite@4.17.0"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm//vega-embed@6"></script>
+
+  <style>
+    .help-icon {
+      font-size: 24px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    .hidden {
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      transition: opacity 0.3s ease, height 0.3s ease;
+    }
+
+    .visible {
+      opacity: 1;
+      height: auto;
+      transition: opacity 0.3s ease, height 0.3s ease;
+    }
+  </style>
+
+  <style>
+    body {
+      font-family: 'Helvetica', sans-serif;
+      /* Change font for the entire page */
+      font-size: 14px;
+      /* Smaller main text */
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      font-family: 'Helvetica', sans-serif;
+      /* Optional: Different font for headings */
+      font-weight: bold;
+      /* Make headings bolder */
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      /* Larger size for h1 */
+    }
+
+    h2 {
+      font-size: 1.75rem;
+      /* Larger size for h1 */
+    }
+
+    h3 {
+      font-size: 1.5rem;
+      /* Larger size for h1 */
+    }
+
+    h4 {
+      font-size: 1.25rem;
+      /* Larger size for h1 */
+    }
+
+    h5 {
+      font-size: 1.1rem;
+      /* Larger size for h1 */
+    }
+
+    h6 {
+      font-size: 1rem;
+      /* Larger size for h1 */
+    }
+  </style>
+
+  <style>
+    .list-group-item a {
+      color: blue;      /* Sets the link color to blue */
+      text-decoration: none; /* Removes the underline */
+    }
+  </style>
+
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <img src="valinor_white.png" alt="Bootstrap" width="17.3" height="30"> Valinor
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" id="home-tab">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="paramfit-tab">Parameter Fits</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="datastats-tab">Data Stats</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="diagnosticplots-tab">Diagnostic Plots</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="hitprioritisation-tab">Hit Prioritisation</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" id="genepairview-tab">Gene Pair View</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="tab-content">
+    <div id="home-content" class="container-fluid mt-4">
+      <div class="row">
+        <div class="col-md-2 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="card">
+              <div class="card-header">
+                Quick Checks
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><a href="#lossfunction">Loss Function</a></li>
+                <li class="list-group-item"><a href="#modelfit">Model Fit on Counts</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-10 col-sm-12">
+          <div class="row">
+            <div class="p-2 mb-4 bg-light rounded-3">
+              <div class="container-fluid py-5">
+                <h1>Valinor Report</h1>
+                <p>Report created on: {{ date }}</p>
+                <div class="row">
+                  <div class="col-8">
+                    <form id="upload">
+                      <label for="file"><b>Upload csv file containing Valinor results</b></label>
+                      <input type="file" id="file" accept=".csv">
+                      <button>Upload</button>
+                    </form>
+                  </div>
+                </div>
+                <div class='row'>
+                  <div class="col-9">
+                    <h2>Overview Stats</h2>
+                    <p>{{ overviewstats }}</p>
+                  </div>
+                </div>
+                <div class='row'>
+                  <div class="col-9">
+                    <h3>Combinations</h3>
+                    <p>{{ overviewstatscomb }}</p>
+                  </div>
+                </div>
+                <div class='row'>
+                  <div class="col-9">
+                    <h3>Singletons</h3>
+                    <p>{{ overviewstatssingle }}</p>
+                  </div>
+                </div>
+                <div class='row'>
+                  <div class="col-9">
+                    <h2>Valinor run</h2>
+                    <p>{{ valinorrun }}</p>
+                  </div>
+                </div>
+                <div class='row'>
+                  <div class="col-9">
+                    <h3>Input files</h3>
+                    <p>{{ valinorruninput }}</p>
+                  </div>
+                </div>
+                <div class='row'>
+                  <div class="col-9">
+                    <h3>Output files</h3>
+                    <p>{{ valinorrunoutput }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row" id="lossfunction">
+            <h2>Loss Function</h2>
+            <p>The loss function serves as a measure of how well the model's predictions align with the data, the goal
+              is to minimize this loss function during the training process. The model should converge to an optimal
+              solution, thus the loss function should converge to a constant value with increasing steps. If the loss
+              still seems to decrease, then the model should be run again with more steps.</p>
+          </div>
+          <div class="row">
+            <div class="col-8">
+              <h3>Examples</h3>
+              <p>Hover over the question mark icons to view examples of good and bad loss functions:</p>
+              <div class="example">
+                <span class="help-icon" onmouseover="toggleLossFunction('goodLossFunction')">?</span>
+                <div id="goodLossFunction" class="hidden">
+                  <h4>Good Loss Function</h4>
+                  <img src="plots/good_lossfunction.svg" alt="Good Loss Function" class="img-fluid">
+                  <p>This is an example of a loss function that converges smoothly to a constant value.</p>
+                </div>
+              </div>
+              <div class="example">
+                <span class="help-icon" onmouseover="toggleLossFunction('badLossFunction')">?</span>
+                <div id="badLossFunction" class="hidden">
+                  <h4>Bad Loss Function</h4>
+                  <img src="plots/bad_lossfunction.svg" alt="Bad Loss Function" class="img-fluid">
+                  <p>This is an example of a loss function that does not converge and may indicate the need for more
+                    training steps.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <h3>Valinor Loss Function</h3>
+            <p>This is the actual loss function of your Valinor run:</p>
+          </div>
+          <div class="row">
+            <div class="col-8">
+              <img src="plots/valinor_loss.svg" alt="Model Loss" class="img-fluid">
+            </div>
+          </div>
+          <div class="row" id="modelfit">
+            <h2>Model Fit</h2>
+            <p>It is important to investigate how well Valinor is able to fit the input data (here counts). The
+              histograms compare the distribution of the input counts and the values fitted by Valinor. If the
+              distributions agree well, Valinor was able to fit the data well. If there is strong discrepancy between
+              the distributions this could point that either the model didn't converge yet (run longer) or it is missing
+              some important properties to explain the data, which requires modifications to the model.</p>
+          </div>
+          <div class="row">
+            <div class="col-8">
+              <h3>Examples</h3>
+              <p>Hover over the question mark icons to view examples of good and bad model fits:</p>
+              <div class="example">
+                <span class="help-icon" onmouseover="toggleLossFunction('goodModelFit')">?</span>
+                <div id="goodModelFit" class="hidden">
+                  <h4>Good Model Fit</h4>
+                  <img src="plots/good_modelfit.svg" alt="Good Model Fit" class="img-fluid">
+                  <p>This is an example where the data and model count distributions overlap well.</p>
+                </div>
+              </div>
+              <div class="example">
+                <span class="help-icon" onmouseover="toggleLossFunction('badModelFit')">?</span>
+                <div id="badModelFit" class="hidden">
+                  <h4>Bad Model Fit</h4>
+                  <img src="plots/bad_modelfit.svg" alt="Bad Model Fit" class="img-fluid">
+                  <p>This is an example where the data and model count distributions are quite different.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-12">
+              <h3>End of Experiment Counts</h3>
+              <p>The histograms show the sequencing counts obtained at the end of the experiment after transducing the
+                cell lines with the CRISPR guides and letting them grow for several days. Valinor uses these counts to
+                estimate synthetic lethality between gene pairs. Therefore, the distribution of counts predicted by
+                Valinor using its fitted parameters should be very similar to the counts in the data.</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-5 col-sm-10">
+              <h4>Combinations</h4>
+              <p>These are the counts for combination measurements, i.e. gene pairs of interest.</p>
+              <img src="plots/modelperformance_combo.svg" alt="Model performance on combinations" class="img-fluid">
+            </div>
+            <div class="col-md-5 col-sm-10">
+              <h4>Singletons</h4>
+              <p>These are the counts for singleton measurements, i.e. CRISPR constructs that measure single gene KO
+                effects.</p>
+              <img src="plots/modelperformance_single.svg" alt="Model performance on singletons" class="img-fluid">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-12">
+              <h3>Start of Experiment Counts</h2>
+                <p>The histograms show the sequencing counts at the beginning of the experiment. These are typically
+                  plasmid counts before transducing the cells, or counts obtained by sequencing cell lines directly
+                  after transduction.</p>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-5 col-sm-10">
+              <h4>Combinations</h4>
+              <img src="plots/modelperformance_combo_plasmid.svg" alt="Model performance on combinations in plasmid"
+                class="img-fluid">
+            </div>
+            <div class="col-md-5 col-sm-10">
+              <h4>Singletons</h4>
+              <img src="plots/modelperformance_single_plasmid.svg" alt="Model performance on singletons in plasmid"
+                class="img-fluid">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="paramfit-content" class="container-fluid mt-4" style="display:none;">
+      <div class="row">
+        <div class="col-md-2 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="card">
+              <div class="card-header">
+                Model Parameters
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><a href="#guideeffhier">Hyper Distributions of Guide Efficiencies</a></li>
+                <li class="list-group-item"><a href="#guideeff">Cell line-specific Guide Efficiencies</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-10 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="row">
+              <h1>Distributions of Model Parameters</h1>
+              <p>This tab gives an overview over the distributions of the different parameters in Valinor to spot any
+                obvious pecularities (i.e. deviations from the priors).</p>
+              <h2>Guide Efficiencies</h2>
+              <p><b>Guide Efficiencies</b> are the &epsilon; parameters that describe the estimated probability of a
+                guide to produce a knockout. These are estimated using hierarchical priors, thereby making use of the
+                information in the whole dataset but still allowing for cell line specific variations for each guide.
+              </p>
+              <p>
+                These plots will only display data if Valinor was run with <code>guide_config == partial_pooling</code>. Otherwise these plots will be empty. Guide efficiencies are taken from the <code>combsModel.pq</code> file.
+              </p>
+            </div>
+            <div class="row" id="guideeffhier">
+              <h3>Hyper Distributions of Guide Efficiencies</h3>
+              <p>The hyper distributions determine the global efficiency distribution of each guide irrespective of the
+                cell lines. The hyper distribution of each guide is described as a normal distribution with a <b>mean,
+                  &mu;,</b> and a <b>standard deviation, &sigma;,</b> which are respectively sampled from user defined
+                priors.
+              </p>
+              <p>For each guide in each position, Valinor fits the mean and standard deviation of the hyper
+                distribution. Fitted values that deviate much from the priors are an indication that there is strong
+                evidence in the data for a different hyper guide efficiency than expected from the priors. The hyper
+                distributions of guide efficiencies are independent of cell lines.</p>
+            </div>
+            <div class="row">
+              <h4>Priors</h4>
+              <!-- {{guide_eff_priors_str}} -->
+              <p>
+                If the priors were not set by the user, the default priors (found in <code>valinor/priors.py</code>) are used.
+              </p>
+              <p>
+                The <b>deviation from prior</b> is calculated by subtracting the fitted &mu; or &sigma; of a guide's
+                hyper distribution from the prior mean and devide it by the prior standard deviation.
+              </p>
+              <img src="plots/parameterfits_guideeffs_metahier_combo.svg" alt="Guide Efficiencies" class="img-fluid">
+            </div>
+            <div class='row' id="guideeff">
+              <h3>Cell line-specific Guide Efficiencies</h3>
+              <p>
+                These cell line-specific guide efficiencies are the second and last layer in the efficiency hierarchy.
+                From the guide-specific hyper distributions, Valinor fits cell line-specific guide efficiencies for each
+                guide which are informed by the respective hyper distributions
+              </p>
+              <p>
+                The <b>deviation from guide hyper distribution</b> is calculated by subtracting the fitted guide
+                efficiency in a cell line by the fitted &mu; and devide it by the &sigma; of the guide-specific hyper
+                distribution. Fitted values that deviate much from the hyper distributions are an indication that there
+                is strong evidence in the data for a different hyper guide efficiency than expected from the priors.
+                Special focus should be on identifying cell lines in which guide efficiencies deviate much from their
+                hyper distributions. This could point to issues with data from that specific cell line.
+              </p>
+              <p>
+                If a guide is present in position 1 and 2, hyper- and cell line-specific guide efficiency distributions
+                are fitted separately for each position for the same guide. Therefore, the plots show the efficiencies
+                separately for each position.
+              </p>
+              <div id="parameterfits_guideeffs_devprior_combo"></div>
+              <script>
+                // Get the form and file field
+                let form = document.querySelector('#upload');
+                let file = document.querySelector('#file');
+                form.addEventListener('submit', function (event) { handleSubmit(event, ParameterFitsGuideEffs); });
+              </script>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="datastats-content" class="container-fluid mt-4" style="display:none;">
+      <div class="row">
+        <div class="col-md-2 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="card">
+              <div class="card-header">
+                Data Stats
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><a href="#counts">Distribution of Counts</a></li>
+                <li class="list-group-item"><a href="#overdisp">Overdispersion of replicates</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-10 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class='row'>
+              <h1>Input Data Stats</h1>
+              <p>This tab gives an overview over the data. This is to inform if there are any obvious pecularities in
+                the data, that might influence the performance of Valinor.</p>
+            </div>
+            <div class="row" id="counts">
+              <h2>Distribution of Counts</h2>
+              <p>The density plots show the counts of guide pairs at the start of the experiment (which is often the
+                plasmid counts) and at the end of the experiment. The density plots are split by cell line to identify
+                obvious outliers.</p>
+              <div id="datastats_count_plot"></div>
+              <script>
+                form.addEventListener('submit', function (event) { handleSubmit(event, DatastatsCountPlot); });
+              </script>
+            </div>
+            <div class='row' id="overdisp">
+              <h2>Overdispersion of Replicates</h2>
+              <p>The overdispersion captures the variance of counts for the same guide pair in the same cell line across
+                replicates. Ideally the overdispersion is very small, which would indicate that the measurements are
+                very consistent across replicates. A larger overdispersion indicates larger variability in replicate
+                measurements. The overdispersion is used to inform the overdispersion parameter of the negative binomial
+                distribution in Valinor, when Valinor fits the count data. Ideally overdispersion is small and
+                consistent across cell lines. If guide pairs in replicates of one cell line are much more overdispersed
+                compared to other cell lines, this could point towards issues with that cell line experiment.</p>
+              <div id="datastats_disp_plot"></div>
+              <script>
+                form.addEventListener('submit', function (event) { handleSubmit(event, DatastatsDispPlot); });
+              </script>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="diagnosticplots-content" class="container-fluid mt-4" style="display:none;">
+      <div class="row">
+        <div class="col-md-2 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="card">
+              <div class="card-header">
+                Diagnostic Plots
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><a href="#diagnplotDlfcVal">dLFC vs. Valinor Score</a></li>
+                <li class="list-group-item"><a href="#diagnplotKoGrowthStd">Uncertainty of Growth Defect of Combinations</a></li>
+                <li class="list-group-item"><a href="#diagnplotSingleLfcVal">Singleton Gene LFC vs. Singleton Valinor Score</a></li>
+                <li class="list-group-item"><a href="#diagnplotSingleLfcEffic">Singleton Guide LFC vs. Estimated Efficiency</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-10 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class='row'>
+              <h1>Diagnostic Plots</h1>
+              <p>This tab serves to compare the Valinor fit to expectations solely based on the data. Discrepancies can
+                point to either inconsistencies in the data that Valinor is able to bridge or to a non-optimal fit of
+                Valinor.</p>
+
+              <p>The <b><i>Valinor Score</i></b> is calculated as the estimated combination effect divided by the
+                uncertainty in this value. A very negative <i>Valinor Score</i> means that Valinor detected strong
+                synthetic lethality with high certainity. A positive <i>Valinor Score</i> points towards a rescue
+                relationship.</p>
+              <p>Most of these plots will only display data if Valinor was run on both combinations and singleton measurements. If the experiment didn't include singleton experiments, then most of the plots here won't display anything.</p>
+            </div>
+            <div class="row" id="diagnplotDlfcVal">
+              <h2>dLFC vs. Valinor Score</h2>
+              <p> In literature, <b><i>dLFC</i></b> is often used as a simple first measure of synthetic lethality. It
+                simply adds the single-gene effects and subtracts them from the measured effect of a combination. If
+                the effect of the combination is stronger than the sum of the two single effects, the relationship
+                between two genes is considered synthetic lethal. In terms of CRISPR knockout screens, the log fold
+                change (LFC) is frequently used to quantify the "effect" of knocking out either a gene pair or the
+                respective singletons.</p>
+
+              <p>It is expected, that <i>dLFC</i> and <i>Valinor Scores</i> point in the same direction, but the exact
+                magnitudes might differ. If there isn't a clear connection between <i>dLFC</i> and <i>Valinor
+                  Scores</i>, the data on the entire screen that Valinor uses gives different information compared to
+                the basic <i>dLFC</i> measurement. <i>Valinor Scores</i> are informed by using measurements across the
+                whole dataset. On the contrary, <i>dLFC</i> is calculated using only the measurements for two genes
+                and their combination in a specific cell line ignoring information that could be gained about that
+                specific gene pair using data from other cell lines and other combinations containing these genes.</p>
+
+              <p>The cell line names can be clicked to highlight points of a specific cell line. The plot can be
+                zoomed in and moved around.</p>
+
+              <p><b>Note</b>: It is normal for the scales, i.e. absolute values, of <i>dLFC</i> and <i>Valinor
+                  Scores</i> to be quite different. This plot just serves to explore the correlation between these two
+                synthetic lethality measures.</p>
+              <div id="diagnplots_dlfcval_plot"></div>
+              <script>
+                form.addEventListener('submit', function (event) { handleSubmit(event, DiagnPlotsDlfcVal); });
+              </script>
+            </div>
+            <div class="row" id="diagnplotKoGrowthStd">
+              <div class="col-8">
+                <h2>Uncertainty of Estimated Combination Effect</h2>
+                <p>As described above, the <i>Valinor Score</i> is composed of the estimated combination effect and
+                  the uncertainty on the exact magnitude of this effect. This plot shows the relationship between the
+                  uncertainty and the magnitude of the estimated combination effect, i.e. effect size. Large estimated
+                  combination effects with low uncertainty point towards measurements for which Valinor was more
+                  confident to estimate the genetic interaction effect between the gene pair.</p>
+                <div id="diagnplots_kogrowthstd_plot"></div>
+                <script>
+                  form.addEventListener('submit', function (event) { handleSubmit(event, DiagnPlotsKoGrowthStd); });
+                </script>
+              </div>
+            </div>
+            <div class="row" id="diagnplotSingleLfcVal">
+              <div class="col-8">
+                <h2>Singleton Gene LFC vs. Estimated Single Gene Effect</h2>
+                <p>These plots compare the measured LFC of Singleton constructs, i.e. measuring the effect of knocking
+                  out a single gene, with the singleton gene effect estimated by Valinor. If data and data fit agree
+                  well, Singleton LFC and gene effect should correlate well. If there is no strong correlation this
+                  indicates that by also using combination data, Valinor inferred different single gene effects than
+                  implied by the Singleton measurements. This could point to discrepancies in the Singelton versus
+                  Combination data or issues with Valinor's assumptions and configurations.</p>
+                <div id="diagnplots_singlelfcval_plot"></div>
+                <script>
+                  form.addEventListener('submit', function (event) { handleSubmit(event, DiagnPlotsSingleLfcVal); });
+                </script>
+              </div>
+            </div>
+            <div class="row" id="diagnplotSingleLfcEffic">
+              <div class="col-8">
+                <h2>Singleton Guide LFC vs. Estimated Efficiency</h2>
+                <p>These plots compare the measured LFC of each guide construct with guide efficiency estimated by
+                  Valinor. This can be instructive of which guides performed particularly well or worse. Guides that
+                  have a very negative or positive LFC in a given cell line but are estimated to have a very low
+                  efficiency could point to issues with the consistencies of measurements between guides targeting the
+                  same gene.</p>
+                <p>Guide efficiencies are taken from the <code>singlesModel.pq</code> file.</p>
+                <div id="diagnplots_singleLFCeffic_plot"></div>
+                <script>
+                  form.addEventListener('submit', function (event) { handleSubmit(event, DiagnPlotsSingleLfcEffic); });
+                </script>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="hitprioritisation-content" class="container-fluid mt-4" style="display:none;">
+      <div class="row">
+        <div class="col-md-2 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="card">
+              <div class="card-header">
+                Hit Prioritisation
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><a href="#hitpriorlfcvalavg">LFC vs. Valinor Score - Average across Cell Lines</a></li>
+                <li class="list-group-item"><a href="#hitpriorgrowthdefects">Growth Defects of Individual Genes vs. in Combination</a></li>
+                <li class="list-group-item"><a href="#hitpriorlfcvalselect">LFC vs. Valinor Score - Select Region</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-10 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="row" id="prioritisation">
+              <h1>Hit Prioritisation</h1>
+              <p>
+                This tab provides some plots to aid the prioritisation of synergistic gene pairs for further experiments.
+              </p>
+            </div>
+            <div class='row' id="hitpriorlfcvalavg">
+              <h2>LFC vs. Valinor Score - Average across Cell Lines</h2>
+              <p>This plot shows the <i>Valinor Scores</i> of all gene pairs averaged across the cell lines versus their
+                measured LFCs. Gene pairs that are found in the lower left quadrant (green) present targets that show
+                evidence of synthetic lethality and where the double KO produces a clear fitness deficit across cell
+                lines. These gene pairs are likely synthetic lethal irrespective of the specific cell line.</p>
+            </div>
+            <div class='row'>
+              <div id="hit_prioritisation_cell_avg_plot"></div>
+              <script>
+                form.addEventListener('submit', function (event) { handleSubmit(event, HitPrioritisationLfcValAvgPlot); });
+              </script>
+            </div>
+            <div class='row' id="hitpriorgrowthdefects">
+              <h2>Estimated Single Gene vs. Combination Effect</h2>
+              <p>These plots help to find gene pairs where the two individual genes are estimated to have no effect on
+                fitness (around 0) while the combination has a strong effect on fitness. For some applications it might
+                also be relevant to select gene pairs where one individual gene already shows a fitness effect which is
+                increased by the combination.</p>
+              <div id="hit_prioritisation_growthdefecscatter"></div>
+              <script>
+                form.addEventListener('submit', function (event) { handleSubmit(event, HitPrioritisationKoGrowthPlot); });
+              </script>
+            </div>
+            <div class='row' id="hitpriorlfcvalselect">
+              <h2>LFC vs. Valinor Score - Select Region</h2>
+              <p>This plot is a more detailed version of <a href="#hitpriorlfcvalavg">the plot above</a>. Instead of
+                averaging over cell lines, each dot shows the measured LFC and <i>Valinor Score</i> of a gene pair in a
+                given cell line. By drawing a window over a region of interest, the selected gene pairs are shown in the
+                histogram below along with the number of cell line in which they fall in the selected window. This can
+                help discriminate context-specific from general synthetic lethal gene pairs.</p>
+              <div id="hit_prioritisation_lfcvsval_histo"></div>
+              <script>
+                form.addEventListener('submit', function (event) { handleSubmit(event, HitPrioritisationLfcValHistPlot); });
+              </script>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="genepairview-content" class="container-fluid mt-4" style="display:none;">
+      <div class="row">
+        <div class="col-md-2 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class="card">
+              <div class="card-header">
+                Gene Pairs
+              </div>
+              <ul class="list-group list-group-flush">
+                <li class="list-group-item"><a href="#genepairvalscore">Valinor Score across Cell Lines</a></li>
+                <li class="list-group-item"><a href="#genepairvallfc">Valinor Score vs. LFC</a></li>
+                <li class="list-group-item"><a href="#genepairvalsingle">Valinor Score vs. Single Gene Effects</a></li>
+                <li class="list-group-item"><a href="#genepairsinglelfc">Single Gene Effects vs. Singleton LFC</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-10 col-sm-12">
+          <div class="container-fluid py-5">
+            <div class='row'>
+              <h1>Gene Pair View</h1>
+              <p>Here you can select a gene pair from the list and plots specific to the selected gene pair will be
+                displayed.</p>
+              <div class="col-9">
+                <label for="gene-pair-selection">Select a value and press enter:</label>
+                <input type="text" id="gene-pair-selection" name="gene-pair-selection" autocomplete="off" size=25
+                  list="gene-pair-selection-options">
+                <datalist id="gene-pair-selection-options">
+
+                  {{gene_pair_list}}
+
+                </datalist>
+              </div>
+            </div>
+            <div class='row' id="genepairvalscore">
+              <div class="col-8">
+                <h2>Valinor Score across Cell Lines</h2>
+                <p>This plot shows the rank of the <i>Valinor Score</i> across all cell lines with measurements for the
+                  selected gene pair. The rank is calculated by taking the <i>Valinor Scores</i> of all gene pairs in a
+                  cell line and ranking them from most negative (rank 1) to most positive (highest rank). Gene pairs
+                  with very low ranks, e.g. 1-10 are among the top synthetic lethal hits in a cell line. This plot helps
+                  to highlight gene pairs that show difference in synthetic lethalities across cell line, pointing
+                  towards potential context-dependencies.</p>
+                <div class='row'>
+                  <div id="genepair_valinorscore_plot"></div>
+                  <script>
+                    form.addEventListener('submit', function (event) { handleSubmit(event, GenePairValinorScorePlot); });
+                  </script>
+                </div>
+              </div>
+            </div>
+            <div class='row' id="genepairvalsingle">
+              <div class="col-8">
+                <h2>Valinor Score vs. Single Gene Effects</h2>
+                <p>These plots compare the estimated single gene effects with the <i>Valinor Score</i> of the
+                  combination. This can help to identify in which cell lines the single genes have an effect and if in
+                  those cell lines the gene pair is synthetic lethal.</p>
+                <div id="genepair_valscorescombovssingle_plot"></div>
+                <script>
+                  form.addEventListener('submit', function (event) { handleSubmit(event, GenePairValinorScoreCombvsSinglePlot); });
+                </script>
+              </div>
+            </div>
+            <div class='row' id="genepairsinglelfc">
+              <div class="col-8">
+                <h2>Single Gene Effects vs. Singleton LFC</h2>
+                <p>These plots compare the Singleton LFC to the estimated single gene effect. If the data of Singleton
+                  and Combination measurements is consistent with Valinor's expectations then Singleton LFC and
+                  estimated single gene effect should correlate well.</p>
+                <div id="genepair_valscoresinglevslfc_plot"></div>
+                <script>
+                  form.addEventListener('submit', function (event) { handleSubmit(event, GenePairValinorScoreSinglevsLFCPlot); });
+                </script>
+              </div>
+            </div>
+            <div class='row' id="genepairvallfc">
+              <div class="col-8">
+                <h2>Valinor Score vs. LFC</h2>
+                <p>These plots help to compare the estimated <i>Valinor Score</i> to the measured LFC of the Singletons
+                  and the Combination in different cell lines.</p>
+                <div id="genepair_valinorscorevslfc_plot"></div>
+                <script>
+                  form.addEventListener('submit', function (event) { handleSubmit(event, GenePairValinorScorevsLFCPlot); });
+                </script>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+  <hr>
+
+  <footer>
+    <p>Daniel O'Hanlon, Paula Weidem&uuml;ller</p>
+  </footer>
+
+  </div><!--/.fluid-container-->
+
+  <!-- Bootstrap 5.3.2 Bundle JS (includes Popper) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    function toggleLossFunction(id) {
+      var lossFunction = document.getElementById(id);
+      lossFunction.classList.toggle('visible');
+      lossFunction.classList.toggle('hidden');
+    }
+  </script>
+
+  <script>
+    // https://gomakethings.com/how-to-upload-and-process-a-json-file-with-vanilla-js/
+    /**
+     * Log the uploaded file to the console
+     * @param {event} Event The file loaded event
+     */
+    function DatastatsCountPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        window.alert("Check out the other tabs to see Valinor results.");
+        {{datastats_count_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function DatastatsDispPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{datastats_disp_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function ParameterFitsGuideEffs(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{parameterfits_guideeffs_devprior_combo}}
+
+      })(vegaEmbed);
+
+    }
+    function DiagnPlotsDlfcVal(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{diagnplots_dlfcval_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function DiagnPlotsKoGrowthStd(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{diagnplots_kogrowthstd_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function DiagnPlotsSingleLfcVal(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{diagnplots_singlelfcval_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function DiagnPlotsSingleLfcEffic(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{diagnplots_singleLFCeffic_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function HitPrioritisationLfcValAvgPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{hit_prioritisation_cell_avg_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function HitPrioritisationLfcValHistPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{hit_prioritisation_lfcvsval_histo}}
+
+      })(vegaEmbed);
+
+    }
+    function HitPrioritisationKoGrowthPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{hit_prioritisation_growthdefecscatter}}
+
+      })(vegaEmbed);
+
+    }
+    function GenePairValinorScorePlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{genepair_valinorscore_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function GenePairValinorScorevsLFCPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{genepair_valinorscorevslfc_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function GenePairValinorScoreCombvsSinglePlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{genepair_valscorescombovssingle_plot}}
+
+      })(vegaEmbed);
+
+    }
+    function GenePairValinorScoreSinglevsLFCPlot(event) {
+      let csv = event.target.result;
+      console.log('csv', csv);
+
+      (function (vegaEmbed) {
+
+        {{genepair_valscoresinglevslfc_plot}}
+
+      })(vegaEmbed);
+
+    }
+
+
+    /**
+     * Handle submit events
+     * @param  {Event} event The event object
+     */
+    function handleSubmit(event, plotstoplot) {
+
+      // Stop the form from reloading the page
+      event.preventDefault();
+
+      // If there's no file, do nothing
+      if (!file.value.length) return;
+
+      // Create a new FileReader() object
+      let reader = new FileReader();
+
+      // Setup the callback event to run when the file is read
+      reader.onload = plotstoplot;
+
+      // Read the file
+      reader.readAsText(file.files[0]);
+
+    }
+
+
+  </script>
+
+  <!-- This functionality is needed to allow tab switching -->
+  <script>
+    document.getElementById('home-tab').addEventListener('click', function () {
+      showContent('home');
+    });
+    document.getElementById('paramfit-tab').addEventListener('click', function () {
+      showContent('paramfit');
+    });
+    document.getElementById('datastats-tab').addEventListener('click', function () {
+      showContent('datastats');
+    });
+    document.getElementById('diagnosticplots-tab').addEventListener('click', function () {
+      showContent('diagnosticplots');
+    });
+    document.getElementById('hitprioritisation-tab').addEventListener('click', function () {
+      showContent('hitprioritisation');
+    });
+    document.getElementById('genepairview-tab').addEventListener('click', function () {
+      showContent('genepairview');
+    });
+
+    function showContent(page) {
+      document.getElementById('home-content').style.display = page === 'home' ? 'block' : 'none';
+      document.getElementById('paramfit-content').style.display = page === 'paramfit' ? 'block' : 'none';
+      document.getElementById('datastats-content').style.display = page === 'datastats' ? 'block' : 'none';
+      document.getElementById('diagnosticplots-content').style.display = page === 'diagnosticplots' ? 'block' : 'none';
+      document.getElementById('hitprioritisation-content').style.display = page === 'hitprioritisation' ? 'block' : 'none';
+      document.getElementById('genepairview-content').style.display = page === 'genepairview' ? 'block' : 'none';
+    }
+  </script>
+</body>
+
+</html>
