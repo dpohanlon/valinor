@@ -16,20 +16,36 @@ pip install -e .
 pip install --upgrade "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 ```
 
-Run Valinor
+Usage
 ---
 ```bash
 valinor \
-        --combinationsFile itoCombs.pq \
-        --singletonsFile itoSingles.pq \
-        --no-controls \
+        --combinationsFile combs.pq \
+        --singletonsFile singles.pq \
         --epochs 10000 \
-        --nSamples 100 \
-        -n ito
+        --lr 0.01 \
+        -n test
 ```
-This will output the Valinor fit for combination and singleton effects and several additional files, that store the Valinor settings and priors used for running Valinor.
 
-Now there are two options to build the report. Either using the executable or just running the python scripts.
+This will output the Valinor fit for combination and singleton effects and several additional files, that store the Valinor settings and priors used for running Valinor, and samples from the posterior predictive distribution.
+
+This README contains a brief guide to getting started, however for more information please see the dedicated documentation [here](https://dpohanlon.github.io/valinor/).
+
+Model
+-----
+
+The model is a Bayesiam hierarchical model that partially-pools different observations of the CRISPR guide parameters across experiments and controls. It uses a negative-binomial distribution to describe the final counts, subject to an overdispersion parameter estimated from the experiment replicates. The structure of the parameter dependencies can be seen in the plate diagram below.
+
+<p align="center">
+  <img width="600" height="360" src="assets/valinor_plate.png">
+</p>
+
+This is inferred using variational inference in NumPyro, assuming normal posterior distributions with a low-rank approximation of the covariance matrix.
+
+HTML report
+-----------
+
+It is also possible to produce an interactive HTML report that guides you through the various results and diagnostic plots with valinorreport. There are two options to build the report. Either using the executable or just running the python scripts.
 
 Option 1: Use `valinorreport` executable to create the valinor report
 ---

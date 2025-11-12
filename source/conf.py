@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../"))
 sys.path.insert(0, os.path.abspath("../valinor"))
-sys.path.insert(0, os.path.abspath("../plotting"))
+sys.path.insert(0, os.path.abspath("../tests"))
 sys.path.insert(0, os.path.abspath("../data_preparation"))
 print(sys.path)
 
@@ -23,8 +23,8 @@ print(sys.path)
 # -- Project information -----------------------------------------------------
 
 project = "Valinor"
-copyright = "2023, Daniel O'Hanlon"
-author = "Daniel O'Hanlon"
+copyright = "2025, European Molecular Biology Laboratory, European Bioinformatics Institute"
+author = "Daniel O'Hanlon, Paula Weidemüller"
 
 
 # -- General configuration ---------------------------------------------------
@@ -54,5 +54,7 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+html_logo = '_static/doc_logo.png'
 
 extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon"]
