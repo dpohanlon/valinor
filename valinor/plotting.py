@@ -33,7 +33,7 @@ def plotLossCurve(loss, log=True, name=None, outputDir=""):
     plt.savefig(
         f"{outputDir}valinor_loss.svg"
         if name == None
-        else f"{outputDir}valinor_loss_{name}.svg"
+        else f"{outputDir}valinor_loss_{name}.png"
     )
 
     plt.clf()

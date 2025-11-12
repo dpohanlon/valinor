@@ -13,37 +13,32 @@ rcParams["ytick.direction"] = "in"
 
 rcParams.update({"figure.autolayout": True})
 
-import numpy as np
-
 import random
 import string
 
+import numpy as np
 import seaborn as sns
 
 colours = sns.color_palette()
 
+import pickle
+import time
 from pprint import pprint
 
-from tqdm import tqdm
-
 import pandas as pd
-
-import time
-
-import pickle
-
-from valinor_simulation.dko import DoubleKO
+from tqdm import tqdm
 from valinor_simulation.contexts import (
-    getContextMatrix,
-    generate_context_matrices,
     assign_contexts_to_cell_lines,
+    generate_context_matrices,
+    getContextMatrix,
 )
+from valinor_simulation.dko import DoubleKO
+from valinor_simulation.singletons import makeSingletons, makeSingletonsDF
 from valinor_simulation.utils import (
-    negativeBinomial,
     genePairStr,
+    negativeBinomial,
     populateCombinationDF,
 )
-from valinor_simulation.singletons import makeSingletonsDF, makeSingletons
 
 # Extend the ACE parameterisation to double KO
 
@@ -75,11 +70,11 @@ def genCellLine(
     newGeneEss = prototypeDKO.geneEssentiality + np.random.normal(
         0, fluctuateStd, len(prototypeDKO.geneEssentiality)
     )
-    newGeneEss[resampleIdx] = np.random.normal(0.1, 0.2, size=len(resampleIdx))
+    newGeneEss[resampleIdx] = np.random.normal(0.05, 0.5, size=len(resampleIdx))
 
     # If we're adding more context, don't include the prototype context GIs!
 
-    if not (gi_contexts == None):
+    if gi_contexts == None:
         newSyn = np.random.normal(0, fluctuateStd, size=prototypeDKO.synergies.shape)
 
     else:
@@ -109,10 +104,11 @@ def genCellLine(
 
     # Fluctuate OD by 10%
     newOD = np.clip(
-        prototypeDKO.od + np.random.normal(0, prototypeDKO.od / 10.0), 1, np.inf
+        prototypeDKO.od + np.random.normal(0, prototypeDKO.od * 0.1), 1, np.inf
     )
 
     newDKO = DoubleKO(
+        prototype = False,
         nGenes=prototypeDKO.nGenes,
         context=context,
         geneEssentiality=newGeneEss,
@@ -120,11 +116,13 @@ def genCellLine(
         sgRNAEfficiencies=newRNAEfficiencies,
         pairEfficiency=newPairEfficiency,
         gi_contexts=gi_contexts,
-        nInitialCells=prototypeDKO.nInitialCellsV,
+        nInitialCells=prototypeDKO.nInitialCells,
         gi_context_lists=gi_context_lists,
         nGuidesPerGene=prototypeDKO.nGuidesPerGene,
         od=newOD,
     )
+
+    newDKO.nInitialCellsV = prototypeDKO.nInitialCellsV
 
     return newDKO
 
@@ -239,7 +237,7 @@ def populate_unique_contexts(
     nCellLines,
     context_matrices,
     cell_line_to_contexts,
-    contextSynVal=0.1,
+    contextSynVal=1.5, # Multiplicative parameter (> 1!)
 ):
     # Last context matrix per cell line always be the unique one when saved
 
@@ -264,9 +262,9 @@ def populate_unique_contexts(
         row_indices, col_indices = np.array(pairsThisCellLine).T
 
         # Symmetric (to avoid dropping after 'symmetrisation'!)
-        uniqueContext = np.zeros((nGenes, nGenes))
-        uniqueContext[row_indices, col_indices] = contextSynVal
-        uniqueContext[col_indices, row_indices] = contextSynVal
+        uniqueContext = np.ones((nGenes, nGenes))
+        uniqueContext[row_indices, col_indices] *= contextSynVal
+        uniqueContext[col_indices, row_indices] *= contextSynVal
 
         # Append this to the set of context GIs and
 
@@ -318,7 +316,9 @@ def makeDataset(
     # plt.savefig("contexts1.pdf")
     # plt.clf()
 
-    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.1)
+    # Matrices for genetic interactions multiplicative modifiers that are not 'cell line unique', but are associated with a context
+
+    context_matrices = generate_context_matrices(nGenes, nContexts, 0.10, scale=0.25)
     cell_line_to_contexts = assign_contexts_to_cell_lines(
         nCellLines, nContexts, unique_contexts=False
     )
@@ -326,6 +326,8 @@ def makeDataset(
     if uniqueFrac != None:
         uniqueN = int(uniqueFrac * nGenes * nGenes)
         giPerCellLine = uniqueN // nCellLines
+
+        # Update the previous context matrices with interactions that are unique to cell lines (and therefore a 'genetic background')
 
         if giPerCellLine > 0:
             context_matrices, cell_line_to_contexts = populate_unique_contexts(
@@ -342,17 +344,17 @@ def makeDataset(
                 "WARNING: Context specific GI selected, but this would end up being fewer than one pair per cell line! \nNot generating unique GI pairs (increase uniqueFrac)."
             )
 
-    sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
-    plt.ylabel("Gene")
-    plt.xlabel("Gene")
-    plt.savefig(f"contexts0_{name}.pdf")
-    plt.clf()
+    # sns.heatmap(context_matrices[0], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig(f"contexts0_{name}.pdf")
+    # plt.clf()
 
-    sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
-    plt.ylabel("Gene")
-    plt.xlabel("Gene")
-    plt.savefig(f"contexts1_{name}.pdf")
-    plt.clf()
+    # sns.heatmap(context_matrices[1], cmap=sns.color_palette("vlag", as_cmap=True))
+    # plt.ylabel("Gene")
+    # plt.xlabel("Gene")
+    # plt.savefig(f"contexts1_{name}.pdf")
+    # plt.clf()
 
     pickle.dump(
         (cell_line_to_contexts, context_matrices),
@@ -381,6 +383,8 @@ def makeDataset(
     # plt.xlabel("Gene")
     # plt.savefig("contexts.pdf")
     # plt.clf()
+
+    # print(context_matrices)
 
     dko = DoubleKO(
         nGenes=nGenes,
@@ -446,8 +450,12 @@ def makeDataset(
     dfCombs["gene1_index"] = dfCombs["gene1"]
     dfCombs["gene2_index"] = dfCombs["gene2"]
 
-    sns.kdeplot(dfCombs, x="syn", clip=(-0.2, 0.2))
+    sns.kdeplot(dfCombs, x="syn", clip=(-0.5, 0.5), hue = 'cell_line')
     plt.savefig("syn.pdf")
+    plt.clf()
+
+    sns.kdeplot(dfCombs, x="ess1", clip=(-0.5, 0.5), hue = 'cell_line')
+    plt.savefig("ess1.pdf")
     plt.clf()
 
     dfCombs.to_parquet(f"{outDir}/dfCombs_{name}.pq")
@@ -469,11 +477,13 @@ def makeDataset(
     print("adding singleton replicates", time.time() - t)
     dfSgl = addReplicates(dfSgl, nReplicates, returnCounts=returnCounts)
 
-    dfSgl["cell_line_index"] = dfCombs["cell_line"]
+    dfSgl["cell_line_index"] = dfSgl["cell_line"]
     # The same by our new definition
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
+    dfSgl["guide_index"] = dfSgl["guide1_index_s"]
+    dfSgl["guide2_index"] = dfSgl["guide2_index_s"]
     dfSgl['GuidePair'] = dfSgl["guide_pair_index"]
 
     # Not unique wrt cell lines
@@ -514,6 +524,7 @@ def makeDataset(
             "value": calibData[:, 1, :].ravel(),
             "value_pos": calibData[:, 2, :].ravel(),
             "guide_pair_index": guide_pair_index_c,
+            "guide_pair_unq_c_index": guide_pair_index_c,
             "cell_line": np.tile(range(nCellLines), [nCalib, 1]).T.ravel(),
         }
     )
@@ -633,7 +644,7 @@ def run():
         "--uniqueFrac",
         type=float,
         dest="uniqueFrac",
-        default=None,  # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
+        default=0.05,  # Reasonable value is 0.001 for 90 out of 300 * 300 pairs
         help="Fraction of GI unique pairs per cell line.",
     )
 
@@ -641,7 +652,7 @@ def run():
         "--contextSynVal",
         type=float,
         dest="contextSynVal",
-        default=0.1,
+        default=1.5,
         help="Synergy parameter for context unique pairs.",
     )
 

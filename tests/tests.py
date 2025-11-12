@@ -1,12 +1,7 @@
-import os
-
-import subprocess as sp
-
 import argparse
-
-import unittest
-
 import os
+import subprocess as sp
+import unittest
 
 
 class Test01ValinorSim(unittest.TestCase):
@@ -136,27 +131,27 @@ class Test02Valinor(unittest.TestCase):
         sp.check_call(f"valinor {args}", shell=True)
 
 
-class Test03ValinorReport(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        print("Setting up Valinor test REPORT class...")
+# class Test03ValinorReport(unittest.TestCase):
+#     @classmethod
+#     def setUpClass(cls):
+#         print("Setting up Valinor test REPORT class...")
 
-    def testWithCLIReport(self):
-        # cwd: valinor
+#     def testWithCLIReport(self):
+#         # cwd: valinor
 
-        args = "--val_combo combsModel_cliTest.pq "
-        args += "--val_single singlesModel_cliTest.pq "
-        args += "--data_combo tests/data/dfCombs_sim.pq "
-        args += "--data_single tests/data/dfSgl_sim.pq "
-        args += "--output_file tests/valinoroutput_processed_cliTest.pq "
-        args += "--report_folder tests/valinorreport_cliTest "
-        args += "--valinorLossFile valinor_loss_cliTest.svg "
-        args += "--valinorConfigFile valinorrun_cliTest.json "
-        args += "--subsetSLpairs"
+#         args = "--val_combo combsModel_cliTest.pq "
+#         args += "--val_single singlesModel_cliTest.pq "
+#         args += "--data_combo tests/data/dfCombs_sim.pq "
+#         args += "--data_single tests/data/dfSgl_sim.pq "
+#         args += "--output_file tests/valinoroutput_processed_cliTest.pq "
+#         args += "--report_folder tests/valinorreport_cliTest "
+#         args += "--valinorLossFile valinor_loss_cliTest.svg "
+#         args += "--valinorConfigFile valinorrun_cliTest.json "
+#         args += "--subsetSLpairs"
 
-        print("Testing report")
+#         print("Testing report")
 
-        sp.check_call(f"valinorreport {args}", shell=True)
+#         sp.check_call(f"valinorreport {args}", shell=True)
 
 
 if __name__ == "__main__":

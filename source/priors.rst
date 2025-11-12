@@ -1,7 +1,7 @@
-plots module
-============
+priors module
+=============
 
-.. automodule:: plots
+.. automodule:: priors
    :members:
    :undoc-members:
    :show-inheritance:
