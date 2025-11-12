@@ -1,8 +1,7 @@
-import pandas as pd
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
-
-from typing import Dict, List, Tuple, Any
+import pandas as pd
 
 
 def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
@@ -74,17 +73,6 @@ def calculate_cell_line_stats(df):
 
 
 def calculate_gene_stats(df):
-    """
-    Calculate the mean and standard deviation per gene within each cell line, if 'gene_index' is present.
-
-    Parameters:
-    df (pd.DataFrame): DataFrame containing 'cell_line_index', 'plasmid', 'value', and 'gene_index' columns.
-
-    Returns:
-    tuple: A tuple containing two 2D numpy arrays:
-           - gene_mean_array: Mean log fold change per gene within each cell line.
-           - gene_std_dev_array: Standard deviation of log fold change per gene within each cell line.
-    """
 
     # Must match what is used in the rest of the code
     if "gene1_unq_index" not in df.columns:

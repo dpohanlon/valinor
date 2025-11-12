@@ -67,16 +67,6 @@ def make_jax(
     float_dtype=jnp.float32,
     int_dtype=jnp.int32,
 ):
-    """
-    Convert arrays that will participate in JAX tracing to jnp arrays,
-    with sensible dtypes:
-      - indices -> int_dtype
-      - observed count arrays -> int_dtype
-    Leaves `lengths` as Python ints on purpose (for numpyro.plate sizes).
-
-    Returns: (lengths, jax_indices, data_dict)
-             where data_dict = {"final": jax_final_counts, "initial": jax_initial_counts}
-    """
 
     def _convert_counts_dict(d):
         out = {}

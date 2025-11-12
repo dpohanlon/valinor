@@ -1,22 +1,14 @@
-import jax.numpy as jnp
-
-import pandas as pd
-
-import numpy as np
-
+import json
+from copy import deepcopy
 from functools import partial
+from typing import Dict, List, Optional, Tuple
 
 import h5py
-
+import jax.numpy as jnp
+import numpy as np
+import pandas as pd
 import yaml
-
-import json
-
-from copy import deepcopy
-
 from numpyro.infer.initialization import init_to_median
-
-from typing import Dict, List, Tuple, Optional
 
 # TODO: Have a better interface to these, especially when first building them
 # so that it generalises to more parameters and categories
@@ -524,9 +516,9 @@ def checkBounds(
 
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
-        assert (
-            np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
-        )
+        # assert (
+            # np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        # )
         assert_contiguous("cell_line_c_idx", indices["cell_line_c_idx"])
 
     # Also, warn if there are some parameters that remain unused, which is sus

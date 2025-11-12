@@ -13,37 +13,32 @@ rcParams["ytick.direction"] = "in"
 
 rcParams.update({"figure.autolayout": True})
 
-import numpy as np
-
 import random
 import string
 
+import numpy as np
 import seaborn as sns
 
 colours = sns.color_palette()
 
+import pickle
+import time
 from pprint import pprint
 
-from tqdm import tqdm
-
 import pandas as pd
-
-import time
-
-import pickle
-
-from valinor_simulation.dko import DoubleKO
+from tqdm import tqdm
 from valinor_simulation.contexts import (
-    getContextMatrix,
-    generate_context_matrices,
     assign_contexts_to_cell_lines,
+    generate_context_matrices,
+    getContextMatrix,
 )
+from valinor_simulation.dko import DoubleKO
+from valinor_simulation.singletons import makeSingletons, makeSingletonsDF
 from valinor_simulation.utils import (
-    negativeBinomial,
     genePairStr,
+    negativeBinomial,
     populateCombinationDF,
 )
-from valinor_simulation.singletons import makeSingletonsDF, makeSingletons
 
 # Extend the ACE parameterisation to double KO
 
@@ -487,6 +482,7 @@ def makeDataset(
     dfSgl["gene_unq_pair_index"] = dfSgl["gene_pair_index"]
     dfSgl["gene1_unq_index"] = dfSgl["g1_idx"]
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
+    dfSgl["guide_index"] = dfSgl["guide1_index_s"]
     dfSgl["guide2_index"] = dfSgl["guide2_index_s"]
     dfSgl['GuidePair'] = dfSgl["guide_pair_index"]
 
@@ -528,6 +524,7 @@ def makeDataset(
             "value": calibData[:, 1, :].ravel(),
             "value_pos": calibData[:, 2, :].ravel(),
             "guide_pair_index": guide_pair_index_c,
+            "guide_pair_unq_c_index": guide_pair_index_c,
             "cell_line": np.tile(range(nCellLines), [nCalib, 1]).T.ravel(),
         }
     )
