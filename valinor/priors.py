@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-
+import jax
 
 def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -114,20 +114,37 @@ def calculate_gene_stats(df):
 def defaultPriors():
     prior_params = {}
 
-    prior_params["guide_eff_mean"] = (0.9, 0.1)
-    prior_params["guide_eff_std"] = (0.1, 0.1)
+    # prior_params["guide_eff_mean"] = (0.9, 0.1)
+    # prior_params["guide_eff_std"] = (0.1, 0.1)
 
-    prior_params["gene_ko_growth"] = (0.0, 0.1)
+    # prior_params["gene_ko_growth"] = (0.0, 0.1)
 
-    prior_params["cell_line_growth"] = (0.0, 0.1)
+    # prior_params["cell_line_growth"] = (0.0, 0.1)
 
-    prior_params["mv_mean_scale"] = 1.0
-    prior_params["mv_std_scale"] = 1.0
-    prior_params["od_pair_scale"] = 0.1
+    # prior_params["mv_mean_scale"] = 1.0
+    # prior_params["mv_std_scale"] = 1.0
+    # prior_params["od_pair_scale"] = 0.1
 
-    prior_params["pair_eff_mean"] = (0.9, 0.1)
-    prior_params["pair_eff_std"] = (0.1, 0.1)
+    # prior_params["pair_eff_mean"] = (0.9, 0.1)
+    # prior_params["pair_eff_std"] = (0.1, 0.1)
 
-    prior_params["pair_growth"] = (0.0, 0.1)
+    # prior_params["pair_growth"] = (0.0, 0.1)
+
+    prior_params["guide_eff_mean"] = (jax.scipy.special.logit(0.8), 0.6)
+    prior_params["guide_eff_std"]  = (-0.5, 0.5)   # softplus(-0.5) ≈ 0.47 on logit
+
+    prior_params["gene_ko_growth"] = (0.0, 0.5)    # or Laplace in code with b=0.5
+
+    prior_params["cell_line_growth"] = (-1.0, 0.7) # allow small finals a priori
+
+    prior_params["mv_mean_scale"] = 1.5
+    prior_params["od_pair_scale"] = 1.0
+
+    # only keep if you actually use them in code
+    prior_params["pair_eff_mean"] = (jax.scipy.special.logit(0.8), 0.6)
+    prior_params["pair_eff_std"]  = (-0.5, 0.5)
+
+    prior_params["pair_growth"] = (0.0, 0.5)      # Laplace(0,0.5) in code
+
 
     return prior_params

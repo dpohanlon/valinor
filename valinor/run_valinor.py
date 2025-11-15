@@ -271,7 +271,6 @@ def sample_posterior(
         args = {"guide_config": config["guide_config"]}
 
     if not batch:
-
         with jax.default_device(jax.devices("cpu")[0]):
 
             # Non-batch case: directly sample from the posterior
@@ -372,7 +371,6 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="
             else f"{outputDir}{combsName}_{config['name']}.pq"
         )
     if (config["no_singletons"] == False) and (singlesDF is not None):
-
         singlesDF.to_parquet(
             f"{outputDir}{singlesStage}SinglesModel.pq"
             if config["name"] is None
@@ -407,8 +405,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         "combinations" in data["final"] and data["final"]["combinations"] is not None
     ) and not config.get("only_singletons", False)
 
-    # Some combination of these is screwing up the likelihood?
-
     init_params_common = {}
     if config.get("zi", False):
         init_params_common["p_zi"] = prior_params.get("p_zi", None)
@@ -418,9 +414,6 @@ def runValinor(lengths, indices, prior_params, data, config):
     if "dLFC" in prior_params:
 
         init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"]
-        # init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"] - np.mean(
-            # prior_params["dLFC"]
-        # )
 
     if "init_count_vals" in prior_params and use_dko_d:
         init_params_common["guide_init_count"] = prior_params["init_count_vals"]
@@ -433,7 +426,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
     valinor_model = models.valinorHierarchy
     valinor_guide = AutoLowRankMultivariateNormal(
-        models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
+        models.valinorHierarchy, init_loc_fn=custom_init(), rank=256
     )
 
     common_config = {
@@ -631,7 +624,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         custom_init = configure_custom_init(init_params_common)
         dko_guide = AutoLowRankMultivariateNormal(
-            models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
+            models.valinorHierarchy, init_loc_fn=custom_init(), rank=256
         )
 
         prng_key, _ = random.split(prng_key)
