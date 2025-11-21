@@ -22,7 +22,9 @@ def negativeBinomial(mean, od, zi=False):
         return dist.ZeroInflatedNegativeBinomial2(mean, od, gate=zi)
 
 
-def dkoLikelihoodInitial(init_theta: float) -> Distribution:
+def dkoLikelihoodInitial(
+    init_theta: float, log_exposure_init: float = 0.0
+) -> Distribution:
     """
     Returns a Poisson distribution with the provided parameter.
 
@@ -34,7 +36,7 @@ def dkoLikelihoodInitial(init_theta: float) -> Distribution:
     """
 
     # return negativeBinomial(init_theta, 1E-6, False), init_theta
-    return dist.Poisson(init_theta), init_theta
+    return dist.Poisson(init_theta + log_exposure_init), init_theta
 
 
 def dkoLikelihoodFullFinal(
@@ -48,6 +50,7 @@ def dkoLikelihoodFullFinal(
     mv: float,
     library_bias: float,
     p_zi: float,
+    log_exposure_final: float = 0.0,
     singleKO: bool = False,
     guide_pair_eff=None,
 ) -> Distribution:
@@ -77,7 +80,7 @@ def dkoLikelihoodFullFinal(
     mv_bc = jnp.maximum(mv - 1.0, 1e-6)[..., None]
 
     init_theta = jnp.clip(init_theta, 1e-6, 1e6)
-    log_base = jnp.log(init_theta) + cell_line_growth
+    log_base = jnp.log(init_theta) + cell_line_growth + log_exposure_final
 
     log_mu00 = log_base
     log_mu1 = log_base + library_bias + g1
@@ -503,8 +506,12 @@ def sample_dko_distributions(
 
     with numpyro.plate("guide_counts", lengths["len_guide_pairs"]):
         log_init_l, log_init_s = prior_params.get("log_init_count", (0.0, 2.0))
-        guide_init_log = numpyro.sample("guide_init_log", dist.Normal(log_init_l, log_init_s))
-        guide_init_count = numpyro.deterministic("guide_init_count", jnp.exp(guide_init_log))
+        guide_init_log = numpyro.sample(
+            "guide_init_log", dist.Normal(log_init_l, log_init_s)
+        )
+        guide_init_count = numpyro.deterministic(
+            "guide_init_count", jnp.exp(guide_init_log)
+        )
 
     guide_init_count = jnp.exp(guide_init_log)  # no softplus
     guide_init_count = jnp.clip(guide_init_count, 1e-8, 1e7)

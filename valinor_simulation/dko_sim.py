@@ -108,7 +108,7 @@ def genCellLine(
     )
 
     newDKO = DoubleKO(
-        prototype = False,
+        prototype=False,
         nGenes=prototypeDKO.nGenes,
         context=context,
         geneEssentiality=newGeneEss,
@@ -188,7 +188,7 @@ def addReplicates(df, nReplicates, od=20, returnCounts=False):
     copies = []
     for i in tqdm(range(nReplicates)):
         replicate = df.copy()
-        replicate["replicate"] = i
+        replicate["replicate_index"] = i
 
         if not returnCounts:
             std = np.sqrt(1.0 / np.random.gamma(2, 5, size=len(replicate)))
@@ -237,7 +237,7 @@ def populate_unique_contexts(
     nCellLines,
     context_matrices,
     cell_line_to_contexts,
-    contextSynVal=1.5, # Multiplicative parameter (> 1!)
+    contextSynVal=1.5,  # Multiplicative parameter (> 1!)
 ):
     # Last context matrix per cell line always be the unique one when saved
 
@@ -444,17 +444,17 @@ def makeDataset(
     dfCombs["cell_line_index"] = dfCombs["cell_line"]
     dfCombs["gene1_unq_index"] = dfCombs["g1_idx"]
     dfCombs["gene2_unq_index"] = dfCombs["g2_idx"]
-    dfCombs['GuidePair'] = dfCombs["guide_pair_index"]
+    dfCombs["GuidePair"] = dfCombs["guide_pair_index"]
 
     # Not unique wrt cell lines
     dfCombs["gene1_index"] = dfCombs["gene1"]
     dfCombs["gene2_index"] = dfCombs["gene2"]
 
-    sns.kdeplot(dfCombs, x="syn", clip=(-0.5, 0.5), hue = 'cell_line')
+    sns.kdeplot(dfCombs, x="syn", clip=(-0.5, 0.5), hue="cell_line")
     plt.savefig("syn.pdf")
     plt.clf()
 
-    sns.kdeplot(dfCombs, x="ess1", clip=(-0.5, 0.5), hue = 'cell_line')
+    sns.kdeplot(dfCombs, x="ess1", clip=(-0.5, 0.5), hue="cell_line")
     plt.savefig("ess1.pdf")
     plt.clf()
 
@@ -484,7 +484,7 @@ def makeDataset(
     dfSgl["guide1_index"] = dfSgl["guide1_index_s"]
     dfSgl["guide_index"] = dfSgl["guide1_index_s"]
     dfSgl["guide2_index"] = dfSgl["guide2_index_s"]
-    dfSgl['GuidePair'] = dfSgl["guide_pair_index"]
+    dfSgl["GuidePair"] = dfSgl["guide_pair_index"]
 
     # Not unique wrt cell lines
     dfSgl["gene1_index"] = dfSgl["gene1"]

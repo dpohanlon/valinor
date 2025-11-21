@@ -15,6 +15,7 @@ from valinor.utils import (
     calculateLengths,
     checkBounds,
     combinationLFCs,
+    compute_and_broadcast_exposures,
     countZeros,
     getFinalCounts,
     getIndices,
@@ -67,7 +68,6 @@ def make_jax(
     float_dtype=jnp.float32,
     int_dtype=jnp.int32,
 ):
-
     def _convert_counts_dict(d):
         out = {}
         for k, v in (d or {}).items():
@@ -162,6 +162,7 @@ def prepareData(
     singletons: bool = True,
     controls: bool = True,
     reindex: bool = False,
+    exposure: bool = True,
 ) -> Tuple[Dict[str, Any], Dict[str, int], Dict[str, Any]]:
     """
     Prepares data for the Valinor model.
@@ -241,7 +242,6 @@ def prepareData(
     # Init params for controls, cell line stats for control DF
 
     if controls:  # and config == True
-
         print("Setting control priors using data.")
 
         control_means, control_stds = calculate_cell_line_stats(datasets["controls"])
@@ -250,7 +250,6 @@ def prepareData(
         prior_params["control_stds"] = control_stds
 
     if singletons:  # and config == True
-
         print("Setting single gene effect priors using data.")
 
         # 2D array, genes x cell lines
@@ -262,7 +261,6 @@ def prepareData(
         prior_params["gene_effect_stds"] = gene_stds
 
     if not singletons:
-
         # try and guess these
 
         pass
@@ -309,6 +307,17 @@ def prepareData(
         prior_params, float_dtype=jnp.float32, int_dtype=jnp.int32
     )
 
+    if exposure:
+        exp_map, exp_arrays = compute_and_broadcast_exposures(
+            datasets,
+            cell_col="cell_line_index",
+            rep_col="replicate_index",
+            init_col="plasmid",
+            final_col="value",
+        )
+
+        return (lengths, indices, prior_params, data, exp_arrays)
+
     return (
         lengths,
         indices,
@@ -318,7 +327,6 @@ def prepareData(
 
 
 def getDeltaLFC(combinations):
-
     pair_grouped = combinations.groupby("gene_unq_pair_index").agg({"dLFC": "mean"})
 
     return pair_grouped["dLFC"].values

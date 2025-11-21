@@ -55,16 +55,13 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
     count_indices = {}
 
     for n, d in datasets.items():
-
         if not (d is None):
-
             singletons = "singletons" in n.lower()
             count, indices = getInitialCountsDF(d, initCountVar, singletons)
             counts[n] = count
             count_indices[n] = indices
 
         else:
-
             counts[n] = None
             count_indices[n] = None
 
@@ -74,7 +71,6 @@ def getInitialCounts(datasets: Dict[str, str], initCountVar: str = "plasmid"):
 def getInitialCountsDF(
     df: pd.DataFrame, initCountVar: str, singletons: bool = False
 ) -> pd.Series:
-
     obsVar = "guide_pair_index"
     paramVar = "guide_index" if singletons else obsVar
 
@@ -135,7 +131,6 @@ def getUniqueGeneGuideIndices(
 
 # Only for final counts
 def countZeros(df):
-
     data_sorted = df.sort_values("cell_line_index").reset_index()
     counts = data_sorted.groupby("cell_line_index").size()
     zero_counts = (
@@ -151,7 +146,6 @@ def countZeros(df):
 
 
 def reindexVar(df, var):
-
     oldIndicesUnq = df[var].unique()
     newIndexMap = {oldIndicesUnq[i]: i for i in range(len(oldIndicesUnq))}
     newIndices = np.array([newIndexMap[v] for v in df[var].values])
@@ -160,7 +154,6 @@ def reindexVar(df, var):
 
 
 def reindexDF(df: pd.DataFrame, singletons=False):
-
     # Reindexes to avoid cases where guides appear in only the combinations/singles
     # dataset. Not to be used for a model with matched combinations and singles!
 
@@ -172,7 +165,6 @@ def reindexDF(df: pd.DataFrame, singletons=False):
     df["cell_line_index"] = reindexVar(df, "cell_line_index")
 
     if not singletons:
-
         df["gene_pair_index"] = reindexVar(df, "gene_pair_index")
         df["guide2_index"] = reindexVar(df, "guide2_index")
         df["gene2_unq_index"] = reindexVar(df, "gene2_unq_index")
@@ -327,7 +319,6 @@ def calculateLengths(
     }
 
     if not only_singletons:
-
         lengths["len_gene_pairs"] = len(np.unique(indices["gene_pair_idx"]))
 
     gene_indices, guide_indices = getUniqueGeneGuideIndices(
@@ -368,7 +359,6 @@ def deltaLFC(lfc_combination, lfc_1, lfc_2):
 
 
 def combinationLFCs(combinations, singles):
-
     # Calculate gene-averaged dLFCs
 
     # Calculate LFCs
@@ -461,9 +451,9 @@ def saveModelParams(params: Dict[str, np.ndarray], fileName: str) -> None:
 
 def assert_contiguous(name, arr):
     u = np.unique(arr)
-    assert u.min() == 0 and np.array_equal(
-        u, np.arange(u.max() + 1)
-    ), f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
+    assert u.min() == 0 and np.array_equal(u, np.arange(u.max() + 1)), (
+        f"{name} not contiguous 0..{u.max()} (n_unique={len(u)})"
+    )
 
 
 def checkBounds(
@@ -517,7 +507,7 @@ def checkBounds(
     if neg_controls:
         assert np.max(indices["cell_line_c_idx"]) < lengths["len_cell_lines"]
         # assert (
-            # np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
+        # np.max(indices["guide_pair_unq_c_idx"]) < lengths["len_guide_pairs_unq_c"]
         # )
         assert_contiguous("cell_line_c_idx", indices["cell_line_c_idx"])
 
@@ -548,6 +538,156 @@ def checkBounds(
             print(
                 "WARNING: Some model gene pair parameters are un-referenced (no matching indices)."
             )
+
+
+def compute_exposures(
+    datasets,
+    cell_col="cell_line_index",
+    rep_col="replicate_index",
+    init_col="plasmid",
+    final_col="value",
+):
+    def _per_timepoint(df, count_col):
+        if df is None:
+            return {}
+        g = (
+            df.groupby([cell_col, rep_col], observed=True)[count_col]
+            .sum()
+            .rename("tot")
+            .reset_index()
+        )
+        med = g["tot"].median()
+        sf = (g["tot"] / (med if med > 0 else 1.0)).replace(0.0, np.nan)
+        log_sf = np.log(sf).fillna(0.0)
+        log_sf = log_sf - log_sf.mean()
+        g["log_exposure"] = log_sf
+        return {
+            (int(cl), int(r)): float(le)
+            for cl, r, le in g[[cell_col, rep_col, "log_exposure"]].itertuples(
+                index=False, name=None
+            )
+        }
+
+    out = {}
+    for arm in ("combinations", "singletons", "controls"):
+        df = datasets.get(arm, None)
+        out[arm] = {
+            "initial": _per_timepoint(df, init_col) if df is not None else {},
+            "final": _per_timepoint(df, final_col) if df is not None else {},
+        }
+    return out
+
+
+def broadcast_exposures_to_arrays(
+    datasets,
+    exposures_map,
+    cell_col="cell_line_index",
+    rep_col="replicate_index",
+):
+    """
+    Returns arrays aligned to the **exact row order** used for counts,
+    and dense parameter-level arrays for initials (pairs/guides).
+    """
+    out = {"final": {}, "initial": {}}
+
+    # -------- finals: one exposure per observation row --------
+    for arm in ("combinations", "singletons", "controls"):
+        df = datasets.get(arm, None)
+        if df is None:
+            out["final"][arm] = None
+            continue
+        keys = list(
+            zip(df[cell_col].astype(int).to_numpy(), df[rep_col].astype(int).to_numpy())
+        )
+        arr = np.array(
+            [exposures_map[arm]["final"].get(k, 0.0) for k in keys], dtype=np.float32
+        )
+        out["final"][arm] = arr
+
+    # -------- initials: build dense arrays in parameter index space --------
+    # combinations/controls: per guide_pair_index
+    for arm in ("combinations", "controls"):
+        df = datasets.get(arm, None)
+        if df is None:
+            out["initial"][arm] = None
+            continue
+        le_row = np.array(
+            [
+                exposures_map[arm]["initial"].get((int(cl), int(r)), 0.0)
+                for cl, r in zip(
+                    df[cell_col].astype(int).to_numpy(),
+                    df[rep_col].astype(int).to_numpy(),
+                )
+            ],
+            dtype=np.float32,
+        )
+        # aggregate to per-pair exposure (median over rows belonging to that pair)
+        pair_idx = df["guide_pair_index"].astype(int).to_numpy()
+        max_idx = int(pair_idx.max()) if len(pair_idx) else -1
+        # median per pair
+        df_tmp = pd.DataFrame({"pair": pair_idx, "le": le_row})
+        med = df_tmp.groupby("pair", observed=True)["le"].median()
+        # dense vector 0..max_idx
+        if max_idx < 0:
+            out["initial"][arm] = np.zeros(0, dtype=np.float32)
+        else:
+            arr = np.zeros(max_idx + 1, dtype=np.float32)
+            arr.fill(0.0)
+            arr[med.index.to_numpy()] = med.to_numpy(dtype=np.float32)
+            out["initial"][arm] = arr
+
+    # singletons: per guide_index
+    arm = "singletons"
+    df = datasets.get(arm, None)
+    if df is None:
+        out["initial"][arm] = None
+    else:
+        le_row = np.array(
+            [
+                exposures_map[arm]["initial"].get((int(cl), int(r)), 0.0)
+                for cl, r in zip(
+                    df[cell_col].astype(int).to_numpy(),
+                    df[rep_col].astype(int).to_numpy(),
+                )
+            ],
+            dtype=np.float32,
+        )
+        gid = df["guide_index"].astype(int).to_numpy()
+        max_gid = int(gid.max()) if len(gid) else -1
+        df_tmp = pd.DataFrame({"gid": gid, "le": le_row})
+        med = df_tmp.groupby("gid", observed=True)["le"].median()
+        if max_gid < 0:
+            out["initial"][arm] = np.zeros(0, dtype=np.float32)
+        else:
+            arr = np.zeros(max_gid + 1, dtype=np.float32)
+            arr.fill(0.0)
+            arr[med.index.to_numpy()] = med.to_numpy(dtype=np.float32)
+            out["initial"][arm] = arr
+
+    return out
+
+
+def compute_and_broadcast_exposures(
+    datasets,
+    cell_col="cell_line_index",
+    rep_col="replicate_index",
+    init_col="plasmid",
+    final_col="value",
+):
+    """
+    Convenience wrapper: computes log-exposures and returns both the maps and arrays.
+    """
+    exp_map = compute_exposures(
+        datasets,
+        cell_col=cell_col,
+        rep_col=rep_col,
+        init_col=init_col,
+        final_col=final_col,
+    )
+    exp_arrays = broadcast_exposures_to_arrays(
+        datasets, exp_map, cell_col=cell_col, rep_col=rep_col
+    )
+    return exp_map, exp_arrays
 
 
 def configArgs(args):
@@ -657,16 +797,14 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
 
 
 def configure_custom_init(init_dict):
-
     # Set to values from config dictionary, falling back to median
 
     def custom_init(site=None):
-
         if site is None:
             return partial(custom_init)
 
         if site["name"] in init_dict:
-            print(f'Setting {site["name"]}')
+            print(f"Setting {site['name']}")
             return init_dict[site["name"]]
         else:
             return init_to_median(site)
@@ -675,7 +813,6 @@ def configure_custom_init(init_dict):
 
 
 def subset_for_mcmc(indices_to_subset, data, lengths, indices):
-
     print(len(np.unique(indices["guide_pair_idx"])))
     print(np.max(indices["guide_pair_idx"]))
     print(len(data["initial"]["combinations"]))

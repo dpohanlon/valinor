@@ -63,7 +63,6 @@ if gpu_available:
 
 
 def get_model_sites(model, *args, **kwargs):
-
     model_trace = trace(seed(model, random.PRNGKey(0))).get_trace(*args, **kwargs)
     sites = list(model_trace.keys())
 
@@ -144,7 +143,6 @@ def obs_config(mode, data, config):
 
 
 def initialize_svi(model, guide, lr, nParticles, nEpochs):
-
     warmup = int(0.25 * nEpochs)
     schedule = optax.warmup_cosine_decay_schedule(
         init_value=0.0,
@@ -197,7 +195,7 @@ def run_svi(
 
 
 def save_results(params, config, outputDir):
-    saveModelParams(params, f'{outputDir}{config["paramsFileName"]}')
+    saveModelParams(params, f"{outputDir}{config['paramsFileName']}")
     with open(f"valinorrun_{config['name']}.json", "w") as outfile:
         json.dump(config, outfile)
 
@@ -218,7 +216,6 @@ def save_posterior_predictive(
     annotation,
     **kwargs,
 ):
-
     sites = list(filter(lambda x: "obs" in x, sites))
 
     predictive = Predictive(
@@ -241,7 +238,6 @@ def save_posterior_predictive(
         args = {"guide_config": config["guide_config"]}
 
     with jax.default_device(jax.devices("cpu")[0]):
-
         samples = predictive(
             random.PRNGKey(42),
             data=data,
@@ -259,7 +255,6 @@ def save_posterior_predictive(
 def sample_posterior(
     predictive, config, data, lengths, indices, prior_params, batch=False, **kwargs
 ):
-
     if config["only_singletons"] == False:
         args = {
             "no_singletons": config["no_singletons"],
@@ -272,7 +267,6 @@ def sample_posterior(
 
     if not batch:
         with jax.default_device(jax.devices("cpu")[0]):
-
             # Non-batch case: directly sample from the posterior
             samples = predictive(
                 random.PRNGKey(42),
@@ -330,7 +324,6 @@ def sample_posterior(
         )
 
         with jax.default_device(jax.devices("cpu")[0]):
-
             samples = predictive(
                 random.PRNGKey(42),
                 data=batch_data,
@@ -361,9 +354,7 @@ def sample_posterior(
 
 
 def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="Only"):
-
     if (config["only_singletons"] == False) and (combsDF is not None):
-
         combsName = "OnlyCombsModel" if config["no_singletons"] else "CombsModel"
         combsDF.to_parquet(
             f"{outputDir}{combsName}.pq"
@@ -379,7 +370,6 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="
 
 
 def runValinor(lengths, indices, prior_params, data, config):
-
     if config["zi"] == False:
         config["zi"] = None
 
@@ -412,7 +402,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         init_params_common["p_zi_s"] = prior_params.get("p_zi_s", None)
 
     if "dLFC" in prior_params:
-
         init_params_common["gene_pair_ko_growth_raw"] = prior_params["dLFC"]
 
     if "init_count_vals" in prior_params and use_dko_d:
@@ -446,7 +435,6 @@ def runValinor(lengths, indices, prior_params, data, config):
     print("Fitting")
 
     if fit_mode == "controls" or fit_mode == "full":
-
         print("Fitting controls")
 
         svi_controls = initialize_svi(
@@ -535,7 +523,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         )
 
     if "singles" in fit_mode or fit_mode == "full":
-
         print("Fitting singles")
 
         prng_key, _ = random.split(prng_key)
@@ -619,7 +606,6 @@ def runValinor(lengths, indices, prior_params, data, config):
         singles_vals = valinor_guide.median(params_s)
 
     if "dko" in fit_mode or fit_mode == "full":
-
         print("Fitting dko")
 
         custom_init = configure_custom_init(init_params_common)
@@ -921,7 +907,7 @@ def run():
 
     loaded_priors = loadPriors(args.priorsFile) if args.priorsFile is not None else None
 
-    lengths, indices, prior_params, data = prepareData(
+    lengths, indices, prior_params, data, exposures = prepareData(
         data_files,
         loaded_priors,
         config["only_singletons"],
@@ -929,6 +915,9 @@ def run():
         not config["no_controls"],
         config["reindex"],
     )
+
+    pprint(exposures)
+    exit(0)
 
     # print(lengths)
 
