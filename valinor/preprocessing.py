@@ -15,7 +15,7 @@ from valinor.utils import (
     calculateLengths,
     checkBounds,
     combinationLFCs,
-    compute_and_broadcast_exposures,
+    compute_or_load_exposures,
     countZeros,
     getFinalCounts,
     getIndices,
@@ -179,8 +179,16 @@ def prepareData(
 
     datasets = loadData(data_files)
 
+    initCountVar = "initial"
+
+    # Try and guess what the initial count variable is
+    if "plasmid" in list(datasets["combinations"]):
+        initCountVar = "plasmid"
+
     finalCounts = getFinalCounts(datasets)
-    initialCounts, initialCountIndices = getInitialCounts(datasets)
+    initialCounts, initialCountIndices = getInitialCounts(
+        datasets, initCountVar=initCountVar
+    )
 
     meanOD, stdOD = calculateOverdispersion(
         datasets["combinations"]
@@ -200,43 +208,43 @@ def prepareData(
 
     if not only_singletons:
         prior_params["init_count"] = (
-            np.mean(datasets["combinations"]["plasmid"]),
-            np.std(datasets["combinations"]["plasmid"]),
+            np.mean(datasets["combinations"][initCountVar]),
+            np.std(datasets["combinations"][initCountVar]),
         )
 
         if "dLFC" in datasets["combinations"]:
             prior_params["dLFC"] = getDeltaLFC(datasets["combinations"])
         elif not (datasets["singletons"] is None):
             prior_params["dLFC"] = combinationLFCs(
-                datasets["combinations"], datasets["singletons"]
+                datasets["combinations"], datasets["singletons"], initCountVar
             )
 
         prior_params["init_count_vals"] = calcInitCountParams(
-            datasets["combinations"], initCountVar="plasmid", singletons=False
+            datasets["combinations"], initCountVar=initCountVar, singletons=False
         )
 
         prior_params["p_zi"] = countZeros(datasets["combinations"])
 
     if not (datasets["singletons"] is None):
         prior_params["init_count_s"] = (
-            np.mean(datasets["singletons"]["plasmid"]),
-            np.std(datasets["singletons"]["plasmid"]),
+            np.mean(datasets["singletons"][initCountVar]),
+            np.std(datasets["singletons"][initCountVar]),
         )
 
         prior_params["init_count_s_vals"] = calcInitCountParams(
-            datasets["singletons"], initCountVar="plasmid"
+            datasets["singletons"], initCountVar=initCountVar
         )
 
         prior_params["p_zi_s"] = countZeros(datasets["singletons"])
 
     if not (datasets["controls"] is None):
         prior_params["init_count_c"] = (
-            np.mean(datasets["controls"]["plasmid"]),
-            np.std(datasets["controls"]["plasmid"]),
+            np.mean(datasets["controls"][initCountVar]),
+            np.std(datasets["controls"][initCountVar]),
         )
 
         prior_params["init_count_c_vals"] = calcInitCountParams(
-            datasets["controls"], initCountVar="plasmid", singletons=False
+            datasets["controls"], initCountVar=initCountVar, singletons=False
         )
 
     # Init params for controls, cell line stats for control DF
@@ -244,7 +252,9 @@ def prepareData(
     if controls:  # and config == True
         print("Setting control priors using data.")
 
-        control_means, control_stds = calculate_cell_line_stats(datasets["controls"])
+        control_means, control_stds = calculate_cell_line_stats(
+            datasets["controls"], initCountVar
+        )
 
         prior_params["control_means"] = control_means
         prior_params["control_stds"] = control_stds
@@ -254,7 +264,7 @@ def prepareData(
 
         # 2D array, genes x cell lines
         gene_means, gene_stds, idx_c, idx_g = calculate_gene_stats(
-            datasets["singletons"]
+            datasets["singletons"], initCountVar
         )
 
         prior_params["gene_effect_means"] = gene_means
@@ -308,11 +318,11 @@ def prepareData(
     )
 
     if exposure:
-        exp_map, exp_arrays = compute_and_broadcast_exposures(
+        exp_map, exp_arrays = compute_or_load_exposures(
             datasets,
             cell_col="cell_line_index",
             rep_col="replicate_index",
-            init_col="plasmid",
+            init_col=initCountVar,
             final_col="value",
         )
 

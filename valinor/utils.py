@@ -358,23 +358,23 @@ def deltaLFC(lfc_combination, lfc_1, lfc_2):
     return lfc_combination - (lfc_1 + lfc_2)
 
 
-def combinationLFCs(combinations, singles):
+def combinationLFCs(combinations, singles, initCountVar="plasmid"):
     # Calculate gene-averaged dLFCs
 
     # Calculate LFCs
 
-    combinations["lfc"] = lfc(combinations["value"], combinations["plasmid"])
-    singles["lfc"] = lfc(singles["value"], singles["plasmid"])
+    combinations["lfc"] = lfc(combinations["value"], combinations[initCountVar])
+    singles["lfc"] = lfc(singles["value"], singles[initCountVar])
 
     # Average by gene, cell line
 
     singles_gene = (
         singles.groupby(["gene1", "cell_line"])
-        .agg({"lfc": "mean", "g1_idx": "first", "plasmid": "mean"})
+        .agg({"lfc": "mean", "g1_idx": "first", initCountVar: "mean"})
         .reset_index()
     )
     combs_gene = (
-        combinations.groupby(["gene1", "gene2", "cell_line", "plasmid"])
+        combinations.groupby(["gene1", "gene2", "cell_line", initCountVar])
         .agg({"lfc": "mean", "g1_idx": "first", "g2_idx": "first"})
         .reset_index()
     )
@@ -690,6 +690,121 @@ def compute_and_broadcast_exposures(
     return exp_map, exp_arrays
 
 
+def _broadcast_precomputed_exposures_to_arrays(
+    datasets: Dict[str, "pd.DataFrame"],
+    init_col: str = "log_exposure_initial",
+    final_col: str = "log_exposure_final",
+) -> Tuple[Dict[str, Dict[str, np.ndarray]], Dict[str, Dict[str, float]]]:
+    """
+    Build exposure arrays that match the shapes your model expects:
+      - final: one value per observed row (same length as data['final'][arm])
+      - initial: one value per parameterised 'initial' slot
+                 (median over guide_pair_index; placed at param index)
+                 where param index is guide_index for singletons else guide_pair_index.
+    Returns (exp_arrays, exp_map). exp_map is a minimal dict for debugging.
+    """
+    arms = ("combinations", "singletons", "controls")
+    exp_arrays = {"final": {}, "initial": {}}
+    exp_map = {"final": {}, "initial": {}}
+
+    for arm in arms:
+        df = datasets.get(arm)
+        if df is None:
+            exp_arrays["final"][arm] = None
+            exp_arrays["initial"][arm] = None
+            continue
+
+        # ---- final: row-aligned exposure vector ----
+        if final_col in df.columns:
+            exp_arrays["final"][arm] = (
+                df[final_col].to_numpy(dtype=np.float32).reshape(-1)
+            )
+        else:
+            exp_arrays["final"][arm] = None  # absent -> let model default to zeros
+
+        # ---- initial: param-aligned exposure vector ----
+        if init_col in df.columns:
+            obsVar = "guide_pair_index"
+            paramVar = "guide_index" if ("singletons" in arm) else obsVar
+
+            grouped = (
+                df.groupby(obsVar, observed=True)
+                .agg(
+                    **{
+                        init_col: (init_col, "median"),
+                        obsVar: (obsVar, "first"),
+                        paramVar: (paramVar, "first"),
+                    }
+                )
+                .reset_index(drop=True)
+            )
+            param_idx = grouped[paramVar].to_numpy()
+            vals = grouped[init_col].to_numpy(dtype=np.float32)
+
+            max_idx = int(param_idx.max()) if len(param_idx) else -1
+            if max_idx < 0:
+                arr = np.zeros(0, dtype=np.float32)
+            else:
+                arr = np.zeros(max_idx + 1, dtype=np.float32)
+                arr[param_idx] = vals
+            exp_arrays["initial"][arm] = arr
+
+            # lightweight map (useful for sanity checks)
+            exp_map["initial"][arm] = {
+                int(i): float(v) for i, v in zip(param_idx, vals)
+            }
+        else:
+            exp_arrays["initial"][arm] = None
+
+        # optional minimal map for final (indices -> value) for debugging
+        if exp_arrays["final"][arm] is not None:
+            exp_map["final"][arm] = {"n": int(len(exp_arrays["final"][arm]))}
+
+    return exp_arrays, exp_map
+
+
+def compute_or_load_exposures(
+    datasets: Dict[str, "pd.DataFrame"],
+    *,
+    cell_col: str = "cell_line_index",
+    rep_col: str = "replicate_index",
+    init_col: str = "plasmid",
+    final_col: str = "value",
+) -> Tuple[Dict[str, Dict[str, float]], Dict[str, Dict[str, np.ndarray]]]:
+    """
+    If precomputed exposure columns exist in every present arm, use them and
+    broadcast to model shapes; otherwise fall back to your existing computation.
+    """
+    arms_present = [arm for arm, df in datasets.items() if df is not None]
+    have_precomputed = all(
+        (datasets[arm] is None)
+        or (
+            ("log_exposure_initial" in datasets[arm].columns)
+            and ("log_exposure_final" in datasets[arm].columns)
+        )
+        for arm in datasets
+    )
+
+    if have_precomputed and len(arms_present) > 0:
+        print("Using pre-computed exposures")
+        exp_arrays, exp_map = _broadcast_precomputed_exposures_to_arrays(
+            datasets,
+            init_col="log_exposure_initial",
+            final_col="log_exposure_final",
+        )
+        # return in the same (map, arrays) order your code expects
+        return exp_map, exp_arrays
+
+    # fallback: your existing path
+    return compute_and_broadcast_exposures(
+        datasets,
+        cell_col=cell_col,
+        rep_col=rep_col,
+        init_col=init_col,
+        final_col=final_col,
+    )
+
+
 def configArgs(args):
     # Take from CLI, read from a config file, or use defaults (in that order)
 
@@ -702,12 +817,36 @@ def configArgs(args):
     return config
 
 
-def getBatchData(data, indices, start_idx, end_idx, head="dko"):
+def getBatchData(data, exposures, indices, start_idx, end_idx, head="dko"):
     """
     head: 'dko' | 'sko' | 'ctrl'
+
+    Returns:
+        batch_data, batch_indices, batch_exposures
+        - batch_data:    counts sliced exactly like before
+        - batch_indices: obs-level indices sliced for the chosen head
+        - batch_exposures:
+            {'final': {'combinations'|...: np.array or None},
+             'initial': {'combinations'|...: np.array or None}}
+          Final exposures for the chosen head are sliced to [start_idx:end_idx].
+          All other arrays are forwarded unchanged unless their length matches
+          the sliced block, in which case they are sliced too.
     """
 
-    # Slice obs arrays for batch, only for final counts
+    def _maybe_slice(arr, n_needed):
+        if arr is None:
+            return None
+        try:
+            n = len(arr)
+        except TypeError:
+            return arr
+        return arr[start_idx:end_idx] if n == n_needed else arr
+
+    def _len_or_zero(x):
+        try:
+            return len(x) if x is not None else 0
+        except TypeError:
+            return 0
 
     batch_data = {"initial": {}, "final": {}}
     if head == "dko":
@@ -716,11 +855,11 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
             if data["final"].get("combinations") is None
             else data["final"]["combinations"][start_idx:end_idx]
         )
-
         batch_data["initial"]["combinations"] = data["initial"].get("combinations")
 
         batch_data["final"]["singletons"] = data["final"].get("singletons")
         batch_data["initial"]["singletons"] = data["initial"].get("singletons")
+
         batch_data["final"]["controls"] = data["final"].get("controls")
         batch_data["initial"]["controls"] = data["initial"].get("controls")
 
@@ -730,11 +869,11 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
             if data["final"].get("singletons") is None
             else data["final"]["singletons"][start_idx:end_idx]
         )
-
         batch_data["initial"]["singletons"] = data["initial"].get("singletons")
 
         batch_data["final"]["combinations"] = data["final"].get("combinations")
         batch_data["initial"]["combinations"] = data["initial"].get("combinations")
+
         batch_data["final"]["controls"] = data["final"].get("controls")
         batch_data["initial"]["controls"] = data["initial"].get("controls")
 
@@ -748,15 +887,9 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
 
         batch_data["final"]["singletons"] = data["final"].get("singletons")
         batch_data["initial"]["singletons"] = data["initial"].get("singletons")
+
         batch_data["final"]["combinations"] = data["final"].get("combinations")
         batch_data["initial"]["combinations"] = data["initial"].get("combinations")
-
-    # Slice obs-level (i.e., with length obs) indices
-    structure_keys = {
-        "cell_line_in_pair_idx",
-        "gene_1_in_pair_idx",
-        "gene_2_in_pair_idx",
-    }
 
     obs_keys_dko = {
         "guide_pair_idx",
@@ -765,14 +898,14 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
         "guide_2_idx",
         "gene_1_common_idx",
         "gene_2_common_idx",
-        "cell_line_idx",  # "guide_pair_init_idx",
+        "cell_line_idx",
     }
     obs_keys_sko = {
         "guide_pair_s_idx",
         "guide_s_idx",
         "gene_s_idx",
         "cell_line_s_idx",
-        "gene_s_common_idx",  # "guide_initial_s_idx",
+        "gene_s_common_idx",
     }
     obs_keys_ctrl = {
         "guide_pair_c_idx",
@@ -793,7 +926,37 @@ def getBatchData(data, indices, start_idx, end_idx, head="dko"):
             if k in indices:
                 batch_indices[k] = indices[k][start_idx:end_idx]
 
-    return batch_data, batch_indices
+    if head == "dko":
+        n_final = _len_or_zero(data["final"].get("combinations"))
+    elif head == "sko":
+        n_final = _len_or_zero(data["final"].get("singletons"))
+    else:
+        n_final = _len_or_zero(data["final"].get("controls"))
+
+    n_init = {
+        "combinations": _len_or_zero(data["initial"].get("combinations")),
+        "singletons": _len_or_zero(data["initial"].get("singletons")),
+        "controls": _len_or_zero(data["initial"].get("controls")),
+    }
+
+    batch_exposures = {"final": {}, "initial": {}}
+
+    for arm in ("combinations", "singletons", "controls"):
+        arr = exposures.get("final", {}).get(arm, None)
+        if head == "dko" and arm == "combinations":
+            batch_exposures["final"][arm] = _maybe_slice(arr, n_final)
+        elif head == "sko" and arm == "singletons":
+            batch_exposures["final"][arm] = _maybe_slice(arr, n_final)
+        elif head == "ctrl" and arm == "controls":
+            batch_exposures["final"][arm] = _maybe_slice(arr, n_final)
+        else:
+            batch_exposures["final"][arm] = arr
+
+    for arm in ("combinations", "singletons", "controls"):
+        arr = exposures.get("initial", {}).get(arm, None)
+        batch_exposures["initial"][arm] = _maybe_slice(arr, n_init[arm])
+
+    return batch_data, batch_exposures, batch_indices
 
 
 def configure_custom_init(init_dict):

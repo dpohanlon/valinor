@@ -22,9 +22,7 @@ def negativeBinomial(mean, od, zi=False):
         return dist.ZeroInflatedNegativeBinomial2(mean, od, gate=zi)
 
 
-def dkoLikelihoodInitial(
-    init_theta: float, log_exposure_init: float = 0.0
-) -> Distribution:
+def dkoLikelihoodInitial(init_theta: float, log_exposure: float = 0.0) -> Distribution:
     """
     Returns a Poisson distribution with the provided parameter.
 
@@ -35,8 +33,9 @@ def dkoLikelihoodInitial(
         A Poisson distribution object.
     """
 
-    # return negativeBinomial(init_theta, 1E-6, False), init_theta
-    return dist.Poisson(init_theta + log_exposure_init), init_theta
+    # Don't exposure correct for now - likely same initial counts for all experiments anyway
+    return dist.Poisson(init_theta), init_theta
+    # return dist.Poisson(init_theta + log_exposure), init_theta
 
 
 def dkoLikelihoodFullFinal(
@@ -51,7 +50,6 @@ def dkoLikelihoodFullFinal(
     library_bias: float,
     p_zi: float,
     log_exposure_final: float = 0.0,
-    singleKO: bool = False,
     guide_pair_eff=None,
 ) -> Distribution:
     eps = 1e-8
@@ -109,7 +107,7 @@ def dkoLikelihoodFullFinal(
     return mix_dist, mu_expect
 
 
-def skoLikelihoodInitial(init_theta: float) -> Distribution:
+def skoLikelihoodInitial(init_theta: float, log_exposure=0.0) -> Distribution:
     """
     Returns a Poisson distribution with the provided parameter.
 
@@ -120,7 +118,9 @@ def skoLikelihoodInitial(init_theta: float) -> Distribution:
         A Poisson distribution object.
     """
 
+    # Dont' use these in initial counts for now
     return dkoLikelihoodInitial(init_theta)
+    # return dkoLikelihoodInitial(init_theta, log_exposure)
 
 
 def skoLikelihoodFinal(
@@ -129,8 +129,8 @@ def skoLikelihoodFinal(
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
     mv: float,
-    alternate: bool = False,
     p_zi=False,
+    log_exposure_final=0.0,
 ) -> Distribution:
     """
     Returns a Negative Binomial distribution calculated from the provided parameters.
@@ -157,7 +157,7 @@ def skoLikelihoodFinal(
         mv=mv,
         library_bias=None,
         p_zi=p_zi,
-        singleKO=True,
+        log_exposure_final=log_exposure_final,
     )
 
 
@@ -409,23 +409,56 @@ def sample_od_distributions(
     return raw_mv_gene, mv_gene
 
 
+# def sample_control_od_distributions(
+#     mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+# ):
+#     non_centered_deviation = numpyro.sample(
+#         "non_centered_deviation_gene_c",
+#         dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]]),
+#     )
+
+#     # Compute the outer product of gene_std and non_centered_deviation
+#     outer_product = jnp.outer(gene_std, non_centered_deviation)
+
+#     with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
+#         mv_guide_pair_c_ = numpyro.deterministic(
+#             "mv_guide_pair_c_", mv_cell_line[:, None] + outer_product
+#         )
+
+#         mv_guide_pair_c = numpyro.deterministic("mv_guide_pair_c", mv_guide_pair_c_ + 1)
+
+#     return mv_guide_pair_c
+
+
 def sample_control_od_distributions(
-    mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
+    mv_cell_line_raw,  # = log(mv-1) shared base from SKO/DKO path
+    lengths: Dict[str, int],
+    indices,
+    prior_params: Dict[str, Any],
 ):
-    non_centered_deviation = numpyro.sample(
-        "non_centered_deviation_gene_c",
-        dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]]),
+    # Controls can be noisier: allow a wider drift on the log(mv-1) scale
+    # 0.7–1.0 on log scale ~= multiplicative 2x–2.7x movement in (mv-1)
+    tau_ctrl = numpyro.sample("tau_ctrl_od", dist.HalfNormal(0.8))
+
+    with numpyro.plate("cell_lines_ctrl", lengths["len_cell_lines"]):
+        delta_ctrl = numpyro.sample("delta_ctrl_od", dist.Normal(0.0, tau_ctrl))
+
+    # Control cell-line raw OD base on log(mv-1) scale
+    raw_base_ctrl = mv_cell_line_raw + delta_ctrl
+
+    # Pair-level control OD variation; a bit larger or heavier-tailed for high OD
+    # You can switch to HalfCauchy(0.5) if tails matter.
+    sigma_pair_ctrl = numpyro.sample(
+        "sigma_ctrl_pair", dist.HalfNormal(prior_params["od_pair_scale"] * 2.0)
     )
 
-    # Compute the outer product of gene_std and non_centered_deviation
-    outer_product = jnp.outer(gene_std, non_centered_deviation)
-
-    with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
-        mv_guide_pair_c_ = numpyro.deterministic(
-            "mv_guide_pair_c_", mv_cell_line[:, None] + outer_product
+    with numpyro.plate("guide_pairs_c", lengths["len_guide_pairs_c"]):
+        zc = numpyro.sample("z_ctrl_pair", dist.Normal(0.0, 1.0))
+        raw_mv_pair_c = raw_base_ctrl[indices["cell_line_c_idx"]] + sigma_pair_ctrl * zc
+        raw_mv_pair_c = jnp.clip(raw_mv_pair_c, -30.0, 30.0)
+        mv_guide_pair_c = numpyro.deterministic(
+            "mv_guide_pair_c", jnp.exp(raw_mv_pair_c) + 1.0
         )
-
-        mv_guide_pair_c = numpyro.deterministic("mv_guide_pair_c", mv_guide_pair_c_ + 1)
 
     return mv_guide_pair_c
 
@@ -480,7 +513,7 @@ def sample_zero_inflation(lengths, prior_params):
 
 
 def sample_dko_distributions(
-    data: Dict[str, jnp.array],
+    exposure,
     lengths: Dict[str, int],
     indices,
     prior_params: Dict[str, Any],
@@ -554,7 +587,10 @@ def sample_dko_distributions(
 
     cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
-    init_lh, theta_init = dkoLikelihoodInitial(guide_init_count)
+    init_lh, theta_init = dkoLikelihoodInitial(
+        guide_init_count,
+        log_exposure=exposure["initial"]["combinations"] if exposure != None else 0.0,
+    )
 
     library_bias_v = (
         library_bias[indices["cell_line_idx"]] if library_bias is not None else 0.0
@@ -580,6 +616,9 @@ def sample_dko_distributions(
         mv,
         library_bias=library_bias_v,
         p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
+        log_exposure_final=exposure["final"]["combinations"]
+        if exposure != None
+        else 0.0,
         guide_pair_eff=guide_pair_eff[indices["guide_pair_idx"]],
     )
 
@@ -591,7 +630,7 @@ def sample_dko_distributions(
 
 
 def sample_sko_distributions(
-    data: Dict[str, jnp.array],
+    exposure,
     lengths: Dict[str, int],
     indices,
     prior_params: Dict[str, Any],
@@ -629,7 +668,8 @@ def sample_sko_distributions(
     cell_line_growth_s = cell_line_growth[indices["cell_line_s_idx"]]
 
     init_lh_s, init_theta_s = skoLikelihoodInitial(
-        guide_init_count_s[indices["guide_initial_s_idx"]]
+        guide_init_count_s[indices["guide_initial_s_idx"]],
+        exposure["initial"]["singletons"] if exposure != None else 0.0,
     )
 
     lh_s, theta_s = dkoLikelihoodFullFinal(
@@ -641,9 +681,11 @@ def sample_sko_distributions(
         gene_ko_growth_2=0.0,
         gene_ko_growth_12=0.0,
         mv=mv_s,
-        library_bias=library_bias[indices["cell_line_s_idx"]],
+        library_bias=library_bias[indices["cell_line_s_idx"]]
+        if library_bias != None
+        else None,
         p_zi=False if p_zi_s is False else p_zi_s[indices["cell_line_s_idx"]],
-        singleKO=True,
+        log_exposure_final=exposure["final"]["singletons"] if exposure != None else 0.0,
     )
 
     return init_lh_s, lh_s
@@ -693,6 +735,7 @@ def sample_control_distributions(
 
 def valinorHierarchy(
     data: Dict[str, jnp.array],
+    exposure: Dict[str, jnp.array],
     lengths: Dict[str, int],
     indices: Dict[str, jnp.array],
     prior_params: Dict[str, Any],
@@ -774,7 +817,7 @@ def valinorHierarchy(
         )
 
         init_lh, lh = sample_dko_distributions(
-            data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -782,7 +825,8 @@ def valinorHierarchy(
             gene_ko_growth,
             cell_line_growth,
             mv_gene_pair,
-            library_bias,
+            # library_bias,
+            None,
             alternate,
             p_zi if zi else False,
             predict=predict,
@@ -805,7 +849,7 @@ def valinorHierarchy(
 
     if not no_singletons:
         init_lh_s, lh_s = sample_sko_distributions(
-            data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -813,7 +857,8 @@ def valinorHierarchy(
             gene_ko_growth,
             cell_line_growth,
             mv_gene_s,
-            library_bias,
+            # library_bias,
+            None,
             alternate,
             p_zi_s if zi_s else False,
             predict=predict,

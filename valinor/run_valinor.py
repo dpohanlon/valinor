@@ -72,6 +72,25 @@ def get_model_sites(model, *args, **kwargs):
     return list(sites)
 
 
+def subset_params(params, allowed_prefixes=()):
+    if params is None:
+        return None
+    keep = {}
+    for k, v in params.items():
+        if any(k.startswith(pfx) for pfx in allowed_prefixes) or (
+            k in allowed_prefixes
+        ):
+            keep[k] = v
+    return keep
+
+
+def _safe_weight(n, ref, cap=5.0):
+    if n <= 0:
+        return 0.0
+    w = ref / n
+    return float(np.clip(w, 1.0 / cap, cap))
+
+
 def obs_config(mode, data, config):
     has_ctrl = (
         "controls" in data["final"] and data["final"]["controls"] is not None
@@ -87,19 +106,21 @@ def obs_config(mode, data, config):
     n_sko = int(has_sko) and len(data["final"]["singletons"]) or 0
     n_dko = int(has_dko) and len(data["final"]["combinations"]) or 0
 
-    base = n_dko if n_dko > 0 else n_sko
-    w_ctrl = base / max(n_ctrl, 1)
-    w_sko = base / max(n_sko, 1)
-    w_dko = base / max(n_dko, 1)
+    # reference = total observed items across enabled arms
+    ref = max(n_ctrl + n_sko + n_dko, 1)
 
-    print(w_ctrl, w_sko, w_dko)
+    w_ctrl = _safe_weight(n_ctrl, ref)
+    w_sko = _safe_weight(n_sko, ref)
+    w_dko = _safe_weight(n_dko, ref)
+
+    print(f"[weights] ctrl={w_ctrl:.3g} sko={w_sko:.3g} dko={w_dko:.3g}")
 
     if mode == "controls":
         return dict(
             use_ctrl=has_ctrl,
             use_sko=False,
             use_dko=False,
-            w_ctrl=w_ctrl,
+            w_ctrl=1.0,
             w_sko=1.0,
             w_dko=1.0,
         )
@@ -109,7 +130,7 @@ def obs_config(mode, data, config):
             use_sko=has_sko,
             use_dko=False,
             w_ctrl=1.0,
-            w_sko=w_sko,
+            w_sko=1.0,
             w_dko=1.0,
         )
     if mode == "dko":
@@ -119,14 +140,14 @@ def obs_config(mode, data, config):
             use_dko=has_dko,
             w_ctrl=1.0,
             w_sko=1.0,
-            w_dko=w_dko,
+            w_dko=1.0,
         )
     if "singles" in mode and "dko" in mode:
         return dict(
             use_ctrl=False,
             use_sko=has_sko,
             use_dko=has_dko,
-            w_ctrl=1.0,
+            w_ctrl=w_ctrl,
             w_sko=w_sko,
             w_dko=w_dko,
         )
@@ -153,7 +174,7 @@ def initialize_svi(model, guide, lr, nParticles, nEpochs):
     )
 
     tx = optax.chain(
-        optax.clip_by_global_norm(1.0),
+        optax.clip_by_global_norm(5.0),
         optax.scale_by_adam(),
         optax.scale_by_schedule(schedule),
         optax.scale(-1.0),
@@ -176,6 +197,7 @@ def run_svi(
     prng_key,
     epochs,
     data,
+    exposure,
     lengths,
     indices,
     prior_params,
@@ -187,6 +209,7 @@ def run_svi(
         epochs,
         init_params=init_params,
         data=data,
+        exposure=exposure,
         lengths=lengths,
         indices=indices,
         prior_params=prior_params,
@@ -209,6 +232,7 @@ def save_posterior_predictive(
     num_samples,
     sites,
     data,
+    exposure,
     lengths,
     indices,
     prior_params,
@@ -241,6 +265,7 @@ def save_posterior_predictive(
         samples = predictive(
             random.PRNGKey(42),
             data=data,
+            exposure=exposure,
             lengths=lengths,
             indices=indices,
             prior_params=prior_params,
@@ -253,7 +278,15 @@ def save_posterior_predictive(
 
 
 def sample_posterior(
-    predictive, config, data, lengths, indices, prior_params, batch=False, **kwargs
+    predictive,
+    config,
+    data,
+    exposure,
+    lengths,
+    indices,
+    prior_params,
+    batch=False,
+    **kwargs,
 ):
     if config["only_singletons"] == False:
         args = {
@@ -271,6 +304,7 @@ def sample_posterior(
             samples = predictive(
                 random.PRNGKey(42),
                 data=data,
+                exposure=exposure,
                 lengths=lengths,
                 indices=indices,
                 prior_params=prior_params,
@@ -282,8 +316,8 @@ def sample_posterior(
             sampledParams = sampleParams(
                 samples,
                 indices,
+                exposure,
                 prior_params,
-                config["alternateLH"],
                 "gene_effect_means" in prior_params,
             )
 
@@ -319,14 +353,15 @@ def sample_posterior(
         start_idx = i * config["batch_size"]
         end_idx = (i + 1) * config["batch_size"]
 
-        batch_data, batch_indices = getBatchData(
-            data, indices, start_idx, end_idx, head=head
+        batch_data, batch_exposure, batch_indices = getBatchData(
+            data, exposure, indices, start_idx, end_idx, head=head
         )
 
         with jax.default_device(jax.devices("cpu")[0]):
             samples = predictive(
                 random.PRNGKey(42),
                 data=batch_data,
+                exposure=batch_exposure,
                 lengths=lengths,
                 indices=batch_indices,
                 prior_params=prior_params,
@@ -337,8 +372,8 @@ def sample_posterior(
             sampledParams = sampleParams(
                 samples,
                 batch_indices,
+                batch_exposure,
                 prior_params,
-                config["alternateLH"],
                 "gene_effect_means" in prior_params,
             )
 
@@ -369,7 +404,7 @@ def save_posterior_samples(combsDF, singlesDF, config, outputDir, singlesStage="
         )
 
 
-def runValinor(lengths, indices, prior_params, data, config):
+def runValinor(lengths, indices, prior_params, data, exposure, config):
     if config["zi"] == False:
         config["zi"] = None
 
@@ -415,7 +450,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
     valinor_model = models.valinorHierarchy
     valinor_guide = AutoLowRankMultivariateNormal(
-        models.valinorHierarchy, init_loc_fn=custom_init(), rank=256
+        models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
     )
 
     common_config = {
@@ -455,6 +490,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             prng_key,
             config["epochs"],
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -468,7 +504,13 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_c, name=f"{config['name']}_controls", outputDir=outputDir)
 
         sites_from_model = get_model_sites(
-            valinor_model, data, lengths, indices, prior_params, **controls_args
+            valinor_model,
+            data,
+            exposure,
+            lengths,
+            indices,
+            prior_params,
+            **controls_args,
         )
 
         predictive = Predictive(
@@ -483,6 +525,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         samples = predictive(
             prng_key,
             data=data,
+            exposure=exposure,
             lengths=lengths,
             indices=indices,
             prior_params=prior_params,
@@ -514,6 +557,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             config["nSamples"],
             sites_from_model,
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -545,10 +589,14 @@ def runValinor(lengths, indices, prior_params, data, config):
             prng_key,
             config["epochs"],
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
-            init_params=params_c if (fit_mode == "full" and use_ctrl_d) else None,
+            init_params=subset_params(
+                params_c if (fit_mode == "full" and use_ctrl_d) else None,
+                allowed_prefixes=("cell_line_growth", "raw_mv_cell_line", "gene_std"),
+            ),
             **singles_args,
             **common_svi_config,
             predict=False,
@@ -559,7 +607,13 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_s, name=f"{config['name']}_singles", outputDir=outputDir)
 
         sites_from_model = get_model_sites(
-            valinor_model, data, lengths, indices, prior_params, **singles_args
+            valinor_model,
+            data,
+            exposure,
+            lengths,
+            indices,
+            prior_params,
+            **singles_args,
         )
 
         predictive = Predictive(
@@ -575,6 +629,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predictive,
             config,
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -595,6 +650,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             config["nSamples"],
             sites_from_model,
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -610,7 +666,7 @@ def runValinor(lengths, indices, prior_params, data, config):
 
         custom_init = configure_custom_init(init_params_common)
         dko_guide = AutoLowRankMultivariateNormal(
-            models.valinorHierarchy, init_loc_fn=custom_init(), rank=256
+            models.valinorHierarchy, init_loc_fn=custom_init(), rank=64
         )
 
         prng_key, _ = random.split(prng_key)
@@ -633,10 +689,20 @@ def runValinor(lengths, indices, prior_params, data, config):
             prng_key,
             config["epochs"],
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
-            init_params=params_s if (fit_mode == "full" and use_sko_d) else None,
+            init_params=subset_params(
+                params_s if (fit_mode == "full" and use_sko_d) else None,
+                allowed_prefixes=(
+                    "cell_line_growth",
+                    "raw_mv_cell_line",
+                    "gene_std",
+                    "sko/guide_eff",
+                    "guides_shared/guide_eff",
+                ),
+            ),
             **dko_args,
             **common_svi_config,
             predict=False,
@@ -647,7 +713,7 @@ def runValinor(lengths, indices, prior_params, data, config):
         plotDiagPlots(state_d, name=f"{config['name']}_combs", outputDir=outputDir)
 
         sites_from_model = get_model_sites(
-            valinor_model, data, lengths, indices, prior_params, **dko_args
+            valinor_model, data, exposure, lengths, indices, prior_params, **dko_args
         )
 
         predictive = Predictive(
@@ -662,6 +728,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             predictive,
             config,
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -684,6 +751,7 @@ def runValinor(lengths, indices, prior_params, data, config):
             config["nSamples"],
             sites_from_model,
             data,
+            exposure,
             lengths,
             indices,
             prior_params,
@@ -862,6 +930,14 @@ def makeArgs():
     )
 
     argParser.add_argument(
+        "--use-exposure",
+        dest="use_exposure",
+        default=False,
+        action="store_true",
+        help="Use normalised counts in the likelihood.",
+    )
+
+    argParser.add_argument(
         "--reindex",
         dest="reindex",
         default=False,
@@ -907,17 +983,27 @@ def run():
 
     loaded_priors = loadPriors(args.priorsFile) if args.priorsFile is not None else None
 
-    lengths, indices, prior_params, data, exposures = prepareData(
-        data_files,
-        loaded_priors,
-        config["only_singletons"],
-        not config["no_singletons"],
-        not config["no_controls"],
-        config["reindex"],
-    )
+    if args.use_exposure:
+        lengths, indices, prior_params, data, exposure = prepareData(
+            data_files,
+            loaded_priors,
+            config["only_singletons"],
+            not config["no_singletons"],
+            not config["no_controls"],
+            config["reindex"],
+            args.use_exposure,
+        )
 
-    pprint(exposures)
-    exit(0)
+    else:
+        lengths, indices, prior_params, data = prepareData(
+            data_files,
+            loaded_priors,
+            config["only_singletons"],
+            not config["no_singletons"],
+            not config["no_controls"],
+            config["reindex"],
+            False,
+        )
 
     # print(lengths)
 
@@ -948,7 +1034,14 @@ def run():
     # print(target_lengths)
     # exit(0)
 
-    runValinor(lengths, indices, prior_params, data, config)
+    runValinor(
+        lengths,
+        indices,
+        prior_params,
+        data,
+        exposure if args.use_exposure else None,
+        config,
+    )
 
 
 if __name__ == "__main__":

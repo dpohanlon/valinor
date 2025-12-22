@@ -1,8 +1,9 @@
 from typing import Any, Dict, List, Tuple
 
+import jax
 import numpy as np
 import pandas as pd
-import jax
+
 
 def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -40,7 +41,6 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons=True):
-
     # Similar to getInitialCountsDF, but we want to average by the paramVar now, as we're initialising the parameter (which may be associated with many real observations)
 
     obsVar = "guide_pair_index"
@@ -56,15 +56,14 @@ def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons=True):
     return initial_counts[initCountVar].values.astype(np.float32)
 
 
-def calculate_cell_line_stats(df):
-
+def calculate_cell_line_stats(df, initCountVar="plasmid"):
     # For when these are controls
 
     # TODO:if they aren't controls, average over the dataset and make these the difference from the average
 
     grouped_by_cell = df.groupby(["cell_line_index"])
 
-    df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
+    df["_computed_log"] = np.log(df["value"] / (df[initCountVar] + 1e-6) + 1e-6)
     means = np.clip(grouped_by_cell["_computed_log"].mean(), -10, 10)
     std_devs = np.clip(grouped_by_cell["_computed_log"].std(), 0.1, 10)
     df.drop(columns=["_computed_log"], inplace=True)
@@ -72,8 +71,7 @@ def calculate_cell_line_stats(df):
     return means, std_devs
 
 
-def calculate_gene_stats(df):
-
+def calculate_gene_stats(df, initCountVar="plasmid"):
     # Must match what is used in the rest of the code
     if "gene1_unq_index" not in df.columns:
         raise ValueError(
@@ -85,7 +83,7 @@ def calculate_gene_stats(df):
     # Calculate this once somewhere? Or use precalculated version with normalisation?
 
     if "lfc_norm_scaled" not in df.columns:
-        df["_computed_log"] = np.log(df["value"] / (df["plasmid"] + 1e-6) + 1e-6)
+        df["_computed_log"] = np.log(df["value"] / (df[initCountVar] + 1e-6) + 1e-6)
         gene_means = np.clip(grouped_by_gene_and_cell["_computed_log"].mean(), -10, 10)
         gene_std_devs = np.clip(
             grouped_by_gene_and_cell["_computed_log"].std(), 0.1, 10
@@ -131,20 +129,19 @@ def defaultPriors():
     # prior_params["pair_growth"] = (0.0, 0.1)
 
     prior_params["guide_eff_mean"] = (jax.scipy.special.logit(0.8), 0.6)
-    prior_params["guide_eff_std"]  = (-0.5, 0.5)   # softplus(-0.5) ≈ 0.47 on logit
+    prior_params["guide_eff_std"] = (-0.5, 0.5)  # softplus(-0.5) ≈ 0.47 on logit
 
-    prior_params["gene_ko_growth"] = (0.0, 0.5)    # or Laplace in code with b=0.5
+    prior_params["gene_ko_growth"] = (0.0, 0.5)  # or Laplace in code with b=0.5
 
-    prior_params["cell_line_growth"] = (-1.0, 0.7) # allow small finals a priori
+    prior_params["cell_line_growth"] = (-1.0, 0.7)  # allow small finals a priori
 
     prior_params["mv_mean_scale"] = 1.5
     prior_params["od_pair_scale"] = 1.0
 
     # only keep if you actually use them in code
     prior_params["pair_eff_mean"] = (jax.scipy.special.logit(0.8), 0.6)
-    prior_params["pair_eff_std"]  = (-0.5, 0.5)
+    prior_params["pair_eff_std"] = (-0.5, 0.5)
 
-    prior_params["pair_growth"] = (0.0, 0.5)      # Laplace(0,0.5) in code
-
+    prior_params["pair_growth"] = (0.0, 0.5)  # Laplace(0,0.5) in code
 
     return prior_params

@@ -11,7 +11,7 @@ from valinor import models
 
 # Average over samples from the posterior to pack into a Pandas DataFrame
 def averageOverSamples(
-    samples: Dict[str, np.ndarray]
+    samples: Dict[str, np.ndarray],
 ) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
     """
     Calculate the mean and standard deviation over the samples in the input dictionary.
@@ -56,7 +56,6 @@ def createDataFrame(paramSamples: Dict[str, np.ndarray]) -> pd.DataFrame:
     # Return an empty DF if there are no parameters, e.g., from batching with a size greater than the length
 
     if list(paramSamples.values())[0].size == 0:
-
         for k in set(paramSamples.keys()) - set(lhSamples):
             df[f"{k}_mean"] = []
             df[f"{k}_std"] = []
@@ -93,14 +92,14 @@ def sigmoid(x):
     return 1 / (1 + jnp.exp(-x))
 
 
-# Todo: plit up this megafunction
+# Todo: split up this megafunction
 
 
 def sampleParams(
     samples: Dict[str, np.ndarray],
     indices: Dict[str, np.ndarray],
+    exposure: Dict[str, np.ndarray],
     prior_params: Dict[str, np.ndarray],
-    alternate: bool = False,
     empirical_gene_priors: bool = False,
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """
@@ -191,7 +190,10 @@ def sampleParams(
             singlesParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_s_idx"]]
 
         # Sample from Initial Likelihood
-        init_lh, theta_init = models.skoLikelihoodInitial(singlesParams["init_count_s"])
+        init_lh, theta_init = models.skoLikelihoodInitial(
+            singlesParams["init_count_s"],
+            log_exposure=exposure["initial"]["singletons"] if exposure != None else 0.0,
+        )
         singlesParams["samples_s_init"] = init_lh.sample(
             random.split(keys[key_counter])[0]
         )
@@ -225,7 +227,8 @@ def sampleParams(
         ]  # [S, ]
 
         init_lh_c, theta_init_c = models.skoLikelihoodInitial(
-            controlsParams["init_count_c"]
+            controlsParams["init_count_c"],
+            log_exposure=exposure["initial"]["controls"] if exposure != None else 0.0,
         )
         controlsParams["samples_c_init"] = init_lh_c.sample(
             random.split(keys[key_counter])[0]
@@ -335,7 +338,10 @@ def sampleParams(
 
         # Sample from Initial Likelihood for Combinations
         init_lh_comb, theta_init_comb = models.dkoLikelihoodInitial(
-            combsParams["init_count"]
+            combsParams["init_count"],
+            log_exposure=exposure["initial"]["combinations"]
+            if exposure != None
+            else 0.0,
         )
         combsParams["samples_init"] = init_lh_comb.sample(
             random.split(keys[key_counter])[0]
@@ -351,9 +357,7 @@ def sampleParams(
 
 
 def samplePosteriorPredictive(samples, indices, annotation=None):
-
     if "obs_init_c" in samples:
-
         fileName = (
             "obs_init_c.h5" if annotation == None else f"obs_init_c_{annotation}.h5"
         )
@@ -364,38 +368,32 @@ def samplePosteriorPredictive(samples, indices, annotation=None):
             )
 
     if "obs_c" in samples:
-
         fileName = "obs_c.h5" if annotation == None else f"obs_c_{annotation}.h5"
 
         with h5py.File(fileName, "w") as h5f:
             h5f.create_dataset("obs_c", data=samples["obs_c"])
 
     if "obs_init_s" in samples:
-
         fileName = (
             "obs_init_s.h5" if annotation == None else f"obs_init_s_{annotation}.h5"
         )
 
         with h5py.File(fileName, "w") as h5f:
-
             h5f.create_dataset("obs_init_s", data=samples["obs_init_s"])
 
     if "obs_s" in samples:
-
         fileName = "obs_s.h5" if annotation == None else f"obs_s_{annotation}.h5"
 
         with h5py.File(fileName, "w") as h5f:
             h5f.create_dataset("obs_s", data=samples["obs_s"])
 
     if "obs_init" in samples:
-
         fileName = "obs_init.h5" if annotation == None else f"obs_init_{annotation}.h5"
 
         with h5py.File(fileName, "w") as h5f:
             h5f.create_dataset("obs_init", data=samples["obs_init"])
 
     if "obs" in samples:
-
         fileName = "obs.h5" if annotation == None else f"obs_{annotation}.h5"
 
         with h5py.File(fileName, "w") as h5f:
