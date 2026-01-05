@@ -102,22 +102,8 @@ def sampleParams(
     prior_params: Dict[str, np.ndarray],
     empirical_gene_priors: bool = False,
 ) -> Dict[str, Dict[str, np.ndarray]]:
-    """
-    Sample parameters based on the provided samples and indices.
-
-    Args:
-        samples (Dict[str, np.ndarray]): A dictionary where keys are sample names and values are numpy arrays of samples.
-        indices (Dict[str, np.ndarray]): A dictionary where keys are index names and values are numpy arrays of indices.
-        alternate (bool): Whether to use the alternate likelihood.
-        empirical_gene_priors (bool): Whether to use empirical gene priors.
-
-    Returns:
-        Dict[str, Dict[str, np.ndarray]]: A dictionary of sampled parameters.
-    """
-
     params = {}
 
-    # Determine which datasets are present
     singletons = "guide_init_count_s" in samples
     only_singletons = not "guide_init_count" in samples
     controls = "guide_init_count_c" in samples
@@ -125,14 +111,36 @@ def sampleParams(
     zi = "p_zi" in samples
     zi_s = "p_zi_s" in samples
 
-    raw_mv_cl = samples["raw_mv_cell_line" if not singletons else "raw_mv_cell_line_s"]
-    mv_cl = jnp.exp(raw_mv_cl) + 1.0
+    def _phi_from_samples(phi_name: str, raw_name: str):
+        if phi_name in samples:
+            return samples[phi_name]
+        if raw_name in samples:
+            return jnp.exp(samples[raw_name])
+        raise KeyError(f"Missing {phi_name} or {raw_name} in samples.")
+
+    phi_mu_ref = prior_params.get("phi_mu_ref", 100.0)
+    phi_mu_ref = jnp.asarray(phi_mu_ref)
+    if phi_mu_ref.ndim == 0:
+        phi_mu_ref_cl = None
+    else:
+        phi_mu_ref_cl = phi_mu_ref
 
     base_key = random.PRNGKey(0)
     keys = random.split(base_key, 10)
-
-    # Counter for keys
     key_counter = 0
+
+    pri_block = {}
+    if "od_means" in prior_params:
+        pri_block["od_means"] = np.asarray(prior_params["od_means"])
+    if "od_stds" in prior_params:
+        pri_block["od_stds"] = np.asarray(prior_params["od_stds"])
+    if "log_phi_means" in prior_params:
+        pri_block["log_phi_means"] = np.asarray(prior_params["log_phi_means"])
+    if "log_phi_stds" in prior_params:
+        pri_block["log_phi_stds"] = np.asarray(prior_params["log_phi_stds"])
+    if "phi_mu_ref" in prior_params:
+        pri_block["phi_mu_ref"] = np.asarray(prior_params["phi_mu_ref"])
+    params["dispersion_priors"] = pri_block
 
     if singletons:
         singlesParams = {}
@@ -144,7 +152,6 @@ def sampleParams(
         singlesParams["init_count_s"] = samples["guide_init_count_s"][
             :, indices["guide_s_idx"]
         ]
-
         singlesParams["init_count_s"] = jax.nn.softplus(singlesParams["init_count_s"])
 
         singlesParams["tilde_alpha"] = samples["sko/tilde_alpha"][
@@ -163,13 +170,9 @@ def sampleParams(
             + singlesParams["guide_eff_std_s"].squeeze() * singlesParams["tilde_alpha"]
         )
 
-        # Cell Line Growth
         singlesParams["cell_growth_s"] = samples["cell_line_growth"][
             :, indices["cell_line_s_idx"]
         ]
-
-        # Library Bias
-        # singlesParams["library_bias_s"] = samples["library_bias"][:, indices["cell_line_s_idx"]]
 
         if empirical_gene_priors:
             singlesParams["ko_growth_s"] = samples["gene_ko_growth"][
@@ -180,19 +183,27 @@ def sampleParams(
                 :, indices["gene_s_idx"]
             ]
 
-        mv_gene = samples["mv_gene" if not singletons else "mv_gene_s"]
+        phi_gene_s = _phi_from_samples("phi_gene_s", "raw_log_phi_gene_s")
+        singlesParams["phi_s"] = phi_gene_s[
+            :, indices["cell_line_s_idx"], indices["gene_s_common_idx"]
+        ]
 
-        singlesParams["mv_s"] = mv_gene[
-            :, indices["cell_line_s_idx"], indices["gene_s_idx"]
-        ]  # shape [S, n_singleton_obs]
+        if phi_mu_ref_cl is None:
+            mu_ref_s = phi_mu_ref
+        else:
+            mu_ref_s = phi_mu_ref_cl[indices["cell_line_s_idx"]]
+        singlesParams["mv_ref_s"] = 1.0 + (
+            mu_ref_s / jnp.clip(singlesParams["phi_s"], 1e-8, 1e8)
+        )
 
         if zi_s:
             singlesParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_s_idx"]]
 
-        # Sample from Initial Likelihood
         init_lh, theta_init = models.skoLikelihoodInitial(
             singlesParams["init_count_s"],
-            log_exposure=exposure["initial"]["singletons"] if exposure != None else 0.0,
+            log_exposure=exposure["initial"]["singletons"]
+            if exposure is not None
+            else 0.0,
         )
         singlesParams["samples_s_init"] = init_lh.sample(
             random.split(keys[key_counter])[0]
@@ -201,9 +212,6 @@ def sampleParams(
 
         params["singles"] = singlesParams
 
-    ############################
-    # Process Controls
-    ############################
     if controls:
         controlsParams = {}
 
@@ -218,22 +226,26 @@ def sampleParams(
             :, indices["cell_line_c_idx"]
         ]
 
-        raw_mv_cl = samples["raw_mv_cell_line"]  # [S, n_cell_lines]
-        mv_cl = jnp.exp(raw_mv_cl) + 1.0  # [S, n_cell_lines]
+        phi_guide_pair_c = _phi_from_samples("phi_guide_pair_c", "raw_log_phi_pair_c")
+        controlsParams["phi_c"] = phi_guide_pair_c[:, indices["guide_pair_c_idx"]]
 
-        controlsParams["mv_c"] = mv_cl[
-            :,
-            indices["cell_line_c_idx"],
-        ]  # [S, ]
+        if phi_mu_ref_cl is None:
+            mu_ref_c = phi_mu_ref
+        else:
+            mu_ref_c = phi_mu_ref_cl[indices["cell_line_c_idx"]]
+        controlsParams["mv_ref_c"] = 1.0 + (
+            mu_ref_c / jnp.clip(controlsParams["phi_c"], 1e-8, 1e8)
+        )
 
         init_lh_c, theta_init_c = models.skoLikelihoodInitial(
             controlsParams["init_count_c"],
-            log_exposure=exposure["initial"]["controls"] if exposure != None else 0.0,
+            log_exposure=exposure["initial"]["controls"]
+            if exposure is not None
+            else 0.0,
         )
         controlsParams["samples_c_init"] = init_lh_c.sample(
             random.split(keys[key_counter])[0]
         )
-
         key_counter += 1
 
         params["controls"] = controlsParams
@@ -241,22 +253,20 @@ def sampleParams(
     if not only_singletons:
         combsParams = {}
 
-        # Initialize Count for Combinations
         combsParams["init_count"] = samples["guide_init_count"][
             :, indices["guide_pair_idx"]
         ]
 
-        # Cell Line Growth for Combinations
         combsParams["cell_line_growth"] = samples["cell_line_growth"][
             :, indices["cell_line_idx"]
         ]
 
-        combsParams["library_bias"] = samples["library_bias"][
-            :, indices["cell_line_idx"]
-        ]
+        if "library_bias" in samples:
+            combsParams["library_bias"] = samples["library_bias"][
+                :, indices["cell_line_idx"]
+            ]
 
-        # Guide Efficiencies
-        if "guide_eff_mean" in samples.keys():
+        if "dko/guide_eff_mean" in samples:
             combsParams["guide_eff_mean_1"] = samples["dko/guide_eff_mean"][
                 :, indices["guide_1_idx"]
             ]
@@ -278,7 +288,6 @@ def sampleParams(
                 :, indices["guide_2_idx"], indices["cell_line_idx"]
             ]
 
-            # Guide Efficiencies with Sigmoid Transformation
             combsParams["guide_eff_1"] = sigmoid(
                 combsParams["guide_eff_mean_1"].squeeze()
                 + combsParams["tilde_alpha_1"]
@@ -290,15 +299,9 @@ def sampleParams(
                 * combsParams["guide_eff_std_2"].squeeze()
             )
         else:
-            # Handle cases where guide_eff_mean is not present
-            combsParams["guide_eff_1"] = np.ones_like(
-                combsParams["cell_line_growth"]
-            )  # or another appropriate default
-            combsParams["guide_eff_2"] = np.ones_like(
-                combsParams["cell_line_growth"]
-            )  # or another appropriate default
+            combsParams["guide_eff_1"] = np.ones_like(combsParams["cell_line_growth"])
+            combsParams["guide_eff_2"] = np.ones_like(combsParams["cell_line_growth"])
 
-        # Gene Knockout Growth
         if empirical_gene_priors:
             combsParams["gene_ko_growth_1"] = samples["gene_ko_growth"][
                 :, indices["cell_line_idx"], indices["gene_1_common_idx"]
@@ -314,7 +317,6 @@ def sampleParams(
                 :, indices["gene_2_idx"]
             ]
 
-        # Gene Pair Knockout Growth
         combsParams["gene_ko_growth_12"] = samples["gene_pair_ko_growth"][
             :, indices["gene_pair_idx"]
         ]
@@ -322,25 +324,24 @@ def sampleParams(
         if "dLFC" in prior_params:
             combsParams["dLFC"] = prior_params["dLFC"][indices["gene_pair_idx"]]
 
-        mv_pair = samples["mv_gene_pair"]
-        # index that flat vector by your observation‐level pair indices
-        combsParams["mv"] = mv_pair[
-            :, indices["gene_pair_idx"]
-        ]  # shape [S, n_combo_obs]
+        phi_gene_pair = _phi_from_samples("phi_gene_pair", "raw_log_phi_pair")
+        combsParams["phi"] = phi_gene_pair[:, indices["gene_pair_idx"]]
 
-        # combsParams["negative_control_bias"] = samples["negative_control_bias"][:, indices["cell_line_idx"]]
+        if phi_mu_ref_cl is None:
+            mu_ref = phi_mu_ref
+        else:
+            mu_ref = phi_mu_ref_cl[indices["cell_line_idx"]]
+        combsParams["mv_ref"] = 1.0 + (mu_ref / jnp.clip(combsParams["phi"], 1e-8, 1e8))
 
-        # p_zi if applicable
         if zi:
             combsParams["p_zi"] = samples["p_zi"][:, indices["cell_line_idx"]]
         if zi_s:
             combsParams["p_zi_s"] = samples["p_zi_s"][:, indices["cell_line_idx"]]
 
-        # Sample from Initial Likelihood for Combinations
         init_lh_comb, theta_init_comb = models.dkoLikelihoodInitial(
             combsParams["init_count"],
             log_exposure=exposure["initial"]["combinations"]
-            if exposure != None
+            if exposure is not None
             else 0.0,
         )
         combsParams["samples_init"] = init_lh_comb.sample(

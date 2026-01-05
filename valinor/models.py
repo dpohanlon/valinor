@@ -46,7 +46,7 @@ def dkoLikelihoodFullFinal(
     gene_ko_growth_1: float,
     gene_ko_growth_2: float,
     gene_ko_growth_12: float,
-    mv: float,
+    phi: float,
     library_bias: float,
     p_zi: float,
     log_exposure_final: float = 0.0,
@@ -63,19 +63,15 @@ def dkoLikelihoodFullFinal(
     log_p2 = jnp.log(p2) + jnp.log1p(-p1)
     log_p12 = jnp.log(p1) + jnp.log(p2)
 
+    if guide_pair_eff is not None:
+        log_p12 = log_p12 + jnp.log(jnp.clip(guide_pair_eff, eps, 1.0))
+
+    cat_logits = jnp.stack([log_p00, log_p1, log_p2, log_p12], axis=-1)
+    w = jax.nn.softmax(cat_logits, axis=-1)
+
     g1 = jnp.clip(gene_ko_growth_1, -20.0, 20.0)
     g2 = jnp.clip(gene_ko_growth_2, -20.0, 20.0)
     g12 = jnp.clip(gene_ko_growth_12, -20.0, 20.0)
-
-    if guide_pair_eff is not None:
-        log_p12 = log_p12 + jnp.log(jnp.clip(guide_pair_eff, eps, 1.0))
-        cat_logits = jnp.stack([log_p00, log_p1, log_p2, log_p12], axis=-1)
-    else:
-        cat_logits = jnp.stack([log_p00, log_p1, log_p2, log_p12], axis=-1)
-    mix_cat = dist.Categorical(logits=cat_logits)
-
-    mv = jnp.where(jnp.isfinite(mv), mv, 1.0)
-    mv_bc = jnp.maximum(mv - 1.0, 1e-6)[..., None]
 
     init_theta = jnp.clip(init_theta, 1e-6, 1e6)
     log_base = jnp.log(init_theta) + cell_line_growth + log_exposure_final
@@ -84,27 +80,25 @@ def dkoLikelihoodFullFinal(
     log_mu1 = log_base + library_bias + g1
     log_mu2 = log_base + library_bias + g2
     log_mu12 = log_base + g1 + g2 + g12
+
     log_mus = jnp.stack([log_mu00, log_mu1, log_mu2, log_mu12], axis=-1)
     log_mus = jnp.clip(log_mus, -15.0, 15.0)
 
     mu_comps = jnp.exp(log_mus)
     mu_comps = jnp.clip(mu_comps, 1e-6, 1e5)
 
-    log_disp = jnp.log(mu_comps + eps) - jnp.log(mv_bc)
-    log_disp = jnp.clip(log_disp, -15.0, 15.0)
-    phi_comps = jnp.exp(log_disp)
-    phi_comps = jnp.clip(phi_comps, 1e-5, 1e5)
+    mu_total = jnp.sum(w * mu_comps, axis=-1)
+    mu_total = jnp.clip(mu_total, 1e-6, 1e5)
 
-    mix_dist = dist.MixtureSameFamily(
-        mix_cat, dist.NegativeBinomial2(mu_comps, phi_comps)
-    )
+    phi_total = jnp.clip(jnp.asarray(phi), 1e-5, 1e8)
+
+    lh = dist.NegativeBinomial2(mu_total, phi_total)
 
     if not (p_zi is False):
         gate = jnp.clip(jnp.asarray(p_zi), 1e-6, 1.0 - 1e-6)
-        mix_dist = dist.ZeroInflatedDistribution(mix_dist, gate=gate)
+        lh = dist.ZeroInflatedDistribution(lh, gate=gate)
 
-    mu_expect = jnp.sum(jax.nn.softmax(cat_logits, axis=-1) * mu_comps, axis=-1)
-    return mix_dist, mu_expect
+    return lh, mu_total
 
 
 def skoLikelihoodInitial(init_theta: float, log_exposure=0.0) -> Distribution:
@@ -128,7 +122,7 @@ def skoLikelihoodFinal(
     guide_eff_s: float,
     cell_line_growth_s: float,
     gene_ko_growth_s: float,
-    mv: float,
+    phi: float,
     p_zi=False,
     log_exposure_final=0.0,
 ) -> Distribution:
@@ -154,7 +148,7 @@ def skoLikelihoodFinal(
         gene_ko_growth_1=gene_ko_growth_s,
         gene_ko_growth_2=0.0,
         gene_ko_growth_12=0.0,
-        mv=mv,
+        phi=phi,
         library_bias=None,
         p_zi=p_zi,
         log_exposure_final=log_exposure_final,
@@ -163,19 +157,13 @@ def skoLikelihoodFinal(
 
 def controlLikelihoodFinal(
     init_theta_c: float,
-    lengths,
-    indices,
     cell_line_growth_c: float,
-    mv: float,
+    phi_c: float,
 ) -> Distribution:
     log_theta = jnp.log(init_theta_c + 1e-6) + cell_line_growth_c
     theta = jnp.exp(log_theta)
-
-    mv = jax.nn.softplus(mv - 1) + 1.0 + 1e-6
-    log_dispersion = jnp.log(theta) - jnp.log(mv - 1)
-    dispersion = jnp.exp(log_dispersion)
-
-    return negativeBinomial(theta, dispersion), theta
+    phi_c = jnp.clip(phi_c, 1e-5, 1e8)
+    return dist.NegativeBinomial2(theta, phi_c), theta
 
 
 def sample_guide_distributions(
@@ -294,173 +282,131 @@ def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, A
     return gene_ko_growth
 
 
-def sample_mv_cell_line_distributions_s(
+def sample_phi_cell_line_distributions_s(
     lengths: Dict[str, int],
     prior_params: Dict[str, Any],
 ):
-    od_means_raw = jnp.asarray(prior_params["od_means"])
-    od_stds_raw = jnp.asarray(prior_params["od_stds"])
+    log_phi_means_raw = jnp.asarray(
+        prior_params.get("log_phi_means_s", prior_params["log_phi_means"])
+    )
+    log_phi_stds_raw = jnp.asarray(
+        prior_params.get("log_phi_stds_s", prior_params["log_phi_stds"])
+    )
 
-    od_means_s = jnp.where(jnp.isfinite(od_means_raw), od_means_raw, 1.0)
-    od_stds_s = jnp.where(jnp.isfinite(od_stds_raw), od_stds_raw, 1.0)
+    log_phi_means_s = jnp.where(jnp.isfinite(log_phi_means_raw), log_phi_means_raw, 3.0)
+    log_phi_stds_s = jnp.where(jnp.isfinite(log_phi_stds_raw), log_phi_stds_raw, 1.0)
+    log_phi_stds_s = jnp.clip(log_phi_stds_s, 1e-3, 5.0)
 
-    od_means_s = jnp.clip(od_means_s, 1.0, 1e6) - 1.0
-    od_stds_s = jnp.clip(od_stds_s, 1e-4, 1e6)
-
-    log_od_means_s = jnp.log(od_means_s + 1e-6)
-    log_od_stds_s = od_stds_s / (od_means_s + 1e-6)
-
-    mv_mean_s_scale = jnp.clip(jnp.asarray(prior_params["mv_mean_scale"]), 1e-6, 1e6)
+    phi_mean_scale_s = jnp.clip(
+        jnp.asarray(
+            prior_params.get("phi_mean_scale_s", prior_params["phi_mean_scale"])
+        ),
+        1e-6,
+        5.0,
+    )
 
     with numpyro.plate("cell_lines_s", lengths["len_cell_lines"]):
-        raw_mv_s = numpyro.sample(
-            "raw_mv_cell_line_s",
-            dist.Normal(log_od_means_s, log_od_stds_s),
+        raw_log_phi_s = numpyro.sample(
+            "raw_log_phi_cell_line_s",
+            dist.Normal(log_phi_means_s, log_phi_stds_s),
         )
-        gene_std_s = numpyro.sample(
-            "gene_std_s",
-            dist.HalfNormal(mv_mean_s_scale),
+        gene_std_phi_s = numpyro.sample(
+            "gene_std_phi_s",
+            dist.HalfNormal(phi_mean_scale_s),
         )
-    return raw_mv_s, gene_std_s
+    return raw_log_phi_s, gene_std_phi_s
 
 
-def sample_od_distributions_s(
-    raw_mv_cell_line_s,
-    gene_std_s,
+def sample_phi_distributions_s(
+    raw_log_phi_cell_line_s,
+    gene_std_phi_s,
     lengths: Dict[str, int],
     prior_params: Dict[str, Any],
     record_deterministics: bool = False,
 ):
     with numpyro.plate("genes_common_s", lengths["len_genes_common"]):
-        z_g_s = numpyro.sample("z_gene_s", dist.Normal(0.0, 1.0))
-    raw_mv_gene_s = raw_mv_cell_line_s[:, None] + gene_std_s[:, None] * z_g_s
-    raw_mv_gene_s = jnp.clip(raw_mv_gene_s, -20.0, 20.0)
+        z_g_s = numpyro.sample("z_gene_phi_s", dist.Normal(0.0, 1.0))
+
+    raw_log_phi_gene_s = (
+        raw_log_phi_cell_line_s[:, None] + gene_std_phi_s[:, None] * z_g_s
+    )
+    raw_log_phi_gene_s = jnp.clip(raw_log_phi_gene_s, -10.0, 20.0)
+
     if record_deterministics:
-        numpyro.deterministic("raw_mv_gene_s", raw_mv_gene_s)
-    mv_gene_s = jnp.exp(raw_mv_gene_s) + 1.0
+        numpyro.deterministic("raw_log_phi_gene_s", raw_log_phi_gene_s)
+
+    phi_gene_s = jnp.exp(raw_log_phi_gene_s)
+
     if record_deterministics:
-        numpyro.deterministic("mv_gene_s", mv_gene_s)
-    return raw_mv_gene_s, mv_gene_s
+        numpyro.deterministic("phi_gene_s", phi_gene_s)
+
+    return raw_log_phi_gene_s, phi_gene_s
 
 
-def sample_mv_cell_line_distributions(
+def sample_phi_cell_line_distributions(
     lengths: Dict[str, int], prior_params: Dict[str, Any]
 ):
-    od_means_raw = jnp.asarray(prior_params["od_means"])
-    od_stds_raw = jnp.asarray(prior_params["od_stds"])
+    log_phi_means_raw = jnp.asarray(prior_params["log_phi_means"])
+    log_phi_stds_raw = jnp.asarray(prior_params["log_phi_stds"])
 
-    od_means = jnp.where(jnp.isfinite(od_means_raw), od_means_raw, 1.0)
-    od_stds = jnp.where(jnp.isfinite(od_stds_raw), od_stds_raw, 1.0)
+    log_phi_means = jnp.where(jnp.isfinite(log_phi_means_raw), log_phi_means_raw, 3.0)
+    log_phi_stds = jnp.where(jnp.isfinite(log_phi_stds_raw), log_phi_stds_raw, 1.0)
+    log_phi_stds = jnp.clip(log_phi_stds, 1e-3, 5.0)
 
-    od_means = jnp.clip(od_means, 1.0, 1e6) - 1.0
-    od_stds = jnp.clip(od_stds, 1e-4, 1e6)
-
-    log_od_means = jnp.log(od_means + 1e-6)
-    log_od_stds = od_stds / (od_means + 1e-6)
-
-    mv_mean_s = jnp.clip(jnp.asarray(prior_params["mv_mean_scale"]), 1e-6, 1e6)
+    phi_mean_scale = jnp.clip(jnp.asarray(prior_params["phi_mean_scale"]), 1e-6, 5.0)
 
     with numpyro.plate("cell_lines", lengths["len_cell_lines"]):
-        raw_mv = numpyro.sample(
-            "raw_mv_cell_line", dist.Normal(log_od_means, log_od_stds)
+        raw_log_phi = numpyro.sample(
+            "raw_log_phi_cell_line", dist.Normal(log_phi_means, log_phi_stds)
         )
-        gene_std = numpyro.sample("gene_std", dist.HalfNormal(mv_mean_s))
-    return raw_mv, gene_std
+        gene_std_phi = numpyro.sample("gene_std_phi", dist.HalfNormal(phi_mean_scale))
+
+    return raw_log_phi, gene_std_phi
 
 
-def sample_pair_od_distributions(
-    mv_cell_line_raw,
-    raw_mv_gene,
+def sample_pair_phi_distributions(
+    raw_log_phi_cell_line,
+    raw_log_phi_gene,
     lengths: Dict[str, int],
     indices,
     prior_params: Dict[str, Any],
     record_deterministics: bool = False,
 ):
-    sigma_pair = numpyro.sample(
-        "sigma_pair", dist.HalfNormal(prior_params["od_pair_scale"] * 1.0)
+    sigma_pair_phi = numpyro.sample(
+        "sigma_pair_phi", dist.HalfNormal(prior_params["phi_pair_scale"] * 1.0)
     )
     with numpyro.plate("gene_pairs_common", lengths["len_gene_pairs"]):
-        z_p = numpyro.sample("z_pair", dist.Normal(0.0, 1.0))
-        c = mv_cell_line_raw[indices["cell_line_in_pair_idx"]]
-        raw_mv_pair = c + sigma_pair * z_p
-        raw_mv_pair = jnp.clip(raw_mv_pair, -30.0, 30.0)
-        mv_gene_pair = jnp.exp(raw_mv_pair) + 1.0
+        z_p = numpyro.sample("z_pair_phi", dist.Normal(0.0, 1.0))
+        c = raw_log_phi_cell_line[indices["cell_line_in_pair_idx"]]
+        raw_log_phi_pair = c + sigma_pair_phi * z_p
+        raw_log_phi_pair = jnp.clip(raw_log_phi_pair, -10.0, 20.0)
+        phi_pair = jnp.exp(raw_log_phi_pair)
         if record_deterministics:
-            numpyro.deterministic("mv_gene_pair", mv_gene_pair)
-    return mv_gene_pair
+            numpyro.deterministic("phi_gene_pair", phi_pair)
+    return phi_pair
 
 
-def sample_od_distributions(
-    raw_mv_cell_line,
-    gene_std,
+def sample_phi_distributions(
+    raw_log_phi_cell_line,
+    gene_std_phi,
     lengths: Dict[str, int],
     prior_params: Dict[str, Any],
     record_deterministics: bool = False,
 ):
     with numpyro.plate("genes_common", lengths["len_genes_common"]):
-        z_g = numpyro.sample("z_gene", dist.Normal(0.0, 1.0))
-    raw_mv_gene = raw_mv_cell_line[:, None] + gene_std[:, None] * z_g
-    raw_mv_gene = jnp.clip(raw_mv_gene, -20.0, 20.0)
+        z_g = numpyro.sample("z_gene_phi", dist.Normal(0.0, 1.0))
+
+    raw_log_phi_gene = raw_log_phi_cell_line[:, None] + gene_std_phi[:, None] * z_g
+    raw_log_phi_gene = jnp.clip(raw_log_phi_gene, -10.0, 20.0)
+
     if record_deterministics:
-        numpyro.deterministic("raw_mv_gene", raw_mv_gene)
-    mv_gene = jnp.exp(raw_mv_gene) + 1.0
+        numpyro.deterministic("raw_log_phi_gene", raw_log_phi_gene)
+
+    phi_gene = jnp.exp(raw_log_phi_gene)
     if record_deterministics:
-        numpyro.deterministic("mv_gene", mv_gene)
-    return raw_mv_gene, mv_gene
+        numpyro.deterministic("phi_gene", phi_gene)
 
-
-# def sample_control_od_distributions(
-#     mv_cell_line, gene_std, lengths: Dict[str, int], prior_params: Dict[str, Any]
-# ):
-#     non_centered_deviation = numpyro.sample(
-#         "non_centered_deviation_gene_c",
-#         dist.Normal(0, 1).expand([lengths["len_guide_pairs_c"]]),
-#     )
-
-#     # Compute the outer product of gene_std and non_centered_deviation
-#     outer_product = jnp.outer(gene_std, non_centered_deviation)
-
-#     with numpyro.plate("guide_pairs", lengths["len_guide_pairs_c"]):
-#         mv_guide_pair_c_ = numpyro.deterministic(
-#             "mv_guide_pair_c_", mv_cell_line[:, None] + outer_product
-#         )
-
-#         mv_guide_pair_c = numpyro.deterministic("mv_guide_pair_c", mv_guide_pair_c_ + 1)
-
-#     return mv_guide_pair_c
-
-
-def sample_control_od_distributions(
-    mv_cell_line_raw,  # = log(mv-1) shared base from SKO/DKO path
-    lengths: Dict[str, int],
-    indices,
-    prior_params: Dict[str, Any],
-):
-    # Controls can be noisier: allow a wider drift on the log(mv-1) scale
-    # 0.7–1.0 on log scale ~= multiplicative 2x–2.7x movement in (mv-1)
-    tau_ctrl = numpyro.sample("tau_ctrl_od", dist.HalfNormal(0.8))
-
-    with numpyro.plate("cell_lines_ctrl", lengths["len_cell_lines"]):
-        delta_ctrl = numpyro.sample("delta_ctrl_od", dist.Normal(0.0, tau_ctrl))
-
-    # Control cell-line raw OD base on log(mv-1) scale
-    raw_base_ctrl = mv_cell_line_raw + delta_ctrl
-
-    # Pair-level control OD variation; a bit larger or heavier-tailed for high OD
-    # You can switch to HalfCauchy(0.5) if tails matter.
-    sigma_pair_ctrl = numpyro.sample(
-        "sigma_ctrl_pair", dist.HalfNormal(prior_params["od_pair_scale"] * 2.0)
-    )
-
-    with numpyro.plate("guide_pairs_c", lengths["len_guide_pairs_c"]):
-        zc = numpyro.sample("z_ctrl_pair", dist.Normal(0.0, 1.0))
-        raw_mv_pair_c = raw_base_ctrl[indices["cell_line_c_idx"]] + sigma_pair_ctrl * zc
-        raw_mv_pair_c = jnp.clip(raw_mv_pair_c, -30.0, 30.0)
-        mv_guide_pair_c = numpyro.deterministic(
-            "mv_guide_pair_c", jnp.exp(raw_mv_pair_c) + 1.0
-        )
-
-    return mv_guide_pair_c
+    return raw_log_phi_gene, phi_gene
 
 
 def sample_cell_line_distributions(
@@ -520,7 +466,7 @@ def sample_dko_distributions(
     guide_eff,
     gene_ko_growth,
     cell_line_growth,
-    mv_gene_pair,
+    phi_gene_pair,
     library_bias,
     alternate: bool = False,
     p_zi=False,
@@ -568,7 +514,7 @@ def sample_dko_distributions(
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
     guide_eff_2 = guide_eff[indices["guide_2_idx"], indices["cell_line_idx"]]
 
-    mv = mv_gene_pair[indices["gene_pair_idx"]]
+    phi = phi_gene_pair[indices["gene_pair_idx"]]
 
     if not "gene_effect_means" in prior_params:
         gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
@@ -613,7 +559,7 @@ def sample_dko_distributions(
         gene_ko_growth_1,
         gene_ko_growth_2,
         gene_ko_growth_12,
-        mv,
+        phi,
         library_bias=library_bias_v,
         p_zi=False if p_zi is False else p_zi[indices["cell_line_idx"]],
         log_exposure_final=exposure["final"]["combinations"]
@@ -637,7 +583,7 @@ def sample_sko_distributions(
     guide_eff,
     gene_ko_growth,
     cell_line_growth,
-    mv_gene,
+    phi_gene_s,
     library_bias,
     alternate: bool = False,
     p_zi_s=False,
@@ -655,7 +601,7 @@ def sample_sko_distributions(
 
     guide_eff_s = guide_eff[indices["guide_s_idx"], indices["cell_line_s_idx"]]
 
-    mv_s = mv_gene[indices["cell_line_s_idx"], indices["gene_s_common_idx"]]
+    phi_s = phi_gene_s[indices["cell_line_s_idx"], indices["gene_s_common_idx"]]
 
     if not "gene_effect_means" in prior_params:
         gene_ko_growth_s = gene_ko_growth[indices["gene_s_idx"]]
@@ -680,7 +626,7 @@ def sample_sko_distributions(
         gene_ko_growth_1=gene_ko_growth_s,
         gene_ko_growth_2=0.0,
         gene_ko_growth_12=0.0,
-        mv=mv_s,
+        phi=phi_s,
         library_bias=library_bias[indices["cell_line_s_idx"]]
         if library_bias != None
         else None,
@@ -691,43 +637,68 @@ def sample_sko_distributions(
     return init_lh_s, lh_s
 
 
+def sample_control_phi_distributions(
+    raw_log_phi_cell_line,
+    lengths: Dict[str, int],
+    indices,
+    prior_params: Dict[str, Any],
+):
+    tau_ctrl = numpyro.sample("tau_ctrl_logphi", dist.HalfNormal(0.8))
+
+    with numpyro.plate("cell_lines_ctrl", lengths["len_cell_lines"]):
+        delta_ctrl = numpyro.sample("delta_ctrl_logphi", dist.Normal(0.0, tau_ctrl))
+
+    raw_base_ctrl = raw_log_phi_cell_line + delta_ctrl
+
+    phi_pair_scale = prior_params.get(
+        "phi_pair_scale", prior_params.get("phi_pair_scale", 0.5)
+    )
+    sigma_pair_ctrl = numpyro.sample(
+        "sigma_ctrl_pair_logphi", dist.HalfNormal(phi_pair_scale * 2.0)
+    )
+
+    with numpyro.plate("guide_pairs_c", lengths["len_guide_pairs_c"]):
+        zc = numpyro.sample("z_ctrl_pair_logphi", dist.Normal(0.0, 1.0))
+        raw_log_phi_pair_c = (
+            raw_base_ctrl[indices["cell_line_c_idx"]] + sigma_pair_ctrl * zc
+        )
+        raw_log_phi_pair_c = jnp.clip(raw_log_phi_pair_c, -10.0, 20.0)
+        phi_guide_pair_c = numpyro.deterministic(
+            "phi_guide_pair_c", jnp.exp(raw_log_phi_pair_c)
+        )
+
+    return phi_guide_pair_c
+
+
 def sample_control_distributions(
     data: Dict[str, jnp.array],
     lengths: Dict[str, int],
     indices,
     prior_params: Dict[str, Any],
     cell_line_growth,
-    mv_cell_line_raw,
+    phi_guide_pair_c,
     predict=False,
 ):
     init_c_l, init_c_s = prior_params["init_count_c"]
 
-    # Length of init data
     with numpyro.plate("init_counts_c", lengths["len_guide_pairs_c"]):
         guide_init_count_c = numpyro.sample(
             "guide_init_count_c",
             dist.Normal(loc=init_c_l, scale=init_c_s),
         )
 
-    # mv_c = numpyro.sample("mv_c", dist.Normal(50, 50))
-
-    mv_c = jnp.exp(mv_cell_line_raw) + 1.0
-    mv_c = mv_c[indices["cell_line_c_idx"]]
-
     guide_init_count_c = jax.nn.softplus(guide_init_count_c) + 1e-6
 
     cell_line_growth_c = cell_line_growth[indices["cell_line_c_idx"]]
 
-    # mv_c = jax.nn.softplus(mv_c - 1) + 1
-
     init_lh_c, init_theta_c = skoLikelihoodInitial(guide_init_count_c)
+
+    phi_c = phi_guide_pair_c[indices["guide_pair_c_idx"]]
 
     lh_c, theta_c = controlLikelihoodFinal(
         init_theta_c[indices["guide_pair_c_idx"]],
-        lengths,
-        indices,
         cell_line_growth_c,
-        mv_c,
+        phi_c,
     )
 
     return init_lh_c, lh_c
@@ -774,42 +745,41 @@ def valinorHierarchy(
             )
 
     gene_ko_growth = sample_gene_distributions(lengths, prior_params)
-    (
-        cell_line_growth,
-        library_bias,
-    ) = sample_cell_line_distributions(lengths, prior_params)
+    cell_line_growth, library_bias = sample_cell_line_distributions(
+        lengths, prior_params
+    )
 
     if zi:
         p_zi = sample_zero_inflation(lengths, prior_params)
     if zi_s and (not no_singletons):
         p_zi_s = sample_zero_inflation_s(lengths, prior_params)
 
-    mv_cell_line_raw, gene_std = sample_mv_cell_line_distributions(
+    raw_log_phi_cell_line, gene_std_phi = sample_phi_cell_line_distributions(
         lengths, prior_params
     )
-
-    raw_mv_gene, mv_gene = sample_od_distributions(
-        mv_cell_line_raw,
-        gene_std,
+    raw_log_phi_gene, phi_gene = sample_phi_distributions(
+        raw_log_phi_cell_line,
+        gene_std_phi,
         lengths,
         prior_params,
         record_deterministics=record_deterministics,
     )
-    raw_mv_cell_line_s, gene_std_s = sample_mv_cell_line_distributions_s(
+
+    raw_log_phi_cell_line_s, gene_std_phi_s = sample_phi_cell_line_distributions_s(
         lengths, prior_params
     )
-    raw_mv_gene_s, mv_gene_s = sample_od_distributions_s(
-        raw_mv_cell_line_s,
-        gene_std_s,
+    raw_log_phi_gene_s, phi_gene_s = sample_phi_distributions_s(
+        raw_log_phi_cell_line_s,
+        gene_std_phi_s,
         lengths,
         prior_params,
         record_deterministics=record_deterministics,
     )
 
     if not only_singletons:
-        mv_gene_pair = sample_pair_od_distributions(
-            mv_cell_line_raw,
-            raw_mv_gene,
+        phi_gene_pair = sample_pair_phi_distributions(
+            raw_log_phi_cell_line,
+            raw_log_phi_gene,
             lengths,
             indices,
             prior_params,
@@ -824,8 +794,7 @@ def valinorHierarchy(
             guide_eff_dko,
             gene_ko_growth,
             cell_line_growth,
-            mv_gene_pair,
-            # library_bias,
+            phi_gene_pair,
             None,
             alternate,
             p_zi if zi else False,
@@ -856,8 +825,7 @@ def valinorHierarchy(
             guide_eff_sko,
             gene_ko_growth,
             cell_line_growth,
-            mv_gene_s,
-            # library_bias,
+            phi_gene_s,
             None,
             alternate,
             p_zi_s if zi_s else False,
@@ -880,13 +848,20 @@ def valinorHierarchy(
         )
 
     if not no_controls:
+        phi_guide_pair_c = sample_control_phi_distributions(
+            raw_log_phi_cell_line,
+            lengths,
+            indices,
+            prior_params,
+        )
+
         init_lh_c, lh_c = sample_control_distributions(
             data,
             lengths,
             indices,
             prior_params,
             cell_line_growth,
-            mv_cell_line_raw,
+            phi_guide_pair_c,
             predict=predict,
         )
 

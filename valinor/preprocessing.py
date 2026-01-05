@@ -190,7 +190,7 @@ def prepareData(
         datasets, initCountVar=initCountVar
     )
 
-    meanOD, stdOD = calculateOverdispersion(
+    log_phi_mean, log_phi_std = calculateOverdispersion(
         datasets["combinations"]
         if not (datasets["combinations"] is None)
         else datasets["singletons"]
@@ -203,8 +203,8 @@ def prepareData(
         for k in prior_params.keys():
             prior_params[k] = priors.get(k, prior_params[k])
 
-    prior_params["od_means"] = meanOD
-    prior_params["od_stds"] = stdOD
+    prior_params["log_phi_means"] = log_phi_mean
+    prior_params["log_phi_stds"] = log_phi_std
 
     if not only_singletons:
         prior_params["init_count"] = (

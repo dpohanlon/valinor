@@ -5,17 +5,9 @@ import numpy as np
 import pandas as pd
 
 
-def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Calculate overdispersion in the given DataFrame.
-
-    Args:
-        df (pd.DataFrame): The input DataFrame.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: Mean and standard deviation of overdispersion.
-    """
-
+def calculateOverdispersion(
+    df: pd.DataFrame, phi: bool = True
+) -> Tuple[np.ndarray, np.ndarray]:
     reps = (
         df.groupby(["GuidePair", "cell_line_index"])
         .agg(
@@ -30,14 +22,40 @@ def calculateOverdispersion(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     reps["od"] = reps["var"] / reps["mean"]
 
     repsC = reps.groupby(["cell_line_index"]).agg(
-        mean=("od", "median"), std=("od", "std")
+        mean=("od", "median"),
+        std=("od", "std"),
     )
     repsC = repsC.sort_values("cell_line_index")
 
     repsC["mean"] = repsC["mean"].fillna(repsC["mean"].median())
     repsC["std"] = repsC["std"].fillna(repsC["std"].median())
 
-    return repsC["mean"].values, repsC["std"].values
+    if phi:
+        mu_ref = reps.groupby("cell_line_index").agg(mu_ref=("mean", "median"))
+        mu_ref = mu_ref.reindex(repsC.index)
+        mu_ref["mu_ref"] = mu_ref["mu_ref"].fillna(mu_ref["mu_ref"].median())
+        mu_ref_v = mu_ref["mu_ref"].to_numpy()
+
+        mv_means = repsC["mean"].to_numpy()
+        mv_stds = repsC["std"].to_numpy()
+
+        mu_ref_v = np.clip(mu_ref_v, 1.0, np.inf)
+        mv_means = np.clip(mv_means, 1.01, np.inf)
+        mv_stds = np.clip(mv_stds, 1e-6, np.inf)
+
+        phi_mean = mu_ref_v / (mv_means - 1.0)
+        phi_mean = np.clip(phi_mean, 1e-6, np.inf)
+
+        log_phi_mean = np.log(phi_mean)
+
+        log_phi_std = mv_stds / (mv_means - 1.0)
+        log_phi_std = np.clip(log_phi_std, 0.05, 2.0)
+
+        return log_phi_mean.astype(np.float32), log_phi_std.astype(np.float32)
+
+    return repsC["mean"].to_numpy().astype(np.float32), repsC["std"].to_numpy().astype(
+        np.float32
+    )
 
 
 def calcInitCountParams(df: pd.DataFrame, initCountVar: str, singletons=True):
@@ -135,8 +153,8 @@ def defaultPriors():
 
     prior_params["cell_line_growth"] = (-1.0, 0.7)  # allow small finals a priori
 
-    prior_params["mv_mean_scale"] = 1.5
-    prior_params["od_pair_scale"] = 1.0
+    prior_params["phi_mean_scale"] = 0.5
+    prior_params["phi_pair_scale"] = 0.5
 
     # only keep if you actually use them in code
     prior_params["pair_eff_mean"] = (jax.scipy.special.logit(0.8), 0.6)
