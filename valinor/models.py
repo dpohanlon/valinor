@@ -260,39 +260,29 @@ def sample_guide_distributions(
 
 def sample_gene_distributions(lengths: Dict[str, int], prior_params: Dict[str, Any]):
 
-    if not "gene_effect_means" in prior_params:
+    growth_l, growth_s = prior_params["gene_ko_growth"]
+    sigma_scale = prior_params.get("gene_ko_growth_cell_line_scale", 0.5)
 
-        growth_l, growth_s = prior_params["gene_ko_growth"]
-
-        with numpyro.plate("genes", lengths["len_genes"]):
-            gene_ko_growth_raw = numpyro.sample(
-                "gene_ko_growth_raw", dist.Normal(growth_l, growth_s)
-            )
-
-    else:
-
-        # Return a 2D array with [n_cell_lines, n_genes].
-        # Later index to a 1D array, where gene indices will be unique for each cell line,
-        # as perhaps not all genes will be present for each cell line.
-
-        growth_l = prior_params["gene_effect_means"]
-        growth_s = prior_params["gene_effect_stds"]
-
-        # But I can't pass a NaN here, so mask them off
-
-        growth_l_clean = jnp.where(~jnp.isfinite(growth_l), 0.0, growth_l)
-        growth_s_clean = jnp.clip(
-            jnp.where(~jnp.isfinite(growth_s), 1.0, growth_s), 1e-6, np.inf
+    with numpyro.plate("genes", lengths["len_genes"], dim=-1):
+        gene_ko_growth_mean = numpyro.sample(
+            "gene_ko_growth_mean",
+            dist.Normal(growth_l, growth_s),
+        )
+        gene_ko_growth_std = numpyro.sample(
+            "gene_ko_growth_std",
+            dist.HalfNormal(sigma_scale),
         )
 
-        mask = jnp.isfinite(growth_l)
+    with numpyro.plate("cell_lines_gene", lengths["len_cell_lines"], dim=-2):
+        with numpyro.plate("genes", lengths["len_genes"], dim=-1):
+            z_gene = numpyro.sample("z_gene_effect", dist.Normal(0.0, 1.0))
 
-        gene_ko_growth_raw = numpyro.sample(
-            "gene_ko_growth_raw", dist.Normal(growth_l_clean, growth_s_clean).mask(mask)
-        )
+    gene_dev = gene_ko_growth_std[None, :] * z_gene
+    gene_dev_centered = gene_dev - jnp.mean(gene_dev, axis=0, keepdims=True)
 
     gene_ko_growth = numpyro.deterministic(
-        "gene_ko_growth", gene_ko_growth_raw - jnp.mean(gene_ko_growth_raw)
+        "gene_ko_growth",
+        gene_ko_growth_mean[None, :] + gene_dev_centered,
     )
 
     return gene_ko_growth
@@ -528,18 +518,29 @@ def sample_dko_distributions(
 
     guide_init_count = jax.nn.softplus(guide_init_count) + 1e-6
 
-    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"]):
-        pair_growth_l, pair_growth_s = prior_params["pair_growth"]
+    pair_growth_l, pair_growth_s = prior_params["pair_growth"]
+    pair_sigma_scale = prior_params.get("pair_growth_cell_line_scale", 0.5)
 
-        gene_pair_ko_growth_raw = numpyro.sample(
-            "gene_pair_ko_growth_raw",
+    with numpyro.plate("gene_pairs", lengths["len_gene_pairs"], dim=-1):
+        gene_pair_mean = numpyro.sample(
+            "gene_pair_ko_growth_mean",
             dist.Normal(pair_growth_l, pair_growth_s),
-            # dist.Laplace(pair_growth_l, pair_growth_s),
         )
+        gene_pair_std = numpyro.sample(
+            "gene_pair_ko_growth_std",
+            dist.HalfNormal(pair_sigma_scale),
+        )
+
+    with numpyro.plate("cell_lines_pair", lengths["len_cell_lines"], dim=-2):
+        with numpyro.plate("gene_pairs", lengths["len_gene_pairs"], dim=-1):
+            z_pair = numpyro.sample("z_pair_effect", dist.Normal(0.0, 1.0))
+
+    pair_dev = gene_pair_std[None, :] * z_pair
+    pair_dev_centered = pair_dev - jnp.mean(pair_dev, axis=0, keepdims=True)
 
     gene_pair_ko_growth = numpyro.deterministic(
         "gene_pair_ko_growth",
-        gene_pair_ko_growth_raw - jnp.mean(gene_pair_ko_growth_raw),
+        gene_pair_mean[None, :] + pair_dev_centered,
     )
 
     guide_eff_1 = guide_eff[indices["guide_1_idx"], indices["cell_line_idx"]]
@@ -547,22 +548,17 @@ def sample_dko_distributions(
 
     mv = mv_gene_pair[indices["gene_pair_idx"]]
 
-    if not "gene_effect_means" in prior_params:
+    gene_ko_growth_1 = gene_ko_growth[
+        indices["cell_line_idx"], indices["gene_1_idx"]
+    ]
+    gene_ko_growth_2 = gene_ko_growth[
+        indices["cell_line_idx"], indices["gene_2_idx"]
+    ]
 
-        gene_ko_growth_1 = gene_ko_growth[indices["gene_1_idx"]]
-        gene_ko_growth_2 = gene_ko_growth[indices["gene_2_idx"]]
 
-    else:
-
-        # Index 2D array with indices not unique to cell line
-        gene_ko_growth_1 = gene_ko_growth[
-            indices["cell_line_idx"], indices["gene_1_common_idx"]
-        ]
-        gene_ko_growth_2 = gene_ko_growth[
-            indices["cell_line_idx"], indices["gene_2_common_idx"]
-        ]
-
-    gene_ko_growth_12 = gene_pair_ko_growth[indices["gene_pair_idx"]]
+    gene_ko_growth_12 = gene_pair_ko_growth[
+        indices["cell_line_idx"], indices["gene_pair_idx"]
+    ]
 
     cell_line_growth_v = cell_line_growth[indices["cell_line_idx"]]
 
